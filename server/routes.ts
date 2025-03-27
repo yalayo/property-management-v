@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
 import { 
   insertUserSchema, 
   insertPropertySchema, 
@@ -8,8 +9,10 @@ import {
   insertPaymentSchema, 
   insertSurveyResponseSchema, 
   insertWaitingListSchema,
-  surveySubmissionSchema
+  surveySubmissionSchema,
+  users
 } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
@@ -450,6 +453,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Stripe error:", error);
         res.status(400).json({ 
           message: error instanceof Error ? error.message : "Failed to create subscription" 
+        });
+      }
+    }));
+
+    // Post-payment registration endpoint
+    app.post("/api/register-after-payment", handleErrors(async (req, res) => {
+      const { username, fullName, email, password, paymentIntentId, tier } = req.body;
+      
+      // Validate required fields
+      if (!username || !email || !password || !paymentIntentId || !tier) {
+        return res.status(400).json({ message: "Missing required registration fields" });
+      }
+
+      try {
+        // Verify the payment intent actually exists and was successful
+        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+        
+        if (paymentIntent.status !== 'succeeded') {
+          return res.status(400).json({ 
+            message: "Payment verification failed. Please contact support." 
+          });
+        }
+        
+        // Check if user already exists with this email or username
+        const existingUserByEmail = await storage.getUserByEmail(email);
+        if (existingUserByEmail) {
+          return res.status(400).json({ message: "Email already registered" });
+        }
+        
+        const existingUserByUsername = await storage.getUserByUsername(username);
+        if (existingUserByUsername) {
+          return res.status(400).json({ message: "Username already taken" });
+        }
+        
+        // Create the user
+        const newUser = await storage.createUser({
+          username,
+          password, // In a real app, this would be hashed
+          email,
+          fullName: fullName || null
+        });
+        
+        // Update user with subscription information
+        const subscriptionType = tier;
+        const subscriptionStatus = 'active';
+        
+        // For payment intent, we don't have a customer ID, but we can create one
+        const customer = await stripe.customers.create({
+          email,
+          name: fullName || username,
+          metadata: {
+            userId: newUser.id.toString()
+          }
+        });
+        
+        // Update user with Stripe customer ID and subscription details
+        const updatedUser = await storage.updateUserStripeInfo(newUser.id, {
+          customerId: customer.id,
+          subscriptionId: tier === 'done_for_you' ? 'pending_subscription' : 'one_time_payment'
+        });
+        
+        // Create default categories for the new user
+        await storage.createDefaultTransactionCategories(newUser.id);
+        
+        // In a real app, you'd set up a session here
+        res.status(201).json({ 
+          message: "User registered successfully",
+          user: { 
+            id: updatedUser.id, 
+            username: updatedUser.username, 
+            email: updatedUser.email 
+          }
+        });
+      } catch (error) {
+        console.error("Registration error:", error);
+        res.status(500).json({ 
+          message: error instanceof Error ? error.message : "Registration failed" 
         });
       }
     }));

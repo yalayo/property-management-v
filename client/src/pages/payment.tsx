@@ -5,9 +5,10 @@ import { loadStripe } from "@stripe/stripe-js";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, ArrowLeft, CheckCircle } from "lucide-react";
+import { AlertCircle, ArrowLeft, CheckCircle, Loader2 } from "lucide-react";
 import { PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { apiRequest } from "@/lib/queryClient";
+import PostPaymentRegistration from "@/components/payment/PostPaymentRegistration";
 
 // Initialize Stripe with the public key, not the secret key
 import { getStripe } from "@/lib/stripe";
@@ -42,12 +43,11 @@ const tiers = {
 };
 
 // Payment form component
-function CheckoutForm({ tierName }: { tierName: string }) {
+function CheckoutForm({ tierName, onPaymentSuccess }: { tierName: string; onPaymentSuccess: (paymentIntentId: string) => void }) {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [, navigate] = useLocation();
   const { toast } = useToast();
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -60,10 +60,13 @@ function CheckoutForm({ tierName }: { tierName: string }) {
     setIsProcessing(true);
     setErrorMessage(null);
 
-    const { error } = await stripe.confirmPayment({
+    // Use the most complete method to retrieve payment intent details
+    const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
+      redirect: 'if_required',
       confirmParams: {
-        return_url: window.location.origin + "/dashboard",
+        // We'll handle redirect in our own component
+        return_url: window.location.origin + "/payment-success",
       },
     });
 
@@ -74,14 +77,15 @@ function CheckoutForm({ tierName }: { tierName: string }) {
         description: error.message || "An unknown error occurred",
         variant: "destructive",
       });
-    } else {
+      setIsProcessing(false);
+    } else if (paymentIntent && paymentIntent.status === "succeeded") {
+      // Payment succeeded! Call the callback with the payment intent ID
       toast({
         title: "Payment Successful",
         description: "Thank you for your purchase!",
       });
+      onPaymentSuccess(paymentIntent.id);
     }
-
-    setIsProcessing(false);
   };
 
   return (
@@ -104,7 +108,14 @@ function CheckoutForm({ tierName }: { tierName: string }) {
         className="w-full" 
         disabled={!stripe || isProcessing}
       >
-        {isProcessing ? "Processing..." : `Pay ${tiers[tierName as keyof typeof tiers]?.price}`}
+        {isProcessing ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Processing...
+          </>
+        ) : (
+          `Pay ${tiers[tierName as keyof typeof tiers]?.price}`
+        )}
       </Button>
     </form>
   );
@@ -116,6 +127,8 @@ export default function Payment() {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [paymentSuccessful, setPaymentSuccessful] = useState(false);
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const { toast } = useToast();
   
   const tier = params.tier;
@@ -163,6 +176,12 @@ export default function Payment() {
     createPaymentIntent();
   }, [tier, toast]);
 
+  // Handle successful payment
+  const handlePaymentSuccess = (paymentId: string) => {
+    setPaymentSuccessful(true);
+    setPaymentIntentId(paymentId);
+  };
+
   if (!tier || !Object.keys(tiers).includes(tier)) {
     return null; // Will redirect in useEffect
   }
@@ -172,56 +191,70 @@ export default function Payment() {
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="max-w-xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <Link href="/#pricing" className="inline-flex items-center text-primary-600 hover:text-primary-800">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to pricing plans
-          </Link>
-        </div>
+        {!paymentSuccessful && (
+          <div className="mb-8">
+            <Link href="/#pricing" className="inline-flex items-center text-primary-600 hover:text-primary-800">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to pricing plans
+            </Link>
+          </div>
+        )}
 
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold text-gray-900">
-              {selectedTier.name}
-            </CardTitle>
-            <CardDescription>
-              {selectedTier.description}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-6">
-              <div className="text-3xl font-bold text-gray-900">{selectedTier.price}</div>
-              <div className="text-sm text-gray-500 mt-1">
-                {tier === 'done_for_you' 
-                  ? 'Billed monthly. Cancel anytime.' 
-                  : 'One-time payment.'}
-              </div>
-            </div>
-
-            {isLoading ? (
-              <div className="py-8 flex justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
-              </div>
-            ) : error ? (
-              <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                <div className="flex">
-                  <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
-                  <span className="text-red-700">{error}</span>
+        {paymentSuccessful && paymentIntentId ? (
+          // Show registration form after successful payment
+          <PostPaymentRegistration 
+            tier={tier} 
+            paymentIntentId={paymentIntentId} 
+          />
+        ) : (
+          // Show payment form
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="text-2xl font-bold text-gray-900">
+                {selectedTier.name}
+              </CardTitle>
+              <CardDescription>
+                {selectedTier.description}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-6">
+                <div className="text-3xl font-bold text-gray-900">{selectedTier.price}</div>
+                <div className="text-sm text-gray-500 mt-1">
+                  {tier === 'done_for_you' 
+                    ? 'Billed monthly. Cancel anytime.' 
+                    : 'One-time payment.'}
                 </div>
-                <Button 
-                  onClick={() => window.location.reload()} 
-                  className="mt-4 w-full"
-                >
-                  Try Again
-                </Button>
               </div>
-            ) : clientSecret ? (
-              <Elements stripe={stripePromise} options={{ clientSecret }}>
-                <CheckoutForm tierName={tier} />
-              </Elements>
-            ) : null}
-          </CardContent>
-        </Card>
+
+              {isLoading ? (
+                <div className="py-8 flex justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
+                </div>
+              ) : error ? (
+                <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                  <div className="flex">
+                    <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
+                    <span className="text-red-700">{error}</span>
+                  </div>
+                  <Button 
+                    onClick={() => window.location.reload()} 
+                    className="mt-4 w-full"
+                  >
+                    Try Again
+                  </Button>
+                </div>
+              ) : clientSecret ? (
+                <Elements stripe={stripePromise} options={{ clientSecret }}>
+                  <CheckoutForm 
+                    tierName={tier} 
+                    onPaymentSuccess={handlePaymentSuccess} 
+                  />
+                </Elements>
+              ) : null}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
