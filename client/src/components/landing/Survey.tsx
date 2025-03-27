@@ -292,15 +292,22 @@ export default function Survey({ onCompleted }: SurveyProps) {
                   <Button
                     type="button"
                     onClick={() => {
-                      if (isLastQuestion) {
-                        setShowEmailForm(true);
+                      // Check if the current question has been answered
+                      const currentQuestionId = questions ? questions[currentQuestionIndex].id : -1;
+                      const isCurrentQuestionAnswered = responses.some(r => r.questionId === currentQuestionId);
+                      
+                      // If current question is answered or we're allowing navigation without answering
+                      if (isCurrentQuestionAnswered) {
+                        if (isLastQuestion) {
+                          setShowEmailForm(true);
+                        } else {
+                          setCurrentQuestionIndex(currentQuestionIndex + 1);
+                        }
                       } else {
-                        setCurrentQuestionIndex(currentQuestionIndex + 1);
+                        // If not answered, set a dummy answer (default to "No")
+                        handleAnswerSelection(false);
                       }
                     }}
-                    disabled={
-                      !responses.some(r => r.questionId === (questions ? questions[currentQuestionIndex].id : -1))
-                    }
                     className="bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600"
                   >
                     {isLastQuestion ? 'Finish' : 'Next'}

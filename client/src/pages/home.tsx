@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/landing/Header";
 import Hero from "@/components/landing/Hero";
 import Features from "@/components/landing/Features";
@@ -10,6 +11,24 @@ import Footer from "@/components/landing/Footer";
 export default function Home() {
   const [showPricing, setShowPricing] = useState(false);
   const [userEmail, setUserEmail] = useState("");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  
+  // Check if the user is logged in
+  const { data: user } = useQuery({
+    queryKey: ['/api/me'],
+    queryFn: () => 
+      fetch('/api/me')
+        .then(res => {
+          if (res.ok) return res.json();
+          return null;
+        })
+        .catch(() => null),
+    retry: false
+  });
+
+  useEffect(() => {
+    setIsLoggedIn(!!user);
+  }, [user]);
   
   // This handler will be passed to the Survey component to collect user email
   const onSurveyCompleted = (email: string) => {
@@ -32,7 +51,7 @@ export default function Home() {
       <Features />
       <Survey onCompleted={onSurveyCompleted} />
       {showPricing && <Pricing userEmail={userEmail} />}
-      <Dashboard />
+      {isLoggedIn && <Dashboard />}
       <Footer />
     </div>
   );

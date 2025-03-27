@@ -105,6 +105,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ exists });
   }));
 
+  // Authentication endpoints
+  app.get("/api/me", handleErrors(async (req, res) => {
+    // In production, this would check session cookies to verify if user is logged in
+    // Here we'll use a mock user for demonstration purposes
+    
+    // If the user is not logged in, return 401 unauthorized
+    // For development purposes, we're returning a mock user
+    // In real app, replace this with actual authentication logic
+    const isLoggedIn = req.query.forceLogin === 'true'; // For testing - add ?forceLogin=true to simulate logged in
+    
+    if (isLoggedIn) {
+      const mockUser = await storage.getUser(1); // Get the first user from DB
+      if (mockUser) {
+        return res.json(mockUser);
+      }
+    }
+    
+    // Unauthorized if not logged in or no user found
+    return res.status(401).json({ message: "Not authenticated" });
+  }));
+
   // Admin endpoints
   app.get("/api/admin/survey-analytics", handleErrors(async (req, res) => {
     // In a real app, we would authenticate admin access here
