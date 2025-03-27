@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar, date, doublePrecision } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -84,6 +84,82 @@ export const questions = pgTable("questions", {
   active: boolean("active").default(true),
 });
 
+// ========== ACCOUNTING MODULE TABLES ==========
+
+// Categories for transactions (e.g., Utilities, Maintenance, Rent Income)
+export const transactionCategories = pgTable("transaction_categories", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // 'income' or 'expense'
+  color: text("color"), // For UI display
+  isDefault: boolean("is_default").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Transactions for income and expenses
+export const transactions = pgTable("transactions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  propertyId: integer("property_id").references(() => properties.id),
+  categoryId: integer("category_id").notNull().references(() => transactionCategories.id),
+  amount: doublePrecision("amount").notNull(),
+  date: date("date").notNull(),
+  description: text("description").notNull(),
+  type: text("type").notNull(), // 'income' or 'expense'
+  paymentMethod: text("payment_method"), // cash, bank transfer, etc.
+  reference: text("reference"), // invoice or receipt number
+  notes: text("notes"),
+  recurring: boolean("recurring").default(false).notNull(),
+  recurringInterval: text("recurring_interval"), // monthly, quarterly, annually
+  attachmentId: integer("attachment_id").references(() => uploadedFiles.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Bank accounts for users to track income/expenses
+export const bankAccounts = pgTable("bank_accounts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  accountName: text("account_name").notNull(),
+  accountNumber: text("account_number"),
+  bankName: text("bank_name").notNull(),
+  currentBalance: doublePrecision("current_balance").default(0).notNull(),
+  currency: text("currency").default("EUR").notNull(),
+  isDefault: boolean("is_default").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// For annual tax reporting and calculations
+export const taxYears = pgTable("tax_years", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  year: integer("year").notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  isClosed: boolean("is_closed").default(false).notNull(),
+  totalIncome: doublePrecision("total_income").default(0).notNull(),
+  totalExpenses: doublePrecision("total_expenses").default(0).notNull(),
+  netIncome: doublePrecision("net_income").default(0).notNull(),
+  taxRate: doublePrecision("tax_rate"),
+  estimatedTax: doublePrecision("estimated_tax"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// For budgeting by property or category
+export const budgets = pgTable("budgets", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  propertyId: integer("property_id").references(() => properties.id),
+  categoryId: integer("category_id").references(() => transactionCategories.id),
+  name: text("name").notNull(),
+  amount: doublePrecision("amount").notNull(),
+  period: text("period").notNull(), // monthly, quarterly, annual
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Insert schemas and types
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -125,6 +201,50 @@ export const insertQuestionSchema = createInsertSchema(questions).omit({
   id: true,
 });
 
+// Accounting module schemas
+export const insertTransactionCategorySchema = createInsertSchema(transactionCategories).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertTransactionSchema = createInsertSchema(transactions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBankAccountSchema = createInsertSchema(bankAccounts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertTaxYearSchema = createInsertSchema(taxYears).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertBudgetSchema = createInsertSchema(budgets).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Form validation schemas for accounting
+export const transactionFormSchema = insertTransactionSchema
+  .extend({
+    amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
+    date: z.coerce.date(),
+    description: z.string().min(1, "Description is required"),
+    type: z.enum(["income", "expense"]),
+  });
+
+export const bankAccountFormSchema = insertBankAccountSchema
+  .extend({
+    accountName: z.string().min(1, "Account name is required"),
+    bankName: z.string().min(1, "Bank name is required"),
+    currency: z.string().min(1, "Currency is required"),
+    currentBalance: z.coerce.number().default(0),
+  });
+
 // Survey schema
 export const surveyQuestionResponseSchema = z.object({
   questionId: z.number(),
@@ -163,3 +283,21 @@ export type Question = typeof questions.$inferSelect;
 
 export type SurveySubmission = z.infer<typeof surveySubmissionSchema>;
 export type SurveyQuestionResponse = z.infer<typeof surveyQuestionResponseSchema>;
+
+// Accounting Module Types
+export type InsertTransactionCategory = z.infer<typeof insertTransactionCategorySchema>;
+export type TransactionCategory = typeof transactionCategories.$inferSelect;
+
+export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
+export type Transaction = typeof transactions.$inferSelect;
+export type TransactionForm = z.infer<typeof transactionFormSchema>;
+
+export type InsertBankAccount = z.infer<typeof insertBankAccountSchema>;
+export type BankAccount = typeof bankAccounts.$inferSelect;
+export type BankAccountForm = z.infer<typeof bankAccountFormSchema>;
+
+export type InsertTaxYear = z.infer<typeof insertTaxYearSchema>;
+export type TaxYear = typeof taxYears.$inferSelect;
+
+export type InsertBudget = z.infer<typeof insertBudgetSchema>;
+export type Budget = typeof budgets.$inferSelect;

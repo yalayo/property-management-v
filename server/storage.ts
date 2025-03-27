@@ -6,7 +6,13 @@ import {
   surveyResponses, type SurveyResponse, type InsertSurveyResponse,
   waitingList, type WaitingList, type InsertWaitingList,
   uploadedFiles, type UploadedFile, type InsertUploadedFile,
-  questions, type Question, type InsertQuestion
+  questions, type Question, type InsertQuestion,
+  // Accounting module imports
+  transactionCategories, type TransactionCategory, type InsertTransactionCategory,
+  transactions, type Transaction, type InsertTransaction,
+  bankAccounts, type BankAccount, type InsertBankAccount,
+  taxYears, type TaxYear, type InsertTaxYear,
+  budgets, type Budget, type InsertBudget
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -57,6 +63,71 @@ export interface IStorage {
   createQuestion(question: InsertQuestion): Promise<Question>;
   getAllQuestions(): Promise<Question[]>;
   getActiveQuestions(): Promise<Question[]>;
+  
+  // ===== ACCOUNTING MODULE =====
+  
+  // Transaction Categories
+  createTransactionCategory(category: InsertTransactionCategory): Promise<TransactionCategory>;
+  getTransactionCategoriesByUserId(userId: number): Promise<TransactionCategory[]>;
+  getTransactionCategoryById(id: number): Promise<TransactionCategory | undefined>;
+  updateTransactionCategory(id: number, data: Partial<InsertTransactionCategory>): Promise<TransactionCategory | undefined>;
+  deleteTransactionCategory(id: number): Promise<boolean>;
+  createDefaultTransactionCategories(userId: number): Promise<TransactionCategory[]>;
+  
+  // Transactions
+  createTransaction(transaction: InsertTransaction): Promise<Transaction>;
+  getTransactionsByUserId(userId: number, params?: { 
+    startDate?: Date, 
+    endDate?: Date,
+    categoryId?: number,
+    propertyId?: number,
+    type?: 'income' | 'expense' | 'all'
+  }): Promise<Transaction[]>;
+  getTransactionById(id: number): Promise<Transaction | undefined>;
+  updateTransaction(id: number, data: Partial<InsertTransaction>): Promise<Transaction | undefined>;
+  deleteTransaction(id: number): Promise<boolean>;
+  getTransactionSummary(userId: number, timeframe: 'month' | 'quarter' | 'year'): Promise<{
+    totalIncome: number,
+    totalExpenses: number,
+    netIncome: number,
+    incomeByCategory: {categoryId: number, categoryName: string, amount: number}[],
+    expensesByCategory: {categoryId: number, categoryName: string, amount: number}[]
+  }>;
+  
+  // Bank Accounts 
+  createBankAccount(account: InsertBankAccount): Promise<BankAccount>;
+  getBankAccountsByUserId(userId: number): Promise<BankAccount[]>;
+  getBankAccountById(id: number): Promise<BankAccount | undefined>;
+  updateBankAccount(id: number, data: Partial<InsertBankAccount>): Promise<BankAccount | undefined>;
+  deleteBankAccount(id: number): Promise<boolean>;
+  
+  // Tax Years
+  createTaxYear(taxYear: InsertTaxYear): Promise<TaxYear>;
+  getTaxYearsByUserId(userId: number): Promise<TaxYear[]>;
+  getTaxYearById(id: number): Promise<TaxYear | undefined>;
+  updateTaxYear(id: number, data: Partial<InsertTaxYear>): Promise<TaxYear | undefined>;
+  closeTaxYear(id: number, data: { 
+    totalIncome: number, 
+    totalExpenses: number, 
+    netIncome: number, 
+    taxRate?: number, 
+    estimatedTax?: number 
+  }): Promise<TaxYear | undefined>;
+  
+  // Budgets
+  createBudget(budget: InsertBudget): Promise<Budget>;
+  getBudgetsByUserId(userId: number): Promise<Budget[]>;
+  getBudgetById(id: number): Promise<Budget | undefined>;
+  updateBudget(id: number, data: Partial<InsertBudget>): Promise<Budget | undefined>;
+  deleteBudget(id: number): Promise<boolean>;
+  getBudgetAnalytics(userId: number): Promise<{
+    budgetId: number,
+    budgetName: string,
+    budgetAmount: number,
+    actualAmount: number,
+    variance: number,
+    percentUsed: number
+  }[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -69,6 +140,13 @@ export class MemStorage implements IStorage {
   private files: Map<number, UploadedFile>;
   private questionsList: Map<number, Question>;
   
+  // Accounting module storage
+  private transactionCategories: Map<number, TransactionCategory>;
+  private transactions: Map<number, Transaction>;
+  private bankAccounts: Map<number, BankAccount>;
+  private taxYears: Map<number, TaxYear>;
+  private budgets: Map<number, Budget>;
+  
   private currentUserId: number;
   private currentPropertyId: number;
   private currentTenantId: number;
@@ -77,6 +155,13 @@ export class MemStorage implements IStorage {
   private currentWaitingListId: number;
   private currentFileId: number;
   private currentQuestionId: number;
+  
+  // Accounting module IDs
+  private currentTransactionCategoryId: number;
+  private currentTransactionId: number;
+  private currentBankAccountId: number;
+  private currentTaxYearId: number;
+  private currentBudgetId: number;
   
   constructor() {
     this.users = new Map();
@@ -88,6 +173,13 @@ export class MemStorage implements IStorage {
     this.files = new Map();
     this.questionsList = new Map();
     
+    // Initialize accounting module storage
+    this.transactionCategories = new Map();
+    this.transactions = new Map();
+    this.bankAccounts = new Map();
+    this.taxYears = new Map();
+    this.budgets = new Map();
+    
     this.currentUserId = 1;
     this.currentPropertyId = 1;
     this.currentTenantId = 1;
@@ -96,6 +188,13 @@ export class MemStorage implements IStorage {
     this.currentWaitingListId = 1;
     this.currentFileId = 1;
     this.currentQuestionId = 1;
+    
+    // Initialize accounting module IDs
+    this.currentTransactionCategoryId = 1;
+    this.currentTransactionId = 1;
+    this.currentBankAccountId = 1;
+    this.currentTaxYearId = 1;
+    this.currentBudgetId = 1;
     
     // Initialize with 20 questions
     const sampleQuestions = [
@@ -426,6 +525,442 @@ export class MemStorage implements IStorage {
   async getActiveQuestions(): Promise<Question[]> {
     return (await this.getAllQuestions()).filter(q => q.active);
   }
+
+  // ===== ACCOUNTING MODULE =====
+  
+  // Transaction Categories
+  async createTransactionCategory(category: InsertTransactionCategory): Promise<TransactionCategory> {
+    const id = this.currentTransactionCategoryId++;
+    const newCategory: TransactionCategory = {
+      ...category,
+      id,
+      color: category.color || null,
+      isDefault: category.isDefault || false,
+      createdAt: new Date()
+    };
+    this.transactionCategories.set(id, newCategory);
+    return newCategory;
+  }
+
+  async getTransactionCategoriesByUserId(userId: number): Promise<TransactionCategory[]> {
+    return Array.from(this.transactionCategories.values()).filter(
+      (category) => category.userId === userId
+    );
+  }
+
+  async getTransactionCategoryById(id: number): Promise<TransactionCategory | undefined> {
+    return this.transactionCategories.get(id);
+  }
+
+  async updateTransactionCategory(id: number, data: Partial<InsertTransactionCategory>): Promise<TransactionCategory | undefined> {
+    const category = await this.getTransactionCategoryById(id);
+    if (!category) return undefined;
+    
+    const updatedCategory = { ...category, ...data };
+    this.transactionCategories.set(id, updatedCategory);
+    return updatedCategory;
+  }
+
+  async deleteTransactionCategory(id: number): Promise<boolean> {
+    const category = await this.getTransactionCategoryById(id);
+    if (!category) return false;
+    
+    return this.transactionCategories.delete(id);
+  }
+
+  async createDefaultTransactionCategories(userId: number): Promise<TransactionCategory[]> {
+    const defaultCategories = [
+      // Income categories
+      { name: "Rental Income", type: "income", userId, color: "#4CAF50", isDefault: true },
+      { name: "Security Deposits", type: "income", userId, color: "#8BC34A", isDefault: true },
+      { name: "Late Fees", type: "income", userId, color: "#CDDC39", isDefault: true },
+      { name: "Other Income", type: "income", userId, color: "#FFEB3B", isDefault: true },
+      
+      // Expense categories
+      { name: "Mortgage/Loan", type: "expense", userId, color: "#F44336", isDefault: true },
+      { name: "Insurance", type: "expense", userId, color: "#E91E63", isDefault: true },
+      { name: "Property Tax", type: "expense", userId, color: "#9C27B0", isDefault: true },
+      { name: "Utilities", type: "expense", userId, color: "#673AB7", isDefault: true },
+      { name: "Maintenance", type: "expense", userId, color: "#3F51B5", isDefault: true },
+      { name: "Repairs", type: "expense", userId, color: "#2196F3", isDefault: true },
+      { name: "Property Management", type: "expense", userId, color: "#03A9F4", isDefault: true },
+      { name: "Legal & Professional", type: "expense", userId, color: "#00BCD4", isDefault: true },
+      { name: "Marketing & Advertising", type: "expense", userId, color: "#009688", isDefault: true },
+      { name: "Travel", type: "expense", userId, color: "#607D8B", isDefault: true }
+    ] as InsertTransactionCategory[];
+    
+    const createdCategories: TransactionCategory[] = [];
+    
+    for (const category of defaultCategories) {
+      createdCategories.push(await this.createTransactionCategory(category));
+    }
+    
+    return createdCategories;
+  }
+  
+  // Transactions
+  async createTransaction(transaction: InsertTransaction): Promise<Transaction> {
+    const id = this.currentTransactionId++;
+    const newTransaction: Transaction = {
+      ...transaction,
+      id,
+      reference: transaction.reference || null,
+      notes: transaction.notes || null,
+      attachmentId: transaction.attachmentId || null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.transactions.set(id, newTransaction);
+    return newTransaction;
+  }
+  
+  async getTransactionsByUserId(userId: number, params?: { 
+    startDate?: Date, 
+    endDate?: Date,
+    categoryId?: number,
+    propertyId?: number,
+    type?: 'income' | 'expense' | 'all'
+  }): Promise<Transaction[]> {
+    let transactions = Array.from(this.transactions.values()).filter(
+      (transaction) => transaction.userId === userId
+    );
+    
+    // Apply filters
+    if (params) {
+      if (params.startDate) {
+        transactions = transactions.filter(t => new Date(t.date) >= params.startDate!);
+      }
+      
+      if (params.endDate) {
+        transactions = transactions.filter(t => new Date(t.date) <= params.endDate!);
+      }
+      
+      if (params.categoryId) {
+        transactions = transactions.filter(t => t.categoryId === params.categoryId);
+      }
+      
+      if (params.propertyId) {
+        transactions = transactions.filter(t => t.propertyId === params.propertyId);
+      }
+      
+      if (params.type && params.type !== 'all') {
+        transactions = transactions.filter(t => t.type === params.type);
+      }
+    }
+    
+    // Sort by date (newest first)
+    return transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+  
+  async getTransactionById(id: number): Promise<Transaction | undefined> {
+    return this.transactions.get(id);
+  }
+  
+  async updateTransaction(id: number, data: Partial<InsertTransaction>): Promise<Transaction | undefined> {
+    const transaction = await this.getTransactionById(id);
+    if (!transaction) return undefined;
+    
+    const updatedTransaction = { ...transaction, ...data };
+    this.transactions.set(id, updatedTransaction);
+    return updatedTransaction;
+  }
+  
+  async deleteTransaction(id: number): Promise<boolean> {
+    const transaction = await this.getTransactionById(id);
+    if (!transaction) return false;
+    
+    return this.transactions.delete(id);
+  }
+  
+  async getTransactionSummary(userId: number, timeframe: 'month' | 'quarter' | 'year'): Promise<{
+    totalIncome: number,
+    totalExpenses: number,
+    netIncome: number,
+    incomeByCategory: {categoryId: number, categoryName: string, amount: number}[],
+    expensesByCategory: {categoryId: number, categoryName: string, amount: number}[]
+  }> {
+    // Set date range based on timeframe
+    const now = new Date();
+    let startDate: Date;
+    
+    switch (timeframe) {
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 'quarter':
+        const quarter = Math.floor(now.getMonth() / 3);
+        startDate = new Date(now.getFullYear(), quarter * 3, 1);
+        break;
+      case 'year':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        break;
+    }
+    
+    // Get all transactions for this time period
+    const transactions = await this.getTransactionsByUserId(userId, {
+      startDate,
+      endDate: now
+    });
+    
+    // Get all categories for this user
+    const categories = await this.getTransactionCategoriesByUserId(userId);
+    const categoryMap = new Map<number, TransactionCategory>();
+    categories.forEach(cat => categoryMap.set(cat.id, cat));
+    
+    // Calculate totals
+    const incomeTransactions = transactions.filter(t => t.type === 'income');
+    const expenseTransactions = transactions.filter(t => t.type === 'expense');
+    
+    const totalIncome = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
+    const totalExpenses = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
+    
+    // Group by category
+    const incomeByCategoryMap = new Map<number, number>();
+    const expensesByCategoryMap = new Map<number, number>();
+    
+    incomeTransactions.forEach(t => {
+      const currentAmount = incomeByCategoryMap.get(t.categoryId) || 0;
+      incomeByCategoryMap.set(t.categoryId, currentAmount + t.amount);
+    });
+    
+    expenseTransactions.forEach(t => {
+      const currentAmount = expensesByCategoryMap.get(t.categoryId) || 0;
+      expensesByCategoryMap.set(t.categoryId, currentAmount + t.amount);
+    });
+    
+    // Format result
+    const incomeByCategory = Array.from(incomeByCategoryMap.entries()).map(([categoryId, amount]) => {
+      const category = categoryMap.get(categoryId);
+      return {
+        categoryId,
+        categoryName: category ? category.name : 'Unknown',
+        amount
+      };
+    });
+    
+    const expensesByCategory = Array.from(expensesByCategoryMap.entries()).map(([categoryId, amount]) => {
+      const category = categoryMap.get(categoryId);
+      return {
+        categoryId,
+        categoryName: category ? category.name : 'Unknown',
+        amount
+      };
+    });
+    
+    return {
+      totalIncome,
+      totalExpenses,
+      netIncome: totalIncome - totalExpenses,
+      incomeByCategory,
+      expensesByCategory
+    };
+  }
+  
+  // Bank Accounts
+  async createBankAccount(account: InsertBankAccount): Promise<BankAccount> {
+    const id = this.currentBankAccountId++;
+    const newAccount: BankAccount = {
+      ...account,
+      id,
+      notes: account.notes || null
+    };
+    this.bankAccounts.set(id, newAccount);
+    return newAccount;
+  }
+  
+  async getBankAccountsByUserId(userId: number): Promise<BankAccount[]> {
+    return Array.from(this.bankAccounts.values()).filter(
+      (account) => account.userId === userId
+    );
+  }
+  
+  async getBankAccountById(id: number): Promise<BankAccount | undefined> {
+    return this.bankAccounts.get(id);
+  }
+  
+  async updateBankAccount(id: number, data: Partial<InsertBankAccount>): Promise<BankAccount | undefined> {
+    const account = await this.getBankAccountById(id);
+    if (!account) return undefined;
+    
+    const updatedAccount = { ...account, ...data };
+    this.bankAccounts.set(id, updatedAccount);
+    return updatedAccount;
+  }
+  
+  async deleteBankAccount(id: number): Promise<boolean> {
+    const account = await this.getBankAccountById(id);
+    if (!account) return false;
+    
+    return this.bankAccounts.delete(id);
+  }
+  
+  // Tax Years
+  async createTaxYear(taxYear: InsertTaxYear): Promise<TaxYear> {
+    const id = this.currentTaxYearId++;
+    const newTaxYear: TaxYear = {
+      ...taxYear,
+      id,
+      isClosed: false,
+      totalIncome: null,
+      totalExpenses: null,
+      netIncome: null,
+      taxRate: null,
+      estimatedTax: null,
+      closedDate: null
+    };
+    this.taxYears.set(id, newTaxYear);
+    return newTaxYear;
+  }
+  
+  async getTaxYearsByUserId(userId: number): Promise<TaxYear[]> {
+    return Array.from(this.taxYears.values()).filter(
+      (taxYear) => taxYear.userId === userId
+    );
+  }
+  
+  async getTaxYearById(id: number): Promise<TaxYear | undefined> {
+    return this.taxYears.get(id);
+  }
+  
+  async updateTaxYear(id: number, data: Partial<InsertTaxYear>): Promise<TaxYear | undefined> {
+    const taxYear = await this.getTaxYearById(id);
+    if (!taxYear) return undefined;
+    
+    const updatedTaxYear = { ...taxYear, ...data };
+    this.taxYears.set(id, updatedTaxYear);
+    return updatedTaxYear;
+  }
+  
+  async closeTaxYear(id: number, data: { 
+    totalIncome: number, 
+    totalExpenses: number, 
+    netIncome: number, 
+    taxRate?: number, 
+    estimatedTax?: number 
+  }): Promise<TaxYear | undefined> {
+    const taxYear = await this.getTaxYearById(id);
+    if (!taxYear) return undefined;
+    
+    const updatedTaxYear = { 
+      ...taxYear, 
+      ...data,
+      isClosed: true,
+      closedDate: new Date()
+    };
+    this.taxYears.set(id, updatedTaxYear);
+    return updatedTaxYear;
+  }
+  
+  // Budgets
+  async createBudget(budget: InsertBudget): Promise<Budget> {
+    const id = this.currentBudgetId++;
+    const newBudget: Budget = {
+      ...budget,
+      id,
+      notes: budget.notes || null
+    };
+    this.budgets.set(id, newBudget);
+    return newBudget;
+  }
+  
+  async getBudgetsByUserId(userId: number): Promise<Budget[]> {
+    return Array.from(this.budgets.values()).filter(
+      (budget) => budget.userId === userId
+    );
+  }
+  
+  async getBudgetById(id: number): Promise<Budget | undefined> {
+    return this.budgets.get(id);
+  }
+  
+  async updateBudget(id: number, data: Partial<InsertBudget>): Promise<Budget | undefined> {
+    const budget = await this.getBudgetById(id);
+    if (!budget) return undefined;
+    
+    const updatedBudget = { ...budget, ...data };
+    this.budgets.set(id, updatedBudget);
+    return updatedBudget;
+  }
+  
+  async deleteBudget(id: number): Promise<boolean> {
+    const budget = await this.getBudgetById(id);
+    if (!budget) return false;
+    
+    return this.budgets.delete(id);
+  }
+  
+  async getBudgetAnalytics(userId: number): Promise<{
+    budgetId: number,
+    budgetName: string,
+    budgetAmount: number,
+    actualAmount: number,
+    variance: number,
+    percentUsed: number
+  }[]> {
+    const budgets = await this.getBudgetsByUserId(userId);
+    const result: {
+      budgetId: number,
+      budgetName: string,
+      budgetAmount: number,
+      actualAmount: number,
+      variance: number,
+      percentUsed: number
+    }[] = [];
+    
+    // For each budget, calculate the actual spending based on transactions
+    for (const budget of budgets) {
+      // Find the sum of all transactions that match this budget's criteria
+      let actualAmount = 0;
+      
+      // If this is a category-specific budget
+      if (budget.categoryId) {
+        const transactions = await this.getTransactionsByUserId(userId, {
+          categoryId: budget.categoryId,
+          startDate: budget.startDate,
+          endDate: budget.endDate,
+          type: budget.type
+        });
+        
+        actualAmount = transactions.reduce((sum, t) => sum + t.amount, 0);
+      }
+      // If this is a property-specific budget
+      else if (budget.propertyId) {
+        const transactions = await this.getTransactionsByUserId(userId, {
+          propertyId: budget.propertyId,
+          startDate: budget.startDate,
+          endDate: budget.endDate,
+          type: budget.type
+        });
+        
+        actualAmount = transactions.reduce((sum, t) => sum + t.amount, 0);
+      }
+      // General budget for all transactions of a certain type
+      else {
+        const transactions = await this.getTransactionsByUserId(userId, {
+          startDate: budget.startDate,
+          endDate: budget.endDate,
+          type: budget.type
+        });
+        
+        actualAmount = transactions.reduce((sum, t) => sum + t.amount, 0);
+      }
+      
+      // Calculate metrics
+      const variance = budget.amount - actualAmount;
+      const percentUsed = (actualAmount / budget.amount) * 100;
+      
+      result.push({
+        budgetId: budget.id,
+        budgetName: budget.name,
+        budgetAmount: budget.amount,
+        actualAmount,
+        variance,
+        percentUsed
+      });
+    }
+    
+    return result;
+  }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -753,6 +1288,400 @@ export class DatabaseStorage implements IStorage {
       .from(questions)
       .where(eq(questions.active, true))
       .orderBy(questions.order);
+  }
+
+  // ===== ACCOUNTING MODULE =====
+  
+  // Transaction Categories
+  async createTransactionCategory(category: InsertTransactionCategory): Promise<TransactionCategory> {
+    const result = await db.insert(transactionCategories).values(category).returning();
+    return result[0];
+  }
+
+  async getTransactionCategoriesByUserId(userId: number): Promise<TransactionCategory[]> {
+    return db.select().from(transactionCategories).where(eq(transactionCategories.userId, userId));
+  }
+
+  async getTransactionCategoryById(id: number): Promise<TransactionCategory | undefined> {
+    const results = await db.select().from(transactionCategories).where(eq(transactionCategories.id, id));
+    return results[0];
+  }
+
+  async updateTransactionCategory(id: number, data: Partial<InsertTransactionCategory>): Promise<TransactionCategory | undefined> {
+    const results = await db.update(transactionCategories)
+      .set(data)
+      .where(eq(transactionCategories.id, id))
+      .returning();
+    
+    return results[0];
+  }
+
+  async deleteTransactionCategory(id: number): Promise<boolean> {
+    try {
+      await db.delete(transactionCategories).where(eq(transactionCategories.id, id));
+      return true;
+    } catch (error) {
+      console.error("Error deleting transaction category:", error);
+      return false;
+    }
+  }
+
+  async createDefaultTransactionCategories(userId: number): Promise<TransactionCategory[]> {
+    const defaultCategories = [
+      // Income categories
+      { name: "Rental Income", type: "income", userId, color: "#4CAF50", isDefault: true },
+      { name: "Security Deposits", type: "income", userId, color: "#8BC34A", isDefault: true },
+      { name: "Late Fees", type: "income", userId, color: "#CDDC39", isDefault: true },
+      { name: "Other Income", type: "income", userId, color: "#FFEB3B", isDefault: true },
+      
+      // Expense categories
+      { name: "Mortgage/Loan", type: "expense", userId, color: "#F44336", isDefault: true },
+      { name: "Insurance", type: "expense", userId, color: "#E91E63", isDefault: true },
+      { name: "Property Tax", type: "expense", userId, color: "#9C27B0", isDefault: true },
+      { name: "Utilities", type: "expense", userId, color: "#673AB7", isDefault: true },
+      { name: "Maintenance", type: "expense", userId, color: "#3F51B5", isDefault: true },
+      { name: "Repairs", type: "expense", userId, color: "#2196F3", isDefault: true },
+      { name: "Property Management", type: "expense", userId, color: "#03A9F4", isDefault: true },
+      { name: "Legal & Professional", type: "expense", userId, color: "#00BCD4", isDefault: true },
+      { name: "Marketing & Advertising", type: "expense", userId, color: "#009688", isDefault: true },
+      { name: "Travel", type: "expense", userId, color: "#607D8B", isDefault: true }
+    ] as InsertTransactionCategory[];
+    
+    // Use a transaction to insert all categories at once
+    const createdCategories = await db.transaction(async (tx) => {
+      const results: TransactionCategory[] = [];
+      
+      for (const category of defaultCategories) {
+        const [inserted] = await tx.insert(transactionCategories).values(category).returning();
+        results.push(inserted);
+      }
+      
+      return results;
+    });
+    
+    return createdCategories;
+  }
+  
+  // Transactions
+  async createTransaction(transaction: InsertTransaction): Promise<Transaction> {
+    const result = await db.insert(transactions).values(transaction).returning();
+    return result[0];
+  }
+  
+  async getTransactionsByUserId(userId: number, params?: { 
+    startDate?: Date, 
+    endDate?: Date,
+    categoryId?: number,
+    propertyId?: number,
+    type?: 'income' | 'expense' | 'all'
+  }): Promise<Transaction[]> {
+    let query = db.select().from(transactions).where(eq(transactions.userId, userId));
+    
+    // Apply filters
+    if (params) {
+      if (params.startDate) {
+        query = query.where(db.sql`${transactions.date} >= ${params.startDate}`);
+      }
+      
+      if (params.endDate) {
+        query = query.where(db.sql`${transactions.date} <= ${params.endDate}`);
+      }
+      
+      if (params.categoryId) {
+        query = query.where(eq(transactions.categoryId, params.categoryId));
+      }
+      
+      if (params.propertyId) {
+        query = query.where(eq(transactions.propertyId, params.propertyId));
+      }
+      
+      if (params.type && params.type !== 'all') {
+        query = query.where(eq(transactions.type, params.type));
+      }
+    }
+    
+    // Sort by date (newest first)
+    const results = await query.orderBy(desc(transactions.date));
+    return results;
+  }
+  
+  async getTransactionById(id: number): Promise<Transaction | undefined> {
+    const results = await db.select().from(transactions).where(eq(transactions.id, id));
+    return results[0];
+  }
+  
+  async updateTransaction(id: number, data: Partial<InsertTransaction>): Promise<Transaction | undefined> {
+    const results = await db.update(transactions)
+      .set(data)
+      .where(eq(transactions.id, id))
+      .returning();
+    
+    return results[0];
+  }
+  
+  async deleteTransaction(id: number): Promise<boolean> {
+    try {
+      await db.delete(transactions).where(eq(transactions.id, id));
+      return true;
+    } catch (error) {
+      console.error("Error deleting transaction:", error);
+      return false;
+    }
+  }
+  
+  async getTransactionSummary(userId: number, timeframe: 'month' | 'quarter' | 'year'): Promise<{
+    totalIncome: number,
+    totalExpenses: number,
+    netIncome: number,
+    incomeByCategory: {categoryId: number, categoryName: string, amount: number}[],
+    expensesByCategory: {categoryId: number, categoryName: string, amount: number}[]
+  }> {
+    // Set date range based on timeframe
+    const now = new Date();
+    let startDate: Date;
+    
+    switch (timeframe) {
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 'quarter':
+        const quarter = Math.floor(now.getMonth() / 3);
+        startDate = new Date(now.getFullYear(), quarter * 3, 1);
+        break;
+      case 'year':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        break;
+    }
+    
+    // Get all transactions for this time period
+    const allTransactions = await this.getTransactionsByUserId(userId, {
+      startDate,
+      endDate: now
+    });
+    
+    // Get all categories for this user
+    const categories = await this.getTransactionCategoriesByUserId(userId);
+    const categoryMap = new Map<number, string>();
+    categories.forEach(cat => categoryMap.set(cat.id, cat.name));
+    
+    // Calculate totals and group by category
+    const incomeTransactions = allTransactions.filter(t => t.type === 'income');
+    const expenseTransactions = allTransactions.filter(t => t.type === 'expense');
+    
+    const totalIncome = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
+    const totalExpenses = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
+    
+    // Group by category
+    const incomeByCategoryMap = new Map<number, number>();
+    const expensesByCategoryMap = new Map<number, number>();
+    
+    incomeTransactions.forEach(t => {
+      const currentAmount = incomeByCategoryMap.get(t.categoryId) || 0;
+      incomeByCategoryMap.set(t.categoryId, currentAmount + t.amount);
+    });
+    
+    expenseTransactions.forEach(t => {
+      const currentAmount = expensesByCategoryMap.get(t.categoryId) || 0;
+      expensesByCategoryMap.set(t.categoryId, currentAmount + t.amount);
+    });
+    
+    // Format result
+    const incomeByCategory = Array.from(incomeByCategoryMap.entries()).map(([categoryId, amount]) => ({
+      categoryId,
+      categoryName: categoryMap.get(categoryId) || 'Unknown',
+      amount
+    }));
+    
+    const expensesByCategory = Array.from(expensesByCategoryMap.entries()).map(([categoryId, amount]) => ({
+      categoryId,
+      categoryName: categoryMap.get(categoryId) || 'Unknown',
+      amount
+    }));
+    
+    return {
+      totalIncome,
+      totalExpenses,
+      netIncome: totalIncome - totalExpenses,
+      incomeByCategory,
+      expensesByCategory
+    };
+  }
+  
+  // Bank Accounts
+  async createBankAccount(account: InsertBankAccount): Promise<BankAccount> {
+    const result = await db.insert(bankAccounts).values(account).returning();
+    return result[0];
+  }
+  
+  async getBankAccountsByUserId(userId: number): Promise<BankAccount[]> {
+    return db.select().from(bankAccounts).where(eq(bankAccounts.userId, userId));
+  }
+  
+  async getBankAccountById(id: number): Promise<BankAccount | undefined> {
+    const results = await db.select().from(bankAccounts).where(eq(bankAccounts.id, id));
+    return results[0];
+  }
+  
+  async updateBankAccount(id: number, data: Partial<InsertBankAccount>): Promise<BankAccount | undefined> {
+    const results = await db.update(bankAccounts)
+      .set(data)
+      .where(eq(bankAccounts.id, id))
+      .returning();
+    
+    return results[0];
+  }
+  
+  async deleteBankAccount(id: number): Promise<boolean> {
+    try {
+      await db.delete(bankAccounts).where(eq(bankAccounts.id, id));
+      return true;
+    } catch (error) {
+      console.error("Error deleting bank account:", error);
+      return false;
+    }
+  }
+  
+  // Tax Years
+  async createTaxYear(taxYear: InsertTaxYear): Promise<TaxYear> {
+    const result = await db.insert(taxYears).values({
+      ...taxYear,
+      isClosed: false,
+      totalIncome: null,
+      totalExpenses: null,
+      netIncome: null,
+      taxRate: null,
+      estimatedTax: null,
+      closedDate: null
+    }).returning();
+    
+    return result[0];
+  }
+  
+  async getTaxYearsByUserId(userId: number): Promise<TaxYear[]> {
+    return db.select().from(taxYears).where(eq(taxYears.userId, userId));
+  }
+  
+  async getTaxYearById(id: number): Promise<TaxYear | undefined> {
+    const results = await db.select().from(taxYears).where(eq(taxYears.id, id));
+    return results[0];
+  }
+  
+  async updateTaxYear(id: number, data: Partial<InsertTaxYear>): Promise<TaxYear | undefined> {
+    const results = await db.update(taxYears)
+      .set(data)
+      .where(eq(taxYears.id, id))
+      .returning();
+    
+    return results[0];
+  }
+  
+  async closeTaxYear(id: number, data: { 
+    totalIncome: number, 
+    totalExpenses: number, 
+    netIncome: number, 
+    taxRate?: number, 
+    estimatedTax?: number 
+  }): Promise<TaxYear | undefined> {
+    const results = await db.update(taxYears)
+      .set({
+        ...data,
+        isClosed: true,
+        closedDate: new Date()
+      })
+      .where(eq(taxYears.id, id))
+      .returning();
+    
+    return results[0];
+  }
+  
+  // Budgets
+  async createBudget(budget: InsertBudget): Promise<Budget> {
+    const result = await db.insert(budgets).values(budget).returning();
+    return result[0];
+  }
+  
+  async getBudgetsByUserId(userId: number): Promise<Budget[]> {
+    return db.select().from(budgets).where(eq(budgets.userId, userId));
+  }
+  
+  async getBudgetById(id: number): Promise<Budget | undefined> {
+    const results = await db.select().from(budgets).where(eq(budgets.id, id));
+    return results[0];
+  }
+  
+  async updateBudget(id: number, data: Partial<InsertBudget>): Promise<Budget | undefined> {
+    const results = await db.update(budgets)
+      .set(data)
+      .where(eq(budgets.id, id))
+      .returning();
+    
+    return results[0];
+  }
+  
+  async deleteBudget(id: number): Promise<boolean> {
+    try {
+      await db.delete(budgets).where(eq(budgets.id, id));
+      return true;
+    } catch (error) {
+      console.error("Error deleting budget:", error);
+      return false;
+    }
+  }
+  
+  async getBudgetAnalytics(userId: number): Promise<{
+    budgetId: number,
+    budgetName: string,
+    budgetAmount: number,
+    actualAmount: number,
+    variance: number,
+    percentUsed: number
+  }[]> {
+    const userBudgets = await this.getBudgetsByUserId(userId);
+    const result: {
+      budgetId: number,
+      budgetName: string,
+      budgetAmount: number,
+      actualAmount: number,
+      variance: number,
+      percentUsed: number
+    }[] = [];
+    
+    // For each budget, calculate actual spending
+    for (const budget of userBudgets) {
+      let query = db.select().from(transactions)
+        .where(eq(transactions.userId, userId))
+        .where(db.sql`${transactions.date} >= ${budget.startDate}`)
+        .where(db.sql`${transactions.date} <= ${budget.endDate}`)
+        .where(eq(transactions.type, budget.type));
+      
+      // If this is a category-specific budget
+      if (budget.categoryId) {
+        query = query.where(eq(transactions.categoryId, budget.categoryId));
+      }
+      
+      // If this is a property-specific budget
+      if (budget.propertyId) {
+        query = query.where(eq(transactions.propertyId, budget.propertyId));
+      }
+      
+      const matchingTransactions = await query;
+      const actualAmount = matchingTransactions.reduce((sum, t) => sum + t.amount, 0);
+      
+      // Calculate metrics
+      const variance = budget.amount - actualAmount;
+      const percentUsed = (actualAmount / budget.amount) * 100;
+      
+      result.push({
+        budgetId: budget.id,
+        budgetName: budget.name,
+        budgetAmount: budget.amount,
+        actualAmount,
+        variance,
+        percentUsed
+      });
+    }
+    
+    return result;
   }
 }
 
