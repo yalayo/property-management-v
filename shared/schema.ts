@@ -9,6 +9,7 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   fullName: text("full_name"),
   isAdmin: boolean("is_admin").default(false),
+  hasCompletedOnboarding: boolean("has_completed_onboarding").default(false),
   subscriptionType: text("subscription_type"),
   subscriptionStatus: text("subscription_status"),
   stripeCustomerId: text("stripe_customer_id"),

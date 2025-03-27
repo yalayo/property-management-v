@@ -263,19 +263,19 @@ export default function Survey({ onCompleted }: SurveyProps) {
                 </div>
               )}
 
-              {/* Navigation buttons */}
-              <div className="mt-6 flex justify-between">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handlePrevious}
-                  disabled={currentQuestionIndex === 0 && !showEmailForm}
-                  className="border-indigo-200 text-gray-700 hover:bg-indigo-50"
-                >
-                  Previous
-                </Button>
-                
-                {!showEmailForm && (
+              {/* Navigation buttons - Only show for question screens, not email form */}
+              {!showEmailForm && (
+                <div className="mt-6 flex justify-between">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handlePrevious}
+                    disabled={currentQuestionIndex === 0}
+                    className="border-indigo-200 text-gray-700 hover:bg-indigo-50"
+                  >
+                    Previous
+                  </Button>
+                  
                   <Button
                     type="button"
                     onClick={() => {
@@ -299,8 +299,22 @@ export default function Survey({ onCompleted }: SurveyProps) {
                   >
                     {isLastQuestion ? 'Finish' : 'Next'}
                   </Button>
-                )}
-              </div>
+                </div>
+              )}
+              
+              {/* Previous button for email form */}
+              {showEmailForm && (
+                <div className="mt-6 flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handlePrevious}
+                    className="border-indigo-200 text-gray-700 hover:bg-indigo-50"
+                  >
+                    Previous
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -19,6 +19,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateStripeCustomerId(userId: number, customerId: string): Promise<User>;
   updateUserStripeInfo(userId: number, info: { customerId: string, subscriptionId: string }): Promise<User>;
+  updateUserOnboardingStatus(userId: number, hasCompleted: boolean): Promise<User>;
   
   // Properties
   createProperty(property: InsertProperty): Promise<Property>;
@@ -154,6 +155,7 @@ export class MemStorage implements IStorage {
       ...insertUser, 
       id, 
       isAdmin: false, 
+      hasCompletedOnboarding: false,
       subscriptionType: null, 
       subscriptionStatus: null, 
       stripeCustomerId: null, 
@@ -182,6 +184,18 @@ export class MemStorage implements IStorage {
       stripeCustomerId: info.customerId, 
       stripeSubscriptionId: info.subscriptionId,
       subscriptionStatus: 'active'
+    };
+    this.users.set(userId, updatedUser);
+    return updatedUser;
+  }
+
+  async updateUserOnboardingStatus(userId: number, hasCompleted: boolean): Promise<User> {
+    const user = await this.getUser(userId);
+    if (!user) throw new Error("User not found");
+    
+    const updatedUser = { 
+      ...user, 
+      hasCompletedOnboarding: hasCompleted 
     };
     this.users.set(userId, updatedUser);
     return updatedUser;
@@ -485,6 +499,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db.insert(users).values({
       ...insertUser,
       isAdmin: false,
+      hasCompletedOnboarding: false,
       subscriptionType: null,
       subscriptionStatus: null,
       stripeCustomerId: null,
@@ -513,6 +528,21 @@ export class DatabaseStorage implements IStorage {
         stripeSubscriptionId: info.subscriptionId,
         subscriptionType: 'monthly',
         subscriptionStatus: 'active'
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    if (result.length === 0) {
+      throw new Error(`User with ID ${userId} not found`);
+    }
+    
+    return result[0];
+  }
+
+  async updateUserOnboardingStatus(userId: number, hasCompleted: boolean): Promise<User> {
+    const result = await db.update(users)
+      .set({ 
+        hasCompletedOnboarding: hasCompleted
       })
       .where(eq(users.id, userId))
       .returning();

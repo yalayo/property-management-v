@@ -178,6 +178,46 @@ export default function OnboardingWizard() {
       });
     },
   });
+  
+  // Setup mutation for quick onboarding completion
+  const quickCompleteMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/complete-onboarding", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to complete onboarding");
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      setIsComplete(true);
+      
+      toast({
+        title: "Setup complete!",
+        description: "Onboarding has been skipped. You can update your details later.",
+      });
+
+      // Redirect to dashboard after 2 seconds
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 2000);
+    },
+    onError: (error) => {
+      toast({
+        title: "Skip failed",
+        description: error instanceof Error ? error.message : "Something went wrong",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Handle form submissions for each step
   const onPersonalSubmit = (data: PersonalInfo) => {
@@ -601,6 +641,23 @@ export default function OnboardingWizard() {
             </form>
           </Form>
         </CardContent>
+        
+        {/* Skip Onboarding Option */}
+        {step === 1 && (
+          <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-lg text-center">
+            <p className="text-sm text-gray-500 mb-2">
+              Want to explore first? You can complete your profile later.
+            </p>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => quickCompleteMutation.mutate()}
+              disabled={quickCompleteMutation.isPending}
+            >
+              {quickCompleteMutation.isPending ? "Processing..." : "Skip Onboarding"}
+            </Button>
+          </div>
+        )}
       </Card>
     </div>
   );

@@ -21,6 +21,16 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { extractDataFromFile } from "./services/gemini";
 
+// Extend Express Request to include authentication properties
+declare global {
+  namespace Express {
+    interface Request {
+      isAuthenticated(): boolean;
+      user?: any;
+    }
+  }
+}
+
 // Get the directory name in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -366,8 +376,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Onboarding wizard endpoint
   app.post("/api/onboarding", handleErrors(async (req, res) => {
-    // In a real app, we would authenticate the user and get their ID
-    const userId = 1; // Mock user ID for now
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const userId = req.user.id;
     
     // Get the onboarding data from the request body
     const {
@@ -388,8 +401,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       additionalNotes,
     } = req.body;
     
-    // In a real app, we would save this data to the user's profile
-    // For now, just log it and return success
+    // In a real app, we would save all this data to the user's profile
+    // For now, just log it and mark onboarding as complete
     console.log("Onboarding data received:", {
       userId,
       firstName,
@@ -409,8 +422,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       additionalNotes,
     });
     
+    // Mark onboarding as completed
+    const updatedUser = await storage.updateUserOnboardingStatus(userId, true);
+    
     // Return success
-    res.json({ success: true, message: "Onboarding completed successfully" });
+    res.json({ 
+      success: true, 
+      message: "Onboarding completed successfully",
+      user: updatedUser
+    });
+  }));
+  
+  // Simplified complete-onboarding endpoint
+  app.post("/api/complete-onboarding", handleErrors(async (req, res) => {
+    // In a real app, we would authenticate the user
+    // For demo purposes, we'll use a mock user ID
+    const userId = 1; // Mock user ID
+    
+    // Mark onboarding as completed
+    const updatedUser = await storage.updateUserOnboardingStatus(userId, true);
+    
+    // Return success
+    res.json({ 
+      success: true, 
+      message: "Onboarding marked as completed",
+      user: updatedUser
+    });
   }));
 
   const httpServer = createServer(app);
