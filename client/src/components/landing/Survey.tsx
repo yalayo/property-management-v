@@ -91,7 +91,7 @@ export default function Survey({ onCompleted }: SurveyProps) {
     }
   }, [currentQuestionIndex, questions]);
 
-  // Handle answer selection
+  // Handle answer selection - only store the answer, don't navigate
   const handleAnswerSelection = (answer: boolean) => {
     if (!questions) return;
 
@@ -107,13 +107,8 @@ export default function Survey({ onCompleted }: SurveyProps) {
       // Add new response
       setResponses([...responses, { questionId: question.id, answer }]);
     }
-
-    // Move to next question or show email form if on last question
-    if (isLastQuestion) {
-      setShowEmailForm(true);
-    } else {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
-    }
+    
+    // No automatic navigation - user needs to click Next button
   };
 
   const handlePrevious = () => {
@@ -260,7 +255,7 @@ export default function Survey({ onCompleted }: SurveyProps) {
                         className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600"
                         disabled={submitSurveyMutation.isPending}
                       >
-                        {submitSurveyMutation.isPending ? 'Submitting...' : 'See Pricing Plans'}
+                        {submitSurveyMutation.isPending ? 'Submitting...' : 'Continue'}
                       </Button>
                       <Button 
                         type="button" 
