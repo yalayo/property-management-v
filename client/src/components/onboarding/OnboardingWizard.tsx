@@ -372,7 +372,7 @@ export default function OnboardingWizard() {
                   <FormField
                     control={form.control}
                     name="propertyTypes"
-                    render={() => (
+                    render={({ field }) => (
                       <FormItem>
                         <div className="mb-2">
                           <FormLabel>Property Types</FormLabel>
@@ -382,36 +382,25 @@ export default function OnboardingWizard() {
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           {propertyTypes.map((type) => (
-                            <FormField
-                              key={type.id}
-                              control={form.control}
-                              name="propertyTypes"
-                              render={({ field }) => {
-                                return (
-                                  <FormItem
-                                    key={type.id}
-                                    className="flex flex-row items-start space-x-3 space-y-0"
-                                  >
-                                    <FormControl>
-                                      <Checkbox
-                                        checked={field.value?.includes(type.id)}
-                                        onCheckedChange={(checked) => {
-                                          const value = field.value || [];
-                                          return checked
-                                            ? field.onChange([...value, type.id])
-                                            : field.onChange(
-                                                value.filter((val) => val !== type.id)
-                                              );
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormLabel className="font-normal cursor-pointer">
-                                      {type.label}
-                                    </FormLabel>
-                                  </FormItem>
-                                );
-                              }}
-                            />
+                            <div key={type.id} className="flex flex-row items-start space-x-3 space-y-0">
+                              <Checkbox
+                                id={`property-type-${type.id}`}
+                                checked={field.value?.includes(type.id)}
+                                onCheckedChange={(checked) => {
+                                  const currentValue = field.value || [];
+                                  const newValue = checked
+                                    ? [...currentValue, type.id]
+                                    : currentValue.filter((val) => val !== type.id);
+                                  field.onChange(newValue);
+                                }}
+                              />
+                              <label 
+                                htmlFor={`property-type-${type.id}`}
+                                className="text-sm font-normal cursor-pointer"
+                              >
+                                {type.label}
+                              </label>
+                            </div>
                           ))}
                         </div>
                         <FormMessage />
@@ -533,47 +522,37 @@ export default function OnboardingWizard() {
                   />
 
                   <div className="space-y-3">
-                    <FormField
-                      control={form.control}
-                      name="receiveReports"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel>Receive Monthly Reports</FormLabel>
-                            <FormDescription>
-                              Get monthly reports about your rental properties
-                            </FormDescription>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
+                    <div className="flex flex-row items-start space-x-3 space-y-0">
+                      <Checkbox
+                        id="receive-reports"
+                        checked={preferencesForm.getValues().receiveReports}
+                        onCheckedChange={(checked) => {
+                          preferencesForm.setValue("receiveReports", checked === true);
+                        }}
+                      />
+                      <div className="space-y-1 leading-none">
+                        <label htmlFor="receive-reports" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Receive Monthly Reports</label>
+                        <p className="text-sm text-muted-foreground">
+                          Get monthly reports about your rental properties
+                        </p>
+                      </div>
+                    </div>
 
-                    <FormField
-                      control={form.control}
-                      name="automaticReminders"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel>Automatic Payment Reminders</FormLabel>
-                            <FormDescription>
-                              Send automatic reminders to tenants for late payments
-                            </FormDescription>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
+                    <div className="flex flex-row items-start space-x-3 space-y-0">
+                      <Checkbox
+                        id="automatic-reminders"
+                        checked={preferencesForm.getValues().automaticReminders}
+                        onCheckedChange={(checked) => {
+                          preferencesForm.setValue("automaticReminders", checked === true);
+                        }}
+                      />
+                      <div className="space-y-1 leading-none">
+                        <label htmlFor="automatic-reminders" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Automatic Payment Reminders</label>
+                        <p className="text-sm text-muted-foreground">
+                          Send automatic reminders to tenants for late payments
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   <FormField
