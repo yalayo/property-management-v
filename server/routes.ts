@@ -343,6 +343,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }));
   }
 
+  // Onboarding wizard endpoint
+  app.post("/api/onboarding", handleErrors(async (req, res) => {
+    // In a real app, we would authenticate the user and get their ID
+    const userId = 1; // Mock user ID for now
+    
+    // Get the onboarding data from the request body
+    const {
+      firstName,
+      lastName,
+      email,
+      phone,
+      numberOfProperties,
+      propertyTypes,
+      mainPropertyAddress,
+      bankName,
+      iban,
+      taxId,
+      monthlyRentCollection,
+      preferredCommunication,
+      receiveReports,
+      automaticReminders,
+      additionalNotes,
+    } = req.body;
+    
+    // In a real app, we would save this data to the user's profile
+    // For now, just log it and return success
+    console.log("Onboarding data received:", {
+      userId,
+      firstName,
+      lastName,
+      email,
+      phone,
+      numberOfProperties,
+      propertyTypes,
+      mainPropertyAddress,
+      bankName,
+      iban: iban.substring(0, 6) + "..." + iban.substring(iban.length - 4), // Mask IBAN for privacy
+      taxId: taxId ? taxId.substring(0, 2) + "..." + taxId.substring(taxId.length - 2) : null, // Mask taxId
+      monthlyRentCollection,
+      preferredCommunication,
+      receiveReports,
+      automaticReminders,
+      additionalNotes,
+    });
+    
+    // Return success
+    res.json({ success: true, message: "Onboarding completed successfully" });
+  }));
+
   const httpServer = createServer(app);
   return httpServer;
 }

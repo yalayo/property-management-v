@@ -28,9 +28,17 @@ export default function Hero() {
               </p>
               <div className="mt-5 sm:mt-8 sm:flex sm:justify-center lg:justify-start">
                 <div className="rounded-md shadow">
+                  <Link 
+                    to="/onboarding" 
+                    className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 md:py-4 md:text-lg md:px-10"
+                  >
+                    Get Started
+                  </Link>
+                </div>
+                <div className="mt-3 sm:mt-0 sm:ml-3">
                   <a 
                     href="#survey" 
-                    className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 md:py-4 md:text-lg md:px-10"
+                    className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-primary-700 bg-primary-100 hover:bg-primary-200 md:py-4 md:text-lg md:px-10"
                   >
                     Take Our Survey
                   </a>
@@ -38,7 +46,7 @@ export default function Hero() {
                 <div className="mt-3 sm:mt-0 sm:ml-3">
                   <a 
                     href="#pricing" 
-                    className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-primary-700 bg-primary-100 hover:bg-primary-200 md:py-4 md:text-lg md:px-10"
+                    className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-indigo-700 bg-gray-100 hover:bg-gray-200 md:py-4 md:text-lg md:px-10"
                   >
                     View Pricing
                   </a>

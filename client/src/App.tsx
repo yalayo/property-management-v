@@ -8,6 +8,7 @@ import Dashboard from "@/pages/dashboard";
 import WaitingList from "@/pages/waiting-list";
 import Payment from "@/pages/payment";
 import SurveyResults from "@/pages/survey-results";
+import Onboarding from "@/pages/onboarding";
 
 function Router() {
   return (
@@ -17,6 +18,7 @@ function Router() {
       <Route path="/waiting-list" component={WaitingList} />
       <Route path="/payment/:tier" component={Payment} />
       <Route path="/survey-results" component={SurveyResults} />
+      <Route path="/onboarding" component={Onboarding} />
       <Route component={NotFound} />
     </Switch>
   );
