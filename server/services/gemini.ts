@@ -48,11 +48,37 @@ export async function extractDataFromFile(filePath: string, fileType: string): P
     if (fileType === 'csv' || fileType === 'xlsx' || fileType === 'xls') {
       prompt = `
         Extract the following information from this financial/property document:
-        1. If it's a bank statement: Look for transaction dates, amounts, account numbers, and categorize as rent payments, expenses, etc.
+        
+        1. If it's a bank statement, extract all transactions with:
+           - transaction_date (in YYYY-MM-DD format)
+           - description (detailed description of the transaction)
+           - amount (as a numeric value without currency symbols)
+           - type ("income" or "expense" - income for incoming/positive transactions, expense for outgoing/negative)
+           - category (classify based on description - e.g., "Rental Income", "Mortgage/Loan", "Insurance", "Property Tax", "Utilities", etc.)
+           - reference_number (if available)
+           
         2. If it's a property document: Extract property details like address, size, purchase price, current tenants if mentioned.
         3. If it's a tenant document: Extract tenant names, contact information, lease terms, and rental amounts.
+
+        For bank statements specifically, return a structured JSON in this format:
+        {
+          "document_type": "bank_statement",
+          "bank_name": "Name of the bank",
+          "account_number": "Account number (last 4 digits is fine)",
+          "statement_period": { "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD" },
+          "transactions": [
+            {
+              "date": "YYYY-MM-DD",
+              "description": "Transaction description",
+              "amount": 1234.56,
+              "type": "income/expense",
+              "category": "Category name",
+              "reference": "Reference number if available"
+            }
+          ]
+        }
         
-        Return the data in a structured JSON format with appropriate field names.
+        If it's not a bank statement, return data in a structured JSON format with appropriate field names.
         Include all relevant data you can find in the document.
       `;
     } else if (fileType === 'pdf') {

@@ -205,6 +205,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
           data: extractedData
         });
         
+        // If it's a bank statement with transactions, import them into the accounting system
+        if (extractedData?.document_type === 'bank_statement' && Array.isArray(extractedData.transactions)) {
+          try {
+            const userId = fileRecord.userId;
+            console.log(`Importing ${extractedData.transactions.length} transactions from bank statement`);
+            
+            // If we have bank account information, check if we already have this account
+            let bankAccountId = null;
+            if (extractedData.bank_name && extractedData.account_number) {
+              const bankAccounts = await storage.getBankAccountsByUserId(userId);
+              const existingAccount = bankAccounts.find(account => 
+                account.bankName === extractedData.bank_name && 
+                account.accountNumber?.includes(extractedData.account_number)
+              );
+              
+              if (existingAccount) {
+                bankAccountId = existingAccount.id;
+              } else {
+                // Create a new bank account
+                const newAccount = await storage.createBankAccount({
+                  userId,
+                  bankName: extractedData.bank_name,
+                  accountName: `${extractedData.bank_name} Account`,
+                  accountNumber: extractedData.account_number,
+                  currency: 'EUR', // Default to EUR for German bank accounts
+                  currentBalance: 0, // Will need to be updated later
+                  isDefault: bankAccounts.length === 0 // Make it default if it's the first one
+                });
+                bankAccountId = newAccount.id;
+              }
+            }
+            
+            // Get all categories to match against
+            const categories = await storage.getTransactionCategoriesByUserId(userId);
+            
+            // Process each transaction
+            for (const transaction of extractedData.transactions) {
+              // Skip if required fields are missing
+              if (!transaction.date || !transaction.amount || !transaction.description || !transaction.type) {
+                console.log('Skipping transaction due to missing required fields:', transaction);
+                continue;
+              }
+              
+              // Find matching category or use default
+              let categoryId = null;
+              if (transaction.category) {
+                const matchedCategory = categories.find(cat => 
+                  cat.name.toLowerCase() === transaction.category.toLowerCase() &&
+                  cat.type === transaction.type
+                );
+                if (matchedCategory) {
+                  categoryId = matchedCategory.id;
+                } else {
+                  // Use the first category of the right type (income/expense)
+                  const defaultCategory = categories.find(cat => cat.type === transaction.type && cat.isDefault);
+                  if (defaultCategory) categoryId = defaultCategory.id;
+                }
+              }
+              
+              // Create the transaction
+              await storage.createTransaction({
+                userId,
+                date: transaction.date,
+                description: transaction.description,
+                amount: Math.abs(transaction.amount), // Ensure positive amount
+                type: transaction.type,
+                categoryId: categoryId || 0, // Default to 0 if null to avoid type issues
+                propertyId: null, // No property info from bank statement
+                bankAccountId: bankAccountId || null, // Handle possible null
+                reference: transaction.reference || null,
+                paymentMethod: 'bank_transfer',
+                notes: `Imported from bank statement: ${fileRecord.filename}`
+              });
+            }
+            
+            console.log(`Successfully imported transactions from bank statement`);
+          } catch (importError) {
+            console.error('Error importing transactions from bank statement:', importError);
+          }
+        }
+        
         console.log(`Data extraction completed for file: ${fileRecord.filename}`);
       } catch (error) {
         console.error(`Error processing file ${fileRecord.filename}:`, error);

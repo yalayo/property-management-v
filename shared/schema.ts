@@ -103,6 +103,7 @@ export const transactions = pgTable("transactions", {
   userId: integer("user_id").notNull().references(() => users.id),
   propertyId: integer("property_id").references(() => properties.id),
   categoryId: integer("category_id").notNull().references(() => transactionCategories.id),
+  bankAccountId: integer("bank_account_id").references(() => bankAccounts.id),
   amount: doublePrecision("amount").notNull(),
   date: date("date").notNull(),
   description: text("description").notNull(),
@@ -235,6 +236,7 @@ export const transactionFormSchema = insertTransactionSchema
     date: z.coerce.date(),
     description: z.string().min(1, "Description is required"),
     type: z.enum(["income", "expense"]),
+    bankAccountId: z.number().optional().nullable(),
   });
 
 export const bankAccountFormSchema = insertBankAccountSchema
