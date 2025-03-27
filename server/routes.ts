@@ -19,6 +19,7 @@ import { fromZodError } from "zod-validation-error";
 import Stripe from "stripe";
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { extractDataFromFile } from "./services/gemini";
 
 // Get the directory name in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -140,25 +141,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ message: "No file uploaded" });
     }
     
+    const fileType = path.extname(req.file.originalname).substring(1).toLowerCase();
+    
+    // Check if file type is supported
+    const supportedTypes = ['xlsx', 'xls', 'csv', 'pdf', 'doc', 'docx', 'txt'];
+    if (!supportedTypes.includes(fileType)) {
+      return res.status(400).json({ 
+        message: `Unsupported file type: ${fileType}. Supported types are: ${supportedTypes.join(', ')}` 
+      });
+    }
+    
     const fileRecord = await storage.uploadFile({
       userId,
       filename: req.file.originalname,
-      fileType: path.extname(req.file.originalname).substring(1),
+      fileType: fileType,
     });
     
-    // In a real app, we would process the file here (e.g., extract data from Excel)
-    // For now, just pretend we did that
-    setTimeout(async () => {
-      await storage.updateFileData(fileRecord.id, { 
-        processed: true,
-        data: { message: "Data extracted successfully" }
-      });
-    }, 2000);
+    // Process the file asynchronously
+    (async () => {
+      try {
+        console.log(`Starting AI data extraction for file: ${fileRecord.filename} (${fileType})`);
+        
+        // Extract data using Google Gemini
+        const extractedData = await extractDataFromFile(
+          req.file!.path,
+          fileType
+        );
+        
+        // Update the file record with the extracted data
+        await storage.updateFileData(fileRecord.id, { 
+          processed: true,
+          data: extractedData
+        });
+        
+        console.log(`Data extraction completed for file: ${fileRecord.filename}`);
+      } catch (error) {
+        console.error(`Error processing file ${fileRecord.filename}:`, error);
+        // Mark as processed but with error
+        await storage.updateFileData(fileRecord.id, { 
+          processed: true,
+          data: { 
+            error: error instanceof Error ? error.message : "Unknown error during extraction",
+            processingFailed: true
+          }
+        });
+      }
+    })();
     
     res.json({ 
       id: fileRecord.id,
       filename: fileRecord.filename,
-      message: "File uploaded successfully and is being processed" 
+      fileType: fileType,
+      message: "File uploaded successfully and is being processed with AI" 
     });
   }));
 
