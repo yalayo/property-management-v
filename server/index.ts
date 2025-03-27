@@ -1,10 +1,32 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import session from "express-session";
+import { pool } from "./db";
+import connectPgSimple from "connect-pg-simple";
 
+// Initialize PostgreSQL session store
+const PgSession = connectPgSimple(session);
+
+// Create the express app
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Configure session
+app.use(session({
+  store: new PgSession({
+    pool,
+    tableName: 'session' // Use default table name
+  }),
+  secret: process.env.SESSION_SECRET || 'your_session_secret_key', // In production, use environment variable
+  resave: false,
+  saveUninitialized: false,
+  cookie: { 
+    secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+    maxAge: 1000 * 60 * 60 * 24 * 7 // 1 week
+  }
+}));
 
 app.use((req, res, next) => {
   const start = Date.now();
