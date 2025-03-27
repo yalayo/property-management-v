@@ -69,11 +69,11 @@ export default function WaitingList() {
                   </p>
                   
                   <div className="space-y-3">
-                    <Link href="/#pricing">
+                    <Link href="/features-pricing">
                       <Button className="w-full justify-between group" size="lg">
                         <div className="flex items-center">
                           <CreditCard className="mr-2 h-4 w-4" />
-                          <span>View pricing options</span>
+                          <span>View features & pricing</span>
                         </div>
                         <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                       </Button>

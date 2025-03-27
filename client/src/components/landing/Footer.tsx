@@ -11,13 +11,8 @@ export default function Footer() {
             </a>
           </div>
           <div className="px-5 py-2">
-            <a href="#features" className="text-base text-gray-500 hover:text-gray-900">
-              Features
-            </a>
-          </div>
-          <div className="px-5 py-2">
-            <a href="#pricing" className="text-base text-gray-500 hover:text-gray-900">
-              Pricing
+            <a href="/features-pricing" className="text-base text-gray-500 hover:text-gray-900">
+              Features & Pricing
             </a>
           </div>
           <div className="px-5 py-2">
@@ -46,7 +41,7 @@ export default function Footer() {
           </a>
         </div>
         <p className="mt-8 text-center text-base text-gray-400">
-          &copy; 2023 PropManager GmbH. All rights reserved.
+          &copy; {new Date().getFullYear()} PropManager GmbH. All rights reserved.
         </p>
       </div>
     </footer>

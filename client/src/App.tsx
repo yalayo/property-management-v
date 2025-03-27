@@ -9,6 +9,7 @@ import WaitingList from "@/pages/waiting-list";
 import Payment from "@/pages/payment";
 import SurveyResults from "@/pages/survey-results";
 import Onboarding from "@/pages/onboarding";
+import FeaturesPricing from "@/pages/features-pricing";
 
 function Router() {
   return (
@@ -19,6 +20,7 @@ function Router() {
       <Route path="/payment/:tier" component={Payment} />
       <Route path="/survey-results" component={SurveyResults} />
       <Route path="/onboarding" component={Onboarding} />
+      <Route path="/features-pricing" component={FeaturesPricing} />
       <Route component={NotFound} />
     </Switch>
   );
