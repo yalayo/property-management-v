@@ -15,7 +15,7 @@ import {
   budgets, type Budget, type InsertBudget
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, count } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -26,6 +26,10 @@ export interface IStorage {
   updateStripeCustomerId(userId: number, customerId: string): Promise<User>;
   updateUserStripeInfo(userId: number, info: { customerId: string, subscriptionId: string }): Promise<User>;
   updateUserOnboardingStatus(userId: number, hasCompleted: boolean): Promise<User>;
+  getUserCount(): Promise<number>;
+  getSurveyResponseCount(): Promise<number>;
+  getWaitingListCount(): Promise<number>;
+  getSurveyResponses(): Promise<SurveyResponse[]>;
   
   // Properties
   createProperty(property: InsertProperty): Promise<Property>;
@@ -423,6 +427,22 @@ export class MemStorage implements IStorage {
   
   async getAllSurveyResponses(): Promise<SurveyResponse[]> {
     return Array.from(this.surveyResponses.values());
+  }
+  
+  async getSurveyResponses(): Promise<SurveyResponse[]> {
+    return this.getAllSurveyResponses();
+  }
+  
+  async getUserCount(): Promise<number> {
+    return this.users.size;
+  }
+  
+  async getSurveyResponseCount(): Promise<number> {
+    return this.surveyResponses.size;
+  }
+  
+  async getWaitingListCount(): Promise<number> {
+    return this.waitingListEntries.size;
   }
   
   async getSurveyAnalytics(): Promise<{questionId: number, yesCount: number, noCount: number}[]> {
@@ -1181,6 +1201,25 @@ export class DatabaseStorage implements IStorage {
 
   async getAllSurveyResponses(): Promise<SurveyResponse[]> {
     return db.select().from(surveyResponses);
+  }
+  
+  async getSurveyResponses(): Promise<SurveyResponse[]> {
+    return this.getAllSurveyResponses();
+  }
+  
+  async getUserCount(): Promise<number> {
+    const result = await db.select({ count: count() }).from(users);
+    return result[0].count;
+  }
+  
+  async getSurveyResponseCount(): Promise<number> {
+    const result = await db.select({ count: count() }).from(surveyResponses);
+    return result[0].count;
+  }
+  
+  async getWaitingListCount(): Promise<number> {
+    const result = await db.select({ count: count() }).from(waitingList);
+    return result[0].count;
   }
 
   async getSurveyAnalytics(): Promise<{questionId: number, yesCount: number, noCount: number}[]> {
