@@ -41,7 +41,7 @@ const upload = multer({
 let stripe: Stripe | undefined;
 if (process.env.STRIPE_SECRET_KEY) {
   stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: "2023-10-16",
+    apiVersion: "2023-10-16" as any, // Force type to avoid version mismatch issues
   });
 }
 

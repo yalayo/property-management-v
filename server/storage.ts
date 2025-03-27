@@ -8,6 +8,8 @@ import {
   uploadedFiles, type UploadedFile, type InsertUploadedFile,
   questions, type Question, type InsertQuestion
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -148,7 +150,16 @@ export class MemStorage implements IStorage {
   
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentUserId++;
-    const user: User = { ...insertUser, id, isAdmin: false, subscriptionType: null, subscriptionStatus: null, stripeCustomerId: null, stripeSubscriptionId: null };
+    const user: User = { 
+      ...insertUser, 
+      id, 
+      isAdmin: false, 
+      subscriptionType: null, 
+      subscriptionStatus: null, 
+      stripeCustomerId: null, 
+      stripeSubscriptionId: null,
+      fullName: insertUser.fullName || null
+    };
     this.users.set(id, user);
     return user;
   }
@@ -179,7 +190,15 @@ export class MemStorage implements IStorage {
   // Properties
   async createProperty(property: InsertProperty): Promise<Property> {
     const id = this.currentPropertyId++;
-    const newProperty: Property = { ...property, id };
+    const newProperty: Property = { 
+      ...property, 
+      id,
+      country: property.country || null,
+      units: property.units || null,
+      acquisitionDate: property.acquisitionDate || null,
+      purchasePrice: property.purchasePrice || null,
+      currentValue: property.currentValue || null
+    };
     this.properties.set(id, newProperty);
     return newProperty;
   }
@@ -206,7 +225,16 @@ export class MemStorage implements IStorage {
   // Tenants
   async createTenant(tenant: InsertTenant): Promise<Tenant> {
     const id = this.currentTenantId++;
-    const newTenant: Tenant = { ...tenant, id };
+    const newTenant: Tenant = { 
+      ...tenant, 
+      id,
+      email: tenant.email || null,
+      phone: tenant.phone || null,
+      leaseStart: tenant.leaseStart || null,
+      leaseEnd: tenant.leaseEnd || null,
+      monthlyRent: tenant.monthlyRent || null,
+      active: tenant.active ?? null
+    };
     this.tenants.set(id, newTenant);
     return newTenant;
   }
@@ -230,7 +258,12 @@ export class MemStorage implements IStorage {
   // Payments
   async createPayment(payment: InsertPayment): Promise<Payment> {
     const id = this.currentPaymentId++;
-    const newPayment: Payment = { ...payment, id };
+    const newPayment: Payment = { 
+      ...payment, 
+      id,
+      status: payment.status || null,
+      notes: payment.notes || null
+    };
     this.payments.set(id, newPayment);
     return newPayment;
   }
@@ -265,7 +298,12 @@ export class MemStorage implements IStorage {
   // Survey
   async createSurveyResponse(response: InsertSurveyResponse): Promise<SurveyResponse> {
     const id = this.currentSurveyResponseId++;
-    const newResponse: SurveyResponse = { ...response, id, submittedAt: new Date() };
+    const newResponse: SurveyResponse = { 
+      ...response, 
+      id, 
+      submittedAt: new Date(),
+      email: response.email || null
+    };
     this.surveyResponses.set(id, newResponse);
     return newResponse;
   }
@@ -306,7 +344,12 @@ export class MemStorage implements IStorage {
     }
     
     const id = this.currentWaitingListId++;
-    const newEntry: WaitingList = { ...entry, id, joinedAt: new Date() };
+    const newEntry: WaitingList = { 
+      ...entry, 
+      id, 
+      joinedAt: new Date(),
+      fullName: entry.fullName || null
+    };
     this.waitingListEntries.set(id, newEntry);
     return newEntry;
   }
@@ -353,7 +396,11 @@ export class MemStorage implements IStorage {
   // Questions
   async createQuestion(question: InsertQuestion): Promise<Question> {
     const id = this.currentQuestionId++;
-    const newQuestion: Question = { ...question, id };
+    const newQuestion: Question = { 
+      ...question, 
+      id,
+      active: question.active ?? null
+    };
     this.questionsList.set(id, newQuestion);
     return newQuestion;
   }
@@ -367,4 +414,316 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DatabaseStorage implements IStorage {
+  constructor() {
+    // Initialize with some default questions data
+    this.initializeDefaultData();
+  }
+
+  private async initializeDefaultData() {
+    try {
+      // Check if we already have questions in the database
+      const existingQuestions = await db.select().from(questions);
+      if (existingQuestions.length === 0) {
+        console.log("Initializing database with default questions...");
+        
+        // Same questions as in MemStorage
+        const sampleQuestions = [
+          "Do you own multiple rental properties?",
+          "Do you struggle with tracking tenant payments?",
+          "Do you currently use Excel to manage your properties?",
+          "Is responding to tenant inquiries time-consuming?",
+          "Do you find it difficult to keep track of property maintenance?",
+          "Are you concerned about complying with German rental laws?",
+          "Do you manage your rental properties remotely?",
+          "Do you have issues with regular financial reporting?",
+          "Would you like to automate tenant communications?",
+          "Do you have trouble managing utility bills?",
+          "Are you manually creating lease agreements?",
+          "Do you have a system for tenant screening?",
+          "Are you facing issues with property vacancy rates?",
+          "Do you struggle with tax documentation for your properties?",
+          "Would you benefit from automated payment reminders?",
+          "Do you have a system for handling maintenance requests?",
+          "Are you interested in analyzing your property performance data?",
+          "Do you find bank statement reconciliation tedious?",
+          "Would you like to reduce administrative time spent on property management?",
+          "Are you looking for better ways to manage property documentation?"
+        ];
+
+        // Insert all questions
+        for (let i = 0; i < sampleQuestions.length; i++) {
+          await this.createQuestion({
+            text: sampleQuestions[i],
+            order: i + 1,
+            active: true
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error initializing database:", error);
+    }
+  }
+
+  // Users
+  async getUser(id: number): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.id, id));
+    return result[0];
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.username, username));
+    return result[0];
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.email, email));
+    return result[0];
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const result = await db.insert(users).values({
+      ...insertUser,
+      isAdmin: false,
+      subscriptionType: null,
+      subscriptionStatus: null,
+      stripeCustomerId: null,
+      stripeSubscriptionId: null
+    }).returning();
+    return result[0];
+  }
+
+  async updateStripeCustomerId(userId: number, customerId: string): Promise<User> {
+    const result = await db.update(users)
+      .set({ stripeCustomerId: customerId })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    if (result.length === 0) {
+      throw new Error(`User with ID ${userId} not found`);
+    }
+    
+    return result[0];
+  }
+
+  async updateUserStripeInfo(userId: number, info: { customerId: string, subscriptionId: string }): Promise<User> {
+    const result = await db.update(users)
+      .set({ 
+        stripeCustomerId: info.customerId,
+        stripeSubscriptionId: info.subscriptionId,
+        subscriptionType: 'monthly',
+        subscriptionStatus: 'active'
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    if (result.length === 0) {
+      throw new Error(`User with ID ${userId} not found`);
+    }
+    
+    return result[0];
+  }
+
+  // Properties
+  async createProperty(property: InsertProperty): Promise<Property> {
+    const result = await db.insert(properties).values(property).returning();
+    return result[0];
+  }
+
+  async getPropertyById(id: number): Promise<Property | undefined> {
+    const result = await db.select().from(properties).where(eq(properties.id, id));
+    return result[0];
+  }
+
+  async getPropertiesByUserId(userId: number): Promise<Property[]> {
+    return db.select().from(properties).where(eq(properties.userId, userId));
+  }
+
+  async updateProperty(id: number, property: Partial<InsertProperty>): Promise<Property | undefined> {
+    const result = await db.update(properties)
+      .set(property)
+      .where(eq(properties.id, id))
+      .returning();
+    
+    return result[0];
+  }
+
+  // Tenants
+  async createTenant(tenant: InsertTenant): Promise<Tenant> {
+    const result = await db.insert(tenants).values(tenant).returning();
+    return result[0];
+  }
+
+  async getTenantById(id: number): Promise<Tenant | undefined> {
+    const result = await db.select().from(tenants).where(eq(tenants.id, id));
+    return result[0];
+  }
+
+  async getTenantsByPropertyId(propertyId: number): Promise<Tenant[]> {
+    return db.select().from(tenants).where(eq(tenants.propertyId, propertyId));
+  }
+
+  async getTenantsByUserId(userId: number): Promise<Tenant[]> {
+    return db.select().from(tenants).where(eq(tenants.userId, userId));
+  }
+
+  // Payments
+  async createPayment(payment: InsertPayment): Promise<Payment> {
+    const result = await db.insert(payments).values(payment).returning();
+    return result[0];
+  }
+
+  async getPaymentsByTenantId(tenantId: number): Promise<Payment[]> {
+    return db.select()
+      .from(payments)
+      .where(eq(payments.tenantId, tenantId))
+      .orderBy(desc(payments.date));
+  }
+
+  async getLatePayers(userId: number): Promise<{tenant: Tenant, lastPayment: Payment | null}[]> {
+    const tenants = await this.getTenantsByUserId(userId);
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    
+    const result: {tenant: Tenant, lastPayment: Payment | null}[] = [];
+    
+    for (const tenant of tenants) {
+      if (!tenant.active) continue;
+      
+      const paymentsForTenant = await this.getPaymentsByTenantId(tenant.id);
+      const lastPayment = paymentsForTenant.length > 0 ? paymentsForTenant[0] : null;
+      
+      const isPotentiallyLate = !lastPayment || 
+        new Date(lastPayment.date).getMonth() !== currentMonth || 
+        new Date(lastPayment.date).getFullYear() !== currentYear;
+      
+      if (isPotentiallyLate) {
+        result.push({ tenant, lastPayment });
+      }
+    }
+    
+    return result;
+  }
+
+  // Survey
+  async createSurveyResponse(response: InsertSurveyResponse): Promise<SurveyResponse> {
+    const result = await db.insert(surveyResponses).values({
+      ...response,
+      submittedAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async getAllSurveyResponses(): Promise<SurveyResponse[]> {
+    return db.select().from(surveyResponses);
+  }
+
+  async getSurveyAnalytics(): Promise<{questionId: number, yesCount: number, noCount: number}[]> {
+    const responses = await this.getAllSurveyResponses();
+    const allQuestions = await this.getAllQuestions();
+    
+    // Initialize result with all questions
+    const result = allQuestions.map(q => ({
+      questionId: q.id,
+      yesCount: 0,
+      noCount: 0
+    }));
+    
+    // Process all responses
+    for (const response of responses) {
+      const responseData = response.responses as unknown as { questionId: number, answer: boolean }[];
+      
+      if (Array.isArray(responseData)) {
+        for (const item of responseData) {
+          const statsIndex = result.findIndex(r => r.questionId === item.questionId);
+          if (statsIndex !== -1) {
+            if (item.answer) {
+              result[statsIndex].yesCount++;
+            } else {
+              result[statsIndex].noCount++;
+            }
+          }
+        }
+      }
+    }
+    
+    return result;
+  }
+
+  // Waiting List
+  async addToWaitingList(entry: InsertWaitingList): Promise<WaitingList> {
+    // Check if email already exists
+    const exists = await this.isEmailInWaitingList(entry.email);
+    if (exists) {
+      throw new Error("Email already in waiting list");
+    }
+    
+    const result = await db.insert(waitingList).values({
+      ...entry,
+      joinedAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async isEmailInWaitingList(email: string): Promise<boolean> {
+    const result = await db.select().from(waitingList).where(eq(waitingList.email, email));
+    return result.length > 0;
+  }
+
+  async getWaitingList(): Promise<WaitingList[]> {
+    return db.select().from(waitingList);
+  }
+
+  // Files
+  async uploadFile(file: InsertUploadedFile): Promise<UploadedFile> {
+    const result = await db.insert(uploadedFiles).values({
+      ...file,
+      uploadDate: new Date(),
+      processed: false,
+      extractedData: null
+    }).returning();
+    return result[0];
+  }
+
+  async getFilesByUserId(userId: number): Promise<UploadedFile[]> {
+    return db.select()
+      .from(uploadedFiles)
+      .where(eq(uploadedFiles.userId, userId))
+      .orderBy(desc(uploadedFiles.uploadDate));
+  }
+
+  async updateFileData(fileId: number, extractedData: any): Promise<UploadedFile> {
+    const result = await db.update(uploadedFiles)
+      .set({
+        processed: true,
+        extractedData
+      })
+      .where(eq(uploadedFiles.id, fileId))
+      .returning();
+    
+    if (result.length === 0) {
+      throw new Error(`File with ID ${fileId} not found`);
+    }
+    
+    return result[0];
+  }
+
+  // Questions
+  async createQuestion(question: InsertQuestion): Promise<Question> {
+    const result = await db.insert(questions).values(question).returning();
+    return result[0];
+  }
+
+  async getAllQuestions(): Promise<Question[]> {
+    return db.select().from(questions).orderBy(questions.order);
+  }
+
+  async getActiveQuestions(): Promise<Question[]> {
+    return db.select()
+      .from(questions)
+      .where(eq(questions.active, true))
+      .orderBy(questions.order);
+  }
+}
+
+export const storage = new DatabaseStorage();

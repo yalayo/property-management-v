@@ -9,8 +9,9 @@ import { AlertCircle, ArrowLeft, CheckCircle } from "lucide-react";
 import { PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { apiRequest } from "@/lib/queryClient";
 
-// Initialize Stripe
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || "");
+// Initialize Stripe with the public key, not the secret key
+import { getStripe } from "@/lib/stripe";
+const stripePromise = getStripe();
 
 // Payment tiers configuration
 const tiers = {
