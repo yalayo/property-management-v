@@ -126,7 +126,8 @@ export default function Survey({ onCompleted }: SurveyProps) {
     });
   };
 
-  // Skip email and just submit survey
+  // Function is still here for future use if needed
+  // Though Skip button is now removed from the UI
   const skipEmail = () => {
     submitSurveyMutation.mutate({ responses });
   };
@@ -206,8 +207,8 @@ export default function Survey({ onCompleted }: SurveyProps) {
                   </h3>
                   <div className="mt-4 space-y-4">
                     <RadioGroup 
-                      defaultValue={
-                        responses.find(r => r.questionId === questions[currentQuestionIndex].id)?.answer.toString()
+                      value={
+                        responses.find(r => r.questionId === questions[currentQuestionIndex].id)?.answer.toString() || undefined
                       }
                       onValueChange={(value) => handleAnswerSelection(value === "true")}
                     >
@@ -249,22 +250,13 @@ export default function Survey({ onCompleted }: SurveyProps) {
                       </div>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex justify-end">
                       <Button 
                         type="submit" 
                         className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600"
                         disabled={submitSurveyMutation.isPending}
                       >
                         {submitSurveyMutation.isPending ? 'Submitting...' : 'Continue'}
-                      </Button>
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        onClick={skipEmail} 
-                        disabled={submitSurveyMutation.isPending}
-                        className="border-indigo-200 text-gray-700 hover:bg-indigo-50"
-                      >
-                        Skip
                       </Button>
                     </div>
                   </form>
