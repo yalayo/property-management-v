@@ -30,7 +30,11 @@ type Question = {
   order: number;
 };
 
-export default function Survey() {
+interface SurveyProps {
+  onCompleted?: (email: string) => void;
+}
+
+export default function Survey({ onCompleted }: SurveyProps) {
   const [location, navigate] = useLocation();
   const { toast } = useToast();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -57,12 +61,19 @@ export default function Survey() {
   const submitSurveyMutation = useMutation({
     mutationFn: (data: { email?: string; responses: typeof responses }) => 
       apiRequest('POST', '/api/survey', data),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       toast({
         title: "Survey submitted",
         description: "Thank you for completing our survey!",
       });
-      navigate("/waiting-list");
+      
+      // If onCompleted callback was provided, pass the email
+      if (onCompleted && variables.email) {
+        onCompleted(variables.email);
+      } else {
+        // Otherwise navigate to waiting list
+        navigate("/waiting-list");
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -127,11 +138,11 @@ export default function Survey() {
 
   if (isLoading) {
     return (
-      <div id="survey" className="py-12 bg-gray-50">
+      <div id="survey" className="py-12 bg-gradient-to-b from-indigo-50 to-white">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <div className="flex justify-center">
-              <div className="animate-spin w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full" />
+              <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
             </div>
             <p className="mt-2 text-gray-500">Loading survey questions...</p>
           </div>
@@ -142,10 +153,10 @@ export default function Survey() {
 
   if (error) {
     return (
-      <div id="survey" className="py-12 bg-gray-50">
+      <div id="survey" className="py-12 bg-gradient-to-b from-indigo-50 to-white">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-base text-primary-600 font-semibold tracking-wide uppercase">Error</h2>
+            <h2 className="text-base text-primary font-semibold tracking-wide uppercase">Error</h2>
             <p className="mt-2 text-gray-500">Failed to load survey questions. Please try again later.</p>
           </div>
         </div>
@@ -159,20 +170,20 @@ export default function Survey() {
     : 0;
 
   return (
-    <div id="survey" className="py-12 bg-gray-50">
+    <div id="survey" className="py-16 bg-gradient-to-b from-indigo-50 to-white">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center">
-          <h2 className="text-base text-primary-600 font-semibold tracking-wide uppercase">Take Our Survey</h2>
+          <h2 className="text-base bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-blue-500 font-semibold tracking-wide uppercase">Take Our Survey</h2>
           <p className="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-gray-900 sm:text-4xl">
             Tell us about your property management challenges
           </p>
           <p className="mt-4 max-w-2xl text-xl text-gray-500 mx-auto">
-            Answer 20 quick yes/no questions to help us understand your needs and join our waiting list.
+            Answer a few quick questions to help us understand your needs and find the perfect solution for you.
           </p>
         </div>
 
-        <div className="mt-10 bg-white shadow-sm rounded-lg overflow-hidden">
-          <div className="px-4 py-5 sm:p-6">
+        <div className="mt-10 bg-white shadow-lg rounded-xl overflow-hidden border border-indigo-100">
+          <div className="px-6 py-8">
             <div className="survey-container relative">
               {/* Progress indicator */}
               <div className="mb-6">
@@ -189,7 +200,7 @@ export default function Survey() {
                   )}
                   <span className="text-sm font-medium text-gray-700">{progressPercentage}%</span>
                 </div>
-                <Progress value={progressPercentage} className="w-full h-2.5" />
+                <Progress value={progressPercentage} className="w-full h-2.5 bg-indigo-100" />
               </div>
 
               {/* Survey questions */}
@@ -206,11 +217,11 @@ export default function Survey() {
                       onValueChange={(value) => handleAnswerSelection(value === "true")}
                     >
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="true" id="yes" />
+                        <RadioGroupItem value="true" id="yes" className="text-primary" />
                         <Label htmlFor="yes">Yes</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="false" id="no" />
+                        <RadioGroupItem value="false" id="no" className="text-primary" />
                         <Label htmlFor="no">No</Label>
                       </div>
                     </RadioGroup>
@@ -221,9 +232,9 @@ export default function Survey() {
               {/* Email form */}
               {showEmailForm && (
                 <div className="survey-question">
-                  <h3 className="text-lg font-medium leading-6 text-gray-900">Thanks for completing our survey!</h3>
+                  <h3 className="text-xl font-medium leading-6 text-gray-900">Thanks for completing our survey!</h3>
                   <p className="mt-2 text-sm text-gray-500">
-                    Join our waiting list to be among the first to access our property management system.
+                    Enter your email to see our pricing plans tailored for your needs.
                   </p>
                   
                   <form onSubmit={handleSubmit(onEmailSubmit)} className="mt-4">
@@ -235,7 +246,7 @@ export default function Survey() {
                           id="email"
                           placeholder="you@example.com"
                           {...register("email")}
-                          className={errors.email ? "border-red-300" : ""}
+                          className={errors.email ? "border-red-300" : "border-indigo-200 focus:border-primary focus:ring-primary"}
                         />
                         {errors.email && (
                           <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
@@ -246,16 +257,17 @@ export default function Survey() {
                     <div className="flex gap-2">
                       <Button 
                         type="submit" 
-                        className="inline-flex items-center px-4 py-2"
+                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600"
                         disabled={submitSurveyMutation.isPending}
                       >
-                        {submitSurveyMutation.isPending ? 'Submitting...' : 'Join Waiting List'}
+                        {submitSurveyMutation.isPending ? 'Submitting...' : 'See Pricing Plans'}
                       </Button>
                       <Button 
                         type="button" 
                         variant="outline" 
                         onClick={skipEmail} 
                         disabled={submitSurveyMutation.isPending}
+                        className="border-indigo-200 text-gray-700 hover:bg-indigo-50"
                       >
                         Skip
                       </Button>
@@ -271,6 +283,7 @@ export default function Survey() {
                   variant="outline"
                   onClick={handlePrevious}
                   disabled={currentQuestionIndex === 0 && !showEmailForm}
+                  className="border-indigo-200 text-gray-700 hover:bg-indigo-50"
                 >
                   Previous
                 </Button>
@@ -288,6 +301,7 @@ export default function Survey() {
                     disabled={
                       !responses.some(r => r.questionId === (questions ? questions[currentQuestionIndex].id : -1))
                     }
+                    className="bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600"
                   >
                     {isLastQuestion ? 'Finish' : 'Next'}
                   </Button>
