@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar, date, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar, date, doublePrecision, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -118,6 +118,70 @@ export const transactions = pgTable("transactions", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Maintenance request status enum
+export const maintenanceStatusEnum = pgEnum('maintenance_status', [
+  'pending',
+  'in_progress',
+  'completed',
+  'declined',
+  'deferred'
+]);
+
+// Maintenance request priority enum
+export const maintenancePriorityEnum = pgEnum('maintenance_priority', [
+  'low', 
+  'medium', 
+  'high', 
+  'emergency'
+]);
+
+// Maintenance requests table
+export const maintenanceRequests = pgTable("maintenance_requests", {
+  id: serial("id").primaryKey(),
+  propertyId: integer("property_id").notNull().references(() => properties.id),
+  tenantId: integer("tenant_id").references(() => tenants.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  status: maintenanceStatusEnum("status").default("pending").notNull(),
+  priority: maintenancePriorityEnum("priority").default("medium").notNull(),
+  requestDate: timestamp("request_date").defaultNow().notNull(),
+  scheduledDate: timestamp("scheduled_date"),
+  completionDate: timestamp("completion_date"),
+  estimatedCost: doublePrecision("estimated_cost"),
+  actualCost: doublePrecision("actual_cost"),
+  serviceProviderId: integer("service_provider_id"),
+  notes: text("notes"),
+  attachmentIds: integer("attachment_ids").array(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Maintenance comments for communication
+export const maintenanceComments = pgTable("maintenance_comments", {
+  id: serial("id").primaryKey(),
+  maintenanceRequestId: integer("maintenance_request_id").notNull().references(() => maintenanceRequests.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  comment: text("comment").notNull(),
+  attachmentId: integer("attachment_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Service providers for maintenance
+export const serviceProviders = pgTable("service_providers", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  name: text("name").notNull(),
+  email: text("email"),
+  phone: text("phone"),
+  address: text("address"),
+  specialty: text("specialty"),
+  hourlyRate: doublePrecision("hourly_rate"),
+  isPreferred: boolean("is_preferred").default(false),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Bank accounts for users to track income/expenses
 export const bankAccounts = pgTable("bank_accounts", {
   id: serial("id").primaryKey(),
@@ -229,6 +293,24 @@ export const insertBudgetSchema = createInsertSchema(budgets).omit({
   createdAt: true,
 });
 
+// Maintenance module schemas
+export const insertMaintenanceRequestSchema = createInsertSchema(maintenanceRequests).omit({
+  id: true,
+  requestDate: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertMaintenanceCommentSchema = createInsertSchema(maintenanceComments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertServiceProviderSchema = createInsertSchema(serviceProviders).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Form validation schemas for accounting
 export const transactionFormSchema = insertTransactionSchema
   .extend({
@@ -245,6 +327,29 @@ export const bankAccountFormSchema = insertBankAccountSchema
     bankName: z.string().min(1, "Bank name is required"),
     currency: z.string().min(1, "Currency is required"),
     currentBalance: z.coerce.number().default(0),
+  });
+
+// Maintenance request form validation schema
+export const maintenanceRequestFormSchema = insertMaintenanceRequestSchema
+  .extend({
+    title: z.string().min(1, "Title is required"),
+    description: z.string().min(1, "Description is required"),
+    status: z.enum(['pending', 'in_progress', 'completed', 'declined', 'deferred']),
+    priority: z.enum(['low', 'medium', 'high', 'emergency']),
+    estimatedCost: z.coerce.number().optional().nullable(),
+    scheduledDate: z.coerce.date().optional().nullable(),
+  });
+
+export const maintenanceCommentFormSchema = insertMaintenanceCommentSchema
+  .extend({
+    comment: z.string().min(1, "Comment is required"),
+  });
+
+export const serviceProviderFormSchema = insertServiceProviderSchema
+  .extend({
+    name: z.string().min(1, "Service provider name is required"),
+    email: z.string().email("Invalid email address").optional().nullable(),
+    phone: z.string().optional().nullable(),
   });
 
 // Survey schema
@@ -303,3 +408,16 @@ export type TaxYear = typeof taxYears.$inferSelect;
 
 export type InsertBudget = z.infer<typeof insertBudgetSchema>;
 export type Budget = typeof budgets.$inferSelect;
+
+// Maintenance Module Types
+export type InsertMaintenanceRequest = z.infer<typeof insertMaintenanceRequestSchema>;
+export type MaintenanceRequest = typeof maintenanceRequests.$inferSelect;
+export type MaintenanceRequestForm = z.infer<typeof maintenanceRequestFormSchema>;
+
+export type InsertMaintenanceComment = z.infer<typeof insertMaintenanceCommentSchema>;
+export type MaintenanceComment = typeof maintenanceComments.$inferSelect;
+export type MaintenanceCommentForm = z.infer<typeof maintenanceCommentFormSchema>;
+
+export type InsertServiceProvider = z.infer<typeof insertServiceProviderSchema>;
+export type ServiceProvider = typeof serviceProviders.$inferSelect;
+export type ServiceProviderForm = z.infer<typeof serviceProviderFormSchema>;

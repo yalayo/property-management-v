@@ -12,7 +12,11 @@ import {
   transactions, type Transaction, type InsertTransaction,
   bankAccounts, type BankAccount, type InsertBankAccount,
   taxYears, type TaxYear, type InsertTaxYear,
-  budgets, type Budget, type InsertBudget
+  budgets, type Budget, type InsertBudget,
+  // Maintenance module imports
+  maintenanceRequests, type MaintenanceRequest, type InsertMaintenanceRequest,
+  maintenanceComments, type MaintenanceComment, type InsertMaintenanceComment, 
+  serviceProviders, type ServiceProvider, type InsertServiceProvider
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, count } from "drizzle-orm";
@@ -132,6 +136,31 @@ export interface IStorage {
     variance: number,
     percentUsed: number
   }[]>;
+  
+  // ===== MAINTENANCE MODULE =====
+  
+  // Maintenance Requests
+  createMaintenanceRequest(request: InsertMaintenanceRequest): Promise<MaintenanceRequest>;
+  getMaintenanceRequestById(id: number): Promise<MaintenanceRequest | undefined>;
+  getMaintenanceRequestsByUserId(userId: number, filters?: {
+    status?: string,
+    propertyId?: number,
+    priority?: string
+  }): Promise<MaintenanceRequest[]>;
+  getMaintenanceRequestsByPropertyId(propertyId: number): Promise<MaintenanceRequest[]>;
+  updateMaintenanceRequest(id: number, data: Partial<InsertMaintenanceRequest>): Promise<MaintenanceRequest | undefined>;
+  deleteMaintenanceRequest(id: number): Promise<boolean>;
+  
+  // Maintenance Comments
+  createMaintenanceComment(comment: InsertMaintenanceComment): Promise<MaintenanceComment>;
+  getMaintenanceCommentsByRequestId(requestId: number): Promise<MaintenanceComment[]>;
+  
+  // Service Providers
+  createServiceProvider(provider: InsertServiceProvider): Promise<ServiceProvider>;
+  getServiceProvidersByUserId(userId: number): Promise<ServiceProvider[]>;
+  getServiceProviderById(id: number): Promise<ServiceProvider | undefined>;
+  updateServiceProvider(id: number, data: Partial<InsertServiceProvider>): Promise<ServiceProvider | undefined>;
+  deleteServiceProvider(id: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -151,6 +180,11 @@ export class MemStorage implements IStorage {
   private taxYears: Map<number, TaxYear>;
   private budgets: Map<number, Budget>;
   
+  // Maintenance module storage
+  private maintenanceRequests: Map<number, MaintenanceRequest>;
+  private maintenanceComments: Map<number, MaintenanceComment>;
+  private serviceProviders: Map<number, ServiceProvider>;
+  
   private currentUserId: number;
   private currentPropertyId: number;
   private currentTenantId: number;
@@ -166,6 +200,11 @@ export class MemStorage implements IStorage {
   private currentBankAccountId: number;
   private currentTaxYearId: number;
   private currentBudgetId: number;
+  
+  // Maintenance module IDs
+  private currentMaintenanceRequestId: number;
+  private currentMaintenanceCommentId: number;
+  private currentServiceProviderId: number;
   
   constructor() {
     this.users = new Map();
@@ -184,6 +223,11 @@ export class MemStorage implements IStorage {
     this.taxYears = new Map();
     this.budgets = new Map();
     
+    // Initialize maintenance module storage
+    this.maintenanceRequests = new Map();
+    this.maintenanceComments = new Map();
+    this.serviceProviders = new Map();
+    
     this.currentUserId = 1;
     this.currentPropertyId = 1;
     this.currentTenantId = 1;
@@ -199,6 +243,11 @@ export class MemStorage implements IStorage {
     this.currentBankAccountId = 1;
     this.currentTaxYearId = 1;
     this.currentBudgetId = 1;
+    
+    // Initialize maintenance module IDs
+    this.currentMaintenanceRequestId = 1;
+    this.currentMaintenanceCommentId = 1;
+    this.currentServiceProviderId = 1;
     
     // Initialize with 20 questions
     const sampleQuestions = [
@@ -981,6 +1030,142 @@ export class MemStorage implements IStorage {
     
     return result;
   }
+
+  // ===== MAINTENANCE MODULE =====
+  
+  // Maintenance Requests
+  async createMaintenanceRequest(request: InsertMaintenanceRequest): Promise<MaintenanceRequest> {
+    const id = this.currentMaintenanceRequestId++;
+    const newRequest: MaintenanceRequest = {
+      ...request,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      estimatedCost: request.estimatedCost || null,
+      actualCost: request.actualCost || null,
+      completionDate: request.completionDate || null,
+      attachmentIds: request.attachmentIds || null,
+      serviceProviderId: request.serviceProviderId || null
+    };
+    this.maintenanceRequests.set(id, newRequest);
+    return newRequest;
+  }
+
+  async getMaintenanceRequestById(id: number): Promise<MaintenanceRequest | undefined> {
+    return this.maintenanceRequests.get(id);
+  }
+
+  async getMaintenanceRequestsByUserId(userId: number, filters?: {
+    status?: string,
+    propertyId?: number,
+    priority?: string
+  }): Promise<MaintenanceRequest[]> {
+    let requests = Array.from(this.maintenanceRequests.values()).filter(
+      (request) => request.userId === userId
+    );
+
+    if (filters) {
+      if (filters.status) {
+        requests = requests.filter(request => request.status === filters.status);
+      }
+      if (filters.propertyId) {
+        requests = requests.filter(request => request.propertyId === filters.propertyId);
+      }
+      if (filters.priority) {
+        requests = requests.filter(request => request.priority === filters.priority);
+      }
+    }
+
+    return requests;
+  }
+
+  async getMaintenanceRequestsByPropertyId(propertyId: number): Promise<MaintenanceRequest[]> {
+    return Array.from(this.maintenanceRequests.values()).filter(
+      (request) => request.propertyId === propertyId
+    );
+  }
+
+  async updateMaintenanceRequest(id: number, data: Partial<InsertMaintenanceRequest>): Promise<MaintenanceRequest | undefined> {
+    const request = await this.getMaintenanceRequestById(id);
+    if (!request) return undefined;
+    
+    const updatedRequest = { 
+      ...request, 
+      ...data, 
+      updatedAt: new Date() 
+    };
+    this.maintenanceRequests.set(id, updatedRequest);
+    return updatedRequest;
+  }
+
+  async deleteMaintenanceRequest(id: number): Promise<boolean> {
+    const request = await this.getMaintenanceRequestById(id);
+    if (!request) return false;
+    
+    return this.maintenanceRequests.delete(id);
+  }
+  
+  // Maintenance Comments
+  async createMaintenanceComment(comment: InsertMaintenanceComment): Promise<MaintenanceComment> {
+    const id = this.currentMaintenanceCommentId++;
+    const newComment: MaintenanceComment = {
+      ...comment,
+      id,
+      createdAt: new Date()
+    };
+    this.maintenanceComments.set(id, newComment);
+    return newComment;
+  }
+
+  async getMaintenanceCommentsByRequestId(requestId: number): Promise<MaintenanceComment[]> {
+    return Array.from(this.maintenanceComments.values())
+      .filter((comment) => comment.maintenanceRequestId === requestId)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  }
+  
+  // Service Providers
+  async createServiceProvider(provider: InsertServiceProvider): Promise<ServiceProvider> {
+    const id = this.currentServiceProviderId++;
+    const newProvider: ServiceProvider = {
+      ...provider,
+      id,
+      email: provider.email || null,
+      phone: provider.phone || null,
+      specialty: provider.specialty || null,
+      notes: provider.notes || null,
+      isPreferred: provider.isPreferred ?? null,
+      hourlyRate: provider.hourlyRate ?? null,
+      createdAt: new Date()
+    };
+    this.serviceProviders.set(id, newProvider);
+    return newProvider;
+  }
+
+  async getServiceProvidersByUserId(userId: number): Promise<ServiceProvider[]> {
+    return Array.from(this.serviceProviders.values()).filter(
+      (provider) => provider.userId === userId
+    );
+  }
+
+  async getServiceProviderById(id: number): Promise<ServiceProvider | undefined> {
+    return this.serviceProviders.get(id);
+  }
+
+  async updateServiceProvider(id: number, data: Partial<InsertServiceProvider>): Promise<ServiceProvider | undefined> {
+    const provider = await this.getServiceProviderById(id);
+    if (!provider) return undefined;
+    
+    const updatedProvider = { ...provider, ...data };
+    this.serviceProviders.set(id, updatedProvider);
+    return updatedProvider;
+  }
+
+  async deleteServiceProvider(id: number): Promise<boolean> {
+    const provider = await this.getServiceProviderById(id);
+    if (!provider) return false;
+    
+    return this.serviceProviders.delete(id);
+  }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1721,6 +1906,124 @@ export class DatabaseStorage implements IStorage {
     }
     
     return result;
+  }
+
+  // ===== MAINTENANCE MODULE =====
+  
+  // Maintenance Requests
+  async createMaintenanceRequest(request: InsertMaintenanceRequest): Promise<MaintenanceRequest> {
+    const result = await db.insert(maintenanceRequests).values({
+      ...request,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async getMaintenanceRequestById(id: number): Promise<MaintenanceRequest | undefined> {
+    const result = await db.select().from(maintenanceRequests).where(eq(maintenanceRequests.id, id));
+    return result[0];
+  }
+
+  async getMaintenanceRequestsByUserId(userId: number, filters?: {
+    status?: string,
+    propertyId?: number,
+    priority?: string
+  }): Promise<MaintenanceRequest[]> {
+    let query = db.select().from(maintenanceRequests).where(eq(maintenanceRequests.userId, userId));
+    
+    if (filters) {
+      if (filters.status) {
+        query = query.where(eq(maintenanceRequests.status, filters.status));
+      }
+      if (filters.propertyId) {
+        query = query.where(eq(maintenanceRequests.propertyId, filters.propertyId));
+      }
+      if (filters.priority) {
+        query = query.where(eq(maintenanceRequests.priority, filters.priority));
+      }
+    }
+    
+    return query.orderBy(desc(maintenanceRequests.createdAt));
+  }
+
+  async getMaintenanceRequestsByPropertyId(propertyId: number): Promise<MaintenanceRequest[]> {
+    return db.select()
+      .from(maintenanceRequests)
+      .where(eq(maintenanceRequests.propertyId, propertyId))
+      .orderBy(desc(maintenanceRequests.createdAt));
+  }
+
+  async updateMaintenanceRequest(id: number, data: Partial<InsertMaintenanceRequest>): Promise<MaintenanceRequest | undefined> {
+    const result = await db.update(maintenanceRequests)
+      .set({
+        ...data,
+        updatedAt: new Date()
+      })
+      .where(eq(maintenanceRequests.id, id))
+      .returning();
+    
+    return result[0];
+  }
+
+  async deleteMaintenanceRequest(id: number): Promise<boolean> {
+    const result = await db.delete(maintenanceRequests)
+      .where(eq(maintenanceRequests.id, id))
+      .returning();
+    
+    return result.length > 0;
+  }
+  
+  // Maintenance Comments
+  async createMaintenanceComment(comment: InsertMaintenanceComment): Promise<MaintenanceComment> {
+    const result = await db.insert(maintenanceComments).values({
+      ...comment,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async getMaintenanceCommentsByRequestId(requestId: number): Promise<MaintenanceComment[]> {
+    return db.select()
+      .from(maintenanceComments)
+      .where(eq(maintenanceComments.requestId, requestId))
+      .orderBy(maintenanceComments.createdAt);
+  }
+  
+  // Service Providers
+  async createServiceProvider(provider: InsertServiceProvider): Promise<ServiceProvider> {
+    const result = await db.insert(serviceProviders).values(provider).returning();
+    return result[0];
+  }
+
+  async getServiceProvidersByUserId(userId: number): Promise<ServiceProvider[]> {
+    return db.select()
+      .from(serviceProviders)
+      .where(eq(serviceProviders.userId, userId));
+  }
+
+  async getServiceProviderById(id: number): Promise<ServiceProvider | undefined> {
+    const result = await db.select()
+      .from(serviceProviders)
+      .where(eq(serviceProviders.id, id));
+    return result[0];
+  }
+
+  async updateServiceProvider(id: number, data: Partial<InsertServiceProvider>): Promise<ServiceProvider | undefined> {
+    const result = await db.update(serviceProviders)
+      .set(data)
+      .where(eq(serviceProviders.id, id))
+      .returning();
+    
+    return result[0];
+  }
+
+  async deleteServiceProvider(id: number): Promise<boolean> {
+    const result = await db.delete(serviceProviders)
+      .where(eq(serviceProviders.id, id))
+      .returning();
+    
+    return result.length > 0;
   }
 }
 

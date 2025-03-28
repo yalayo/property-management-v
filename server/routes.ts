@@ -407,7 +407,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const onboardingData = req.body;
     
     // Store onboarding data based on the step
-    const updatedUser = await storage.updateUserOnboardingData(userId, onboardingData);
+    const updatedUser = await storage.updateUserOnboardingStatus(userId, false);
     
     res.json({
       success: true,
@@ -423,7 +423,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const userId = 1; // Mock user ID
     
     // Mark onboarding as complete
-    const updatedUser = await storage.updateUserCompletedOnboarding(userId, true);
+    const updatedUser = await storage.updateUserOnboardingStatus(userId, true);
     
     res.json({
       success: true,
