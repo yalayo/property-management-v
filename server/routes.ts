@@ -130,6 +130,308 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ exists });
   }));
 
+  // Authentication endpoints
+  app.post("/api/login", handleErrors(async (req, res) => {
+    const { username, password } = req.body;
+    
+    // Validate required fields
+    if (!username || !password) {
+      return res.status(400).json({ message: "Username and password are required" });
+    }
+    
+    // Get user by username
+    const user = await storage.getUserByUsername(username);
+    
+    // Check if user exists and password matches
+    if (!user || user.password !== password) {
+      return res.status(401).json({ message: "Invalid username or password" });
+    }
+    
+    // In a real application, we would set up a session with an encrypted cookie
+    // For simplicity in this demo, we'll use a simple session
+    if (!req.session) {
+      // Initialize session if it doesn't exist
+      req.session = {} as any;
+    }
+    
+    // Store user info in session (excluding password)
+    req.session.user = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      fullName: user.fullName || undefined,
+      isAdmin: user.isAdmin || false,
+      hasCompletedOnboarding: user.hasCompletedOnboarding || false,
+      subscriptionType: user.subscriptionType || undefined,
+      subscriptionStatus: user.subscriptionStatus || undefined
+    };
+    
+    // Return user data (without password)
+    return res.json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      fullName: user.fullName,
+      isAdmin: user.isAdmin,
+      hasCompletedOnboarding: user.hasCompletedOnboarding,
+      subscriptionType: user.subscriptionType,
+      subscriptionStatus: user.subscriptionStatus
+    });
+  }));
+  
+  app.post("/api/admin/login", handleErrors(async (req, res) => {
+    const { username, password } = req.body;
+    
+    // Validate required fields
+    if (!username || !password) {
+      return res.status(400).json({ message: "Username and password are required" });
+    }
+    
+    // Get user by username
+    const user = await storage.getUserByUsername(username);
+    
+    // Check if user exists, password matches, and user is an admin
+    if (!user || user.password !== password || !user.isAdmin) {
+      return res.status(401).json({ message: "Invalid admin credentials" });
+    }
+    
+    // In a real application, we would set up a session with an encrypted cookie
+    // For simplicity in this demo, we'll use a simple session
+    if (!req.session) {
+      // Initialize session if it doesn't exist
+      req.session = {} as any;
+    }
+    
+    // Store user info in session (excluding password)
+    req.session.user = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      fullName: user.fullName || undefined,
+      isAdmin: user.isAdmin
+    };
+    
+    // Return user data (without password)
+    return res.json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      fullName: user.fullName,
+      isAdmin: user.isAdmin
+    });
+  }));
+  
+  app.post("/api/logout", handleErrors(async (req, res) => {
+    // Clear the session
+    if (req.session) {
+      req.session.destroy((err) => {
+        if (err) {
+          return res.status(500).json({ message: "Failed to logout" });
+        }
+        res.json({ success: true, message: "Logged out successfully" });
+      });
+    } else {
+      res.json({ success: true, message: "No active session" });
+    }
+  }));
+  
+  app.get("/api/me", handleErrors(async (req, res) => {
+    // Check if user is logged in via session
+    if (req.session && req.session.user) {
+      return res.json(req.session.user);
+    }
+    
+    // For development testing with query parameter
+    const isForceLogin = req.query.forceLogin === 'true';
+    if (isForceLogin) {
+      const mockUser = await storage.getUser(1); // Get the first user from DB
+      if (mockUser) {
+        return res.json({
+          id: mockUser.id,
+          username: mockUser.username,
+          email: mockUser.email,
+          fullName: mockUser.fullName,
+          isAdmin: mockUser.isAdmin,
+          hasCompletedOnboarding: mockUser.hasCompletedOnboarding,
+          subscriptionType: mockUser.subscriptionType,
+          subscriptionStatus: mockUser.subscriptionStatus
+        });
+      }
+    }
+    
+    // Unauthorized if not logged in or no user found
+    return res.status(401).json({ message: "Not authenticated" });
+  }));
+
+  // Admin endpoints
+  // Middleware to check if user is admin
+  const isAdmin = (req: Request, res: Response, next: Function) => {
+    if (!req.session || !req.session.user || !req.session.user.isAdmin) {
+      return res.status(403).json({ message: "Access denied: Admin privileges required" });
+    }
+    next();
+  };
+  
+  // Admin dashboard data endpoint
+  app.get("/api/admin/dashboard", isAdmin, handleErrors(async (req, res) => {
+    // Get summary statistics for admin dashboard
+    const totalUsers = await storage.getUserCount();
+    const totalSurveyResponses = await storage.getSurveyResponseCount();
+    const totalWaitingList = await storage.getWaitingListCount();
+    
+    res.json({
+      totalUsers,
+      totalSurveyResponses,
+      totalWaitingList,
+      lastUpdated: new Date().toISOString()
+    });
+  }));
+  
+  app.get("/api/admin/survey-analytics", isAdmin, handleErrors(async (req, res) => {
+    const analytics = await storage.getSurveyAnalytics();
+    const questions = await storage.getAllQuestions();
+    
+    const enrichedAnalytics = analytics.map(stat => {
+      const question = questions.find(q => q.id === stat.questionId);
+      return {
+        ...stat,
+        questionText: question?.text || `Question ${stat.questionId}`,
+        totalResponses: stat.yesCount + stat.noCount,
+        yesPercentage: stat.yesCount + stat.noCount > 0 
+          ? Math.round((stat.yesCount / (stat.yesCount + stat.noCount)) * 100) 
+          : 0
+      };
+    });
+    
+    res.json(enrichedAnalytics);
+  }));
+
+  app.get("/api/admin/survey-responses", isAdmin, handleErrors(async (req, res) => {
+    const responses = await storage.getSurveyResponses();
+    const questions = await storage.getAllQuestions();
+    
+    // Enrich responses with question text for better readability
+    const enrichedResponses = responses.map(response => {
+      const parsedResponses = typeof response.responses === 'string' ? 
+        JSON.parse(response.responses) : response.responses;
+      
+      const enrichedResponsesData = Array.isArray(parsedResponses) ? 
+        parsedResponses.map((resp: any) => {
+          const question = questions.find(q => q.id === resp.questionId);
+          return {
+            ...resp,
+            questionText: question?.text || `Question ${resp.questionId}`
+          };
+        }) : [];
+      
+      return {
+        ...response,
+        enrichedResponses: enrichedResponsesData
+      };
+    });
+    
+    res.json(enrichedResponses);
+  }));
+
+  app.get("/api/admin/waiting-list", isAdmin, handleErrors(async (req, res) => {
+    const waitingList = await storage.getWaitingList();
+    res.json(waitingList);
+  }));
+
+  // File upload endpoints
+  app.post("/api/upload", upload.single("file"), handleErrors(async (req, res) => {
+    // In a real app, we would authenticate the user and get their ID
+    const userId = 1; // Mock user ID for now
+    
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+    
+    const fileType = path.extname(req.file.originalname).substring(1).toLowerCase();
+    
+    // Check if file type is supported
+    const supportedTypes = ['xlsx', 'xls', 'csv', 'pdf', 'doc', 'docx', 'txt'];
+    if (!supportedTypes.includes(fileType)) {
+      return res.status(400).json({ 
+        message: `Unsupported file type: ${fileType}. Supported types are: ${supportedTypes.join(', ')}` 
+      });
+    }
+    
+    const fileRecord = await storage.uploadFile({
+      userId,
+      filename: req.file.originalname,
+      fileType: fileType,
+    });
+    
+    // Process the file asynchronously
+    (async () => {
+      try {
+        console.log(`Starting AI data extraction for file: ${fileRecord.filename} (${fileType})`);
+        
+        // Extract data using Google Gemini
+        const extractedData = await extractDataFromFile(
+          req.file!.path,
+          fileType
+        );
+        
+        // Update the file record with the extracted data
+        await storage.updateFileData(fileRecord.id, { 
+          processed: true,
+          data: extractedData
+        });
+      } catch (error) {
+        console.error("Error processing file:", error);
+        // Update the file record with the error
+        await storage.updateFileData(fileRecord.id, { 
+          processed: true,
+          error: error instanceof Error ? error.message : "Unknown error during processing"
+        });
+      }
+    })();
+    
+    res.json({
+      id: fileRecord.id,
+      filename: fileRecord.filename,
+      fileType: fileRecord.fileType,
+      message: "File uploaded successfully. Processing has started."
+    });
+  }));
+
+  // Onboarding wizard endpoint
+  app.post("/api/onboarding", handleErrors(async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const userId = req.user.id;
+    const onboardingData = req.body;
+    
+    // Store onboarding data based on the step
+    const updatedUser = await storage.updateUserOnboardingData(userId, onboardingData);
+    
+    res.json({
+      success: true,
+      message: "Onboarding data saved successfully",
+      user: updatedUser
+    });
+  }));
+  
+  // Simplified complete-onboarding endpoint
+  app.post("/api/complete-onboarding", handleErrors(async (req, res) => {
+    // In a real app, we would authenticate the user
+    // For demo purposes, we'll use a mock user ID
+    const userId = 1; // Mock user ID
+    
+    // Mark onboarding as complete
+    const updatedUser = await storage.updateUserCompletedOnboarding(userId, true);
+    
+    res.json({
+      success: true,
+      message: "Onboarding completed successfully",
+      user: updatedUser
+    });
+  }));
+
   // Stripe payment route for one-time payments
   app.post("/api/create-payment-intent", handleErrors(async (req, res) => {
     try {
