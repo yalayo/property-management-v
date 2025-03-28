@@ -432,6 +432,168 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(updatedTenant);
   }));
   
+  // Tenant onboarding API endpoints
+  app.post("/api/tenants/onboarding", handleErrors(async (req, res) => {
+    if (!req.session || !req.session.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const userId = req.session.user.id;
+    const tenantData = req.body;
+    
+    // Process and transform the tenant onboarding data
+    // This normalizes the data from the multi-step wizard form into the tenant schema
+    const normalizedTenantData = {
+      userId,
+      firstName: tenantData.personalInfo?.firstName,
+      lastName: tenantData.personalInfo?.lastName,
+      email: tenantData.personalInfo?.email,
+      phone: tenantData.personalInfo?.phone,
+      dateOfBirth: tenantData.personalInfo?.dateOfBirth,
+      idNumber: tenantData.personalInfo?.idNumber,
+      
+      // Employment information
+      employmentStatus: tenantData.employmentInfo?.employmentStatus,
+      employerName: tenantData.employmentInfo?.employerName,
+      employerPhone: tenantData.employmentInfo?.employerPhone,
+      occupation: tenantData.employmentInfo?.occupation,
+      monthlyIncome: tenantData.employmentInfo?.monthlyIncome 
+        ? parseFloat(tenantData.employmentInfo.monthlyIncome) 
+        : null,
+      employmentDuration: tenantData.employmentInfo?.employmentDuration,
+      
+      // References
+      reference1Name: tenantData.references?.reference1Name,
+      reference1Phone: tenantData.references?.reference1Phone,
+      reference1Email: tenantData.references?.reference1Email,
+      reference1Relationship: tenantData.references?.reference1Relationship,
+      reference2Name: tenantData.references?.reference2Name,
+      reference2Phone: tenantData.references?.reference2Phone,
+      reference2Email: tenantData.references?.reference2Email,
+      reference2Relationship: tenantData.references?.reference2Relationship,
+      
+      // Lease details
+      leaseStart: tenantData.leaseDetails?.leaseStart,
+      leaseEnd: tenantData.leaseDetails?.leaseEnd,
+      leaseDuration: tenantData.leaseDetails?.leaseDuration,
+      monthlyRent: tenantData.leaseDetails?.monthlyRent 
+        ? parseFloat(tenantData.leaseDetails.monthlyRent)
+        : null,
+      securityDeposit: tenantData.leaseDetails?.securityDeposit 
+        ? parseFloat(tenantData.leaseDetails.securityDeposit)
+        : null,
+      
+      // Property details
+      propertyId: tenantData.propertyId || null,
+      
+      // Additional information from other steps
+      petDetails: tenantData.petDetails ? JSON.stringify(tenantData.petDetails) : null,
+      vehicleDetails: tenantData.vehicleDetails ? JSON.stringify(tenantData.vehicleDetails) : null,
+      emergencyContactDetails: tenantData.emergencyContactDetails ? JSON.stringify(tenantData.emergencyContactDetails) : null,
+      
+      // Set onboarding as completed
+      onboardingCompleted: true,
+      
+      // Active tenant
+      active: true,
+    };
+    
+    // Create the tenant
+    try {
+      const tenant = await storage.createTenant(normalizedTenantData);
+      res.status(201).json(tenant);
+    } catch (error) {
+      console.error("Error creating tenant:", error);
+      res.status(400).json({ message: "Failed to create tenant", error: String(error) });
+    }
+  }));
+  
+  app.put("/api/tenants/:id/onboarding", handleErrors(async (req, res) => {
+    if (!req.session || !req.session.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const userId = req.session.user.id;
+    const tenantId = parseInt(req.params.id);
+    
+    // Verify tenant belongs to this user
+    const existingTenant = await storage.getTenantById(tenantId);
+    if (!existingTenant) {
+      return res.status(404).json({ message: "Tenant not found" });
+    }
+    
+    if (existingTenant.userId !== userId) {
+      return res.status(403).json({ message: "Access denied: You don't have permission to update this tenant" });
+    }
+    
+    const tenantData = req.body;
+    
+    // Process and transform the tenant onboarding data
+    // This normalizes the data from the multi-step wizard form into the tenant schema
+    const normalizedTenantData = {
+      firstName: tenantData.personalInfo?.firstName,
+      lastName: tenantData.personalInfo?.lastName,
+      email: tenantData.personalInfo?.email,
+      phone: tenantData.personalInfo?.phone,
+      dateOfBirth: tenantData.personalInfo?.dateOfBirth,
+      idNumber: tenantData.personalInfo?.idNumber,
+      
+      // Employment information
+      employmentStatus: tenantData.employmentInfo?.employmentStatus,
+      employerName: tenantData.employmentInfo?.employerName,
+      employerPhone: tenantData.employmentInfo?.employerPhone,
+      occupation: tenantData.employmentInfo?.occupation,
+      monthlyIncome: tenantData.employmentInfo?.monthlyIncome 
+        ? parseFloat(tenantData.employmentInfo.monthlyIncome) 
+        : undefined,
+      employmentDuration: tenantData.employmentInfo?.employmentDuration,
+      
+      // References
+      reference1Name: tenantData.references?.reference1Name,
+      reference1Phone: tenantData.references?.reference1Phone,
+      reference1Email: tenantData.references?.reference1Email,
+      reference1Relationship: tenantData.references?.reference1Relationship,
+      reference2Name: tenantData.references?.reference2Name,
+      reference2Phone: tenantData.references?.reference2Phone,
+      reference2Email: tenantData.references?.reference2Email,
+      reference2Relationship: tenantData.references?.reference2Relationship,
+      
+      // Lease details
+      leaseStart: tenantData.leaseDetails?.leaseStart,
+      leaseEnd: tenantData.leaseDetails?.leaseEnd,
+      leaseDuration: tenantData.leaseDetails?.leaseDuration,
+      monthlyRent: tenantData.leaseDetails?.monthlyRent 
+        ? parseFloat(tenantData.leaseDetails.monthlyRent)
+        : undefined,
+      securityDeposit: tenantData.leaseDetails?.securityDeposit 
+        ? parseFloat(tenantData.leaseDetails.securityDeposit)
+        : undefined,
+      
+      // Property details
+      propertyId: tenantData.propertyId || undefined,
+      
+      // Additional information from other steps
+      petDetails: tenantData.petDetails ? JSON.stringify(tenantData.petDetails) : undefined,
+      vehicleDetails: tenantData.vehicleDetails ? JSON.stringify(tenantData.vehicleDetails) : undefined,
+      emergencyContactDetails: tenantData.emergencyContactDetails ? JSON.stringify(tenantData.emergencyContactDetails) : undefined,
+      
+      // Set onboarding as completed
+      onboardingCompleted: true,
+      
+      // Active tenant
+      active: true,
+    };
+    
+    // Update the tenant
+    try {
+      const updatedTenant = await storage.updateTenant(tenantId, normalizedTenantData);
+      res.json(updatedTenant);
+    } catch (error) {
+      console.error("Error updating tenant:", error);
+      res.status(400).json({ message: "Failed to update tenant", error: String(error) });
+    }
+  }));
+  
   app.get("/api/tenants/:id", handleErrors(async (req, res) => {
     if (!req.session || !req.session.user) {
       return res.status(401).json({ message: "Not authenticated" });
