@@ -11,6 +11,7 @@ import {
   transactionCategories, type TransactionCategory, type InsertTransactionCategory,
   transactions, type Transaction, type InsertTransaction,
   bankAccounts, type BankAccount, type InsertBankAccount,
+  bankStatements, type BankStatement, type InsertBankStatement,
   taxYears, type TaxYear, type InsertTaxYear,
   budgets, type Budget, type InsertBudget,
   // Maintenance module imports
@@ -109,6 +110,15 @@ export interface IStorage {
   updateBankAccount(id: number, data: Partial<InsertBankAccount>): Promise<BankAccount | undefined>;
   deleteBankAccount(id: number): Promise<boolean>;
   
+  // Bank Statements
+  createBankStatement(statement: InsertBankStatement): Promise<BankStatement>;
+  getBankStatementsByUserId(userId: number): Promise<BankStatement[]>;
+  getBankStatementsByBankAccountId(bankAccountId: number): Promise<BankStatement[]>;
+  getBankStatementById(id: number): Promise<BankStatement | undefined>;
+  updateBankStatement(id: number, data: Partial<InsertBankStatement>): Promise<BankStatement | undefined>;
+  processStatement(id: number, extractedData: any): Promise<BankStatement>;
+  deleteBankStatement(id: number): Promise<boolean>;
+  
   // Tax Years
   createTaxYear(taxYear: InsertTaxYear): Promise<TaxYear>;
   getTaxYearsByUserId(userId: number): Promise<TaxYear[]>;
@@ -177,6 +187,7 @@ export class MemStorage implements IStorage {
   private transactionCategories: Map<number, TransactionCategory>;
   private transactions: Map<number, Transaction>;
   private bankAccounts: Map<number, BankAccount>;
+  private bankStatements: Map<number, BankStatement>;
   private taxYears: Map<number, TaxYear>;
   private budgets: Map<number, Budget>;
   
@@ -198,6 +209,7 @@ export class MemStorage implements IStorage {
   private currentTransactionCategoryId: number;
   private currentTransactionId: number;
   private currentBankAccountId: number;
+  private currentBankStatementId: number;
   private currentTaxYearId: number;
   private currentBudgetId: number;
   
@@ -220,6 +232,7 @@ export class MemStorage implements IStorage {
     this.transactionCategories = new Map();
     this.transactions = new Map();
     this.bankAccounts = new Map();
+    this.bankStatements = new Map();
     this.taxYears = new Map();
     this.budgets = new Map();
     
@@ -241,6 +254,7 @@ export class MemStorage implements IStorage {
     this.currentTransactionCategoryId = 1;
     this.currentTransactionId = 1;
     this.currentBankAccountId = 1;
+    this.currentBankStatementId = 1;
     this.currentTaxYearId = 1;
     this.currentBudgetId = 1;
     
@@ -861,6 +875,78 @@ export class MemStorage implements IStorage {
     if (!account) return false;
     
     return this.bankAccounts.delete(id);
+  }
+  
+  // Bank Statements
+  async createBankStatement(statement: InsertBankStatement): Promise<BankStatement> {
+    const id = this.currentBankStatementId++;
+    const newStatement: BankStatement = {
+      ...statement,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      processed: false,
+      reconciled: false,
+      transactionCount: statement.transactionCount || 0,
+      totalDeposits: statement.totalDeposits || 0,
+      totalWithdrawals: statement.totalWithdrawals || 0,
+      notes: statement.notes || null
+    };
+    this.bankStatements.set(id, newStatement);
+    return newStatement;
+  }
+  
+  async getBankStatementsByUserId(userId: number): Promise<BankStatement[]> {
+    return Array.from(this.bankStatements.values()).filter(
+      (statement) => statement.userId === userId
+    );
+  }
+  
+  async getBankStatementsByBankAccountId(bankAccountId: number): Promise<BankStatement[]> {
+    return Array.from(this.bankStatements.values()).filter(
+      (statement) => statement.bankAccountId === bankAccountId
+    );
+  }
+  
+  async getBankStatementById(id: number): Promise<BankStatement | undefined> {
+    return this.bankStatements.get(id);
+  }
+  
+  async updateBankStatement(id: number, data: Partial<InsertBankStatement>): Promise<BankStatement | undefined> {
+    const statement = await this.getBankStatementById(id);
+    if (!statement) return undefined;
+    
+    const updatedStatement = { 
+      ...statement, 
+      ...data,
+      updatedAt: new Date()
+    };
+    this.bankStatements.set(id, updatedStatement);
+    return updatedStatement;
+  }
+  
+  async processStatement(id: number, extractedData: any): Promise<BankStatement> {
+    const statement = await this.getBankStatementById(id);
+    if (!statement) throw new Error("Bank statement not found");
+    
+    const updatedStatement = { 
+      ...statement, 
+      processed: true,
+      updatedAt: new Date()
+    };
+    this.bankStatements.set(id, updatedStatement);
+    
+    // Here you would also process the extracted data to create transactions
+    // This is a placeholder for that logic
+    
+    return updatedStatement;
+  }
+  
+  async deleteBankStatement(id: number): Promise<boolean> {
+    const statement = await this.getBankStatementById(id);
+    if (!statement) return false;
+    
+    return this.bankStatements.delete(id);
   }
   
   // Tax Years
@@ -1766,6 +1852,115 @@ export class DatabaseStorage implements IStorage {
       return true;
     } catch (error) {
       console.error("Error deleting bank account:", error);
+      return false;
+    }
+  }
+  
+  // Bank Statements
+  async createBankStatement(statement: InsertBankStatement): Promise<BankStatement> {
+    try {
+      const [newStatement] = await db.insert(bankStatements)
+        .values({
+          ...statement,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          processed: statement.processed ?? false,
+          reconciled: statement.reconciled ?? false,
+          transactionCount: statement.transactionCount ?? 0,
+          totalDeposits: statement.totalDeposits ?? 0,
+          totalWithdrawals: statement.totalWithdrawals ?? 0,
+          notes: statement.notes || null
+        })
+        .returning();
+      return newStatement;
+    } catch (error) {
+      console.error("Error creating bank statement:", error);
+      throw error;
+    }
+  }
+  
+  async getBankStatementsByUserId(userId: number): Promise<BankStatement[]> {
+    try {
+      return await db.select()
+        .from(bankStatements)
+        .where(eq(bankStatements.userId, userId));
+    } catch (error) {
+      console.error("Error getting bank statements by user ID:", error);
+      return [];
+    }
+  }
+  
+  async getBankStatementsByBankAccountId(bankAccountId: number): Promise<BankStatement[]> {
+    try {
+      return await db.select()
+        .from(bankStatements)
+        .where(eq(bankStatements.bankAccountId, bankAccountId));
+    } catch (error) {
+      console.error("Error getting bank statements by bank account ID:", error);
+      return [];
+    }
+  }
+  
+  async getBankStatementById(id: number): Promise<BankStatement | undefined> {
+    try {
+      const [statement] = await db.select()
+        .from(bankStatements)
+        .where(eq(bankStatements.id, id));
+      return statement;
+    } catch (error) {
+      console.error("Error getting bank statement by ID:", error);
+      return undefined;
+    }
+  }
+  
+  async updateBankStatement(id: number, data: Partial<InsertBankStatement>): Promise<BankStatement | undefined> {
+    try {
+      const [updatedStatement] = await db.update(bankStatements)
+        .set({
+          ...data,
+          updatedAt: new Date()
+        })
+        .where(eq(bankStatements.id, id))
+        .returning();
+      return updatedStatement;
+    } catch (error) {
+      console.error("Error updating bank statement:", error);
+      return undefined;
+    }
+  }
+  
+  async processStatement(id: number, extractedData: any): Promise<BankStatement> {
+    try {
+      const [processedStatement] = await db.update(bankStatements)
+        .set({
+          processed: true,
+          updatedAt: new Date()
+        })
+        .where(eq(bankStatements.id, id))
+        .returning();
+      
+      if (!processedStatement) {
+        throw new Error("Bank statement not found");
+      }
+      
+      // This would be where transaction creation logic would go
+      // For now we're just marking the statement as processed
+      
+      return processedStatement;
+    } catch (error) {
+      console.error("Error processing bank statement:", error);
+      throw error;
+    }
+  }
+  
+  async deleteBankStatement(id: number): Promise<boolean> {
+    try {
+      const result = await db.delete(bankStatements)
+        .where(eq(bankStatements.id, id))
+        .returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error deleting bank statement:", error);
       return false;
     }
   }

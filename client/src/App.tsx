@@ -16,6 +16,7 @@ import AdminSurveyAnalytics from "@/pages/admin/survey-analytics";
 import AdminWaitingList from "@/pages/admin/waiting-list";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
+import BankAccounts from "@/pages/bank-accounts";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/components/protected-route";
 import { ChatbotWidget } from "@/components/chatbot/ChatbotWidget";
@@ -35,6 +36,7 @@ function Router() {
       {/* Protected user routes */}
       <ProtectedRoute path="/dashboard" component={Dashboard} />
       <ProtectedRoute path="/onboarding" component={Onboarding} />
+      <ProtectedRoute path="/bank-accounts" component={BankAccounts} />
       
       {/* Admin routes */}
       <Route path="/admin-login" component={AdminLogin} />

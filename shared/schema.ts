@@ -74,10 +74,35 @@ export const uploadedFiles = pgTable("uploaded_files", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   filename: text("filename").notNull(),
-  fileType: text("file_type").notNull(),
+  fileType: text("file_type").notNull(), // 'bank_statement', 'invoice', 'receipt', etc.
+  fileCategory: text("file_category"), // 'financial', 'property', 'tenant', etc.
   uploadDate: timestamp("upload_date").defaultNow(),
   processed: boolean("processed").default(false),
   extractedData: jsonb("extracted_data"),
+  processingStatus: text("processing_status"), // 'pending', 'processing', 'completed', 'failed'
+  processingError: text("processing_error"),
+});
+
+// Bank statements table
+export const bankStatements = pgTable("bank_statements", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  bankAccountId: integer("bank_account_id").references(() => bankAccounts.id),
+  fileId: integer("file_id").notNull().references(() => uploadedFiles.id),
+  statementDate: date("statement_date").notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  startingBalance: doublePrecision("starting_balance").notNull(),
+  endingBalance: doublePrecision("ending_balance").notNull(),
+  currency: text("currency").default("EUR").notNull(),
+  transactionCount: integer("transaction_count"),
+  totalDeposits: doublePrecision("total_deposits").default(0),
+  totalWithdrawals: doublePrecision("total_withdrawals").default(0),
+  processed: boolean("processed").default(false),
+  reconciled: boolean("reconciled").default(false),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const questions = pgTable("questions", {
@@ -262,6 +287,16 @@ export const insertUploadedFileSchema = createInsertSchema(uploadedFiles).omit({
   uploadDate: true,
   processed: true,
   extractedData: true,
+  processingStatus: true,
+  processingError: true,
+});
+
+export const insertBankStatementSchema = createInsertSchema(bankStatements).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  processed: true,
+  reconciled: true,
 });
 
 export const insertQuestionSchema = createInsertSchema(questions).omit({
@@ -331,6 +366,17 @@ export const bankAccountFormSchema = insertBankAccountSchema
     currentBalance: z.coerce.number().default(0),
   });
 
+export const bankStatementFormSchema = insertBankStatementSchema
+  .extend({
+    statementDate: z.coerce.date(),
+    startDate: z.coerce.date(),
+    endDate: z.coerce.date(),
+    startingBalance: z.coerce.number(),
+    endingBalance: z.coerce.number(),
+    currency: z.string().min(1, "Currency is required").default("EUR"),
+    bankAccountId: z.number().optional().nullable(),
+  });
+
 // Maintenance request form validation schema
 export const maintenanceRequestFormSchema = insertMaintenanceRequestSchema
   .extend({
@@ -387,6 +433,9 @@ export type WaitingList = typeof waitingList.$inferSelect;
 export type InsertUploadedFile = z.infer<typeof insertUploadedFileSchema>;
 export type UploadedFile = typeof uploadedFiles.$inferSelect;
 
+export type InsertBankStatement = z.infer<typeof insertBankStatementSchema>;
+export type BankStatement = typeof bankStatements.$inferSelect;
+
 export type InsertQuestion = z.infer<typeof insertQuestionSchema>;
 export type Question = typeof questions.$inferSelect;
 
@@ -404,6 +453,8 @@ export type TransactionForm = z.infer<typeof transactionFormSchema>;
 export type InsertBankAccount = z.infer<typeof insertBankAccountSchema>;
 export type BankAccount = typeof bankAccounts.$inferSelect;
 export type BankAccountForm = z.infer<typeof bankAccountFormSchema>;
+
+export type BankStatementForm = z.infer<typeof bankStatementFormSchema>;
 
 export type InsertTaxYear = z.infer<typeof insertTaxYearSchema>;
 export type TaxYear = typeof taxYears.$inferSelect;

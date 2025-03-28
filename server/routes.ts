@@ -1,4 +1,4 @@
-import type { Express, Response } from "express";
+import type { Express, Response, NextFunction } from "express";
 import type { Request as ExpressRequest } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -18,6 +18,11 @@ import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
 import { ZodError } from "zod";
+
+// Helper for async request handling
+const asyncHandler = (fn: Function) => (req: ExpressRequest, res: Response, next: NextFunction) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 import Stripe from "stripe"; 
@@ -648,6 +653,141 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Registration error:", error);
       res.status(500).json({ message: "Error during registration: " + error.message });
+    }
+  }));
+
+  // Authentication middleware
+  const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    next();
+  };
+
+  // Accounting Module - Bank Statement endpoints
+  app.get("/api/bank-statements", isAuthenticated, asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const statements = await storage.getBankStatementsByUserId(userId);
+    res.status(200).json(statements);
+  }));
+  
+  app.get("/api/bank-statements/:id", isAuthenticated, asyncHandler(async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    const statement = await storage.getBankStatementById(id);
+    
+    if (!statement) {
+      return res.status(404).json({ message: "Bank statement not found" });
+    }
+    
+    // Check if the statement belongs to the user
+    if (statement.userId !== req.user!.id) {
+      return res.status(403).json({ message: "Not authorized to access this statement" });
+    }
+    
+    res.status(200).json(statement);
+  }));
+  
+  app.post("/api/bank-statements", isAuthenticated, asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const statementData = req.body;
+    
+    // Validate using the schema
+    try {
+      // Add userId to the statement data
+      const newStatement = await storage.createBankStatement({
+        ...statementData,
+        userId
+      });
+      
+      res.status(201).json(newStatement);
+    } catch (error: any) {
+      res.status(400).json({ message: `Invalid bank statement data: ${error.message}` });
+    }
+  }));
+  
+  app.put("/api/bank-statements/:id", isAuthenticated, asyncHandler(async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    const statement = await storage.getBankStatementById(id);
+    
+    if (!statement) {
+      return res.status(404).json({ message: "Bank statement not found" });
+    }
+    
+    // Check if the statement belongs to the user
+    if (statement.userId !== req.user!.id) {
+      return res.status(403).json({ message: "Not authorized to update this statement" });
+    }
+    
+    try {
+      const updatedStatement = await storage.updateBankStatement(id, req.body);
+      res.status(200).json(updatedStatement);
+    } catch (error: any) {
+      res.status(400).json({ message: `Error updating bank statement: ${error.message}` });
+    }
+  }));
+  
+  app.delete("/api/bank-statements/:id", isAuthenticated, asyncHandler(async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    const statement = await storage.getBankStatementById(id);
+    
+    if (!statement) {
+      return res.status(404).json({ message: "Bank statement not found" });
+    }
+    
+    // Check if the statement belongs to the user
+    if (statement.userId !== req.user!.id) {
+      return res.status(403).json({ message: "Not authorized to delete this statement" });
+    }
+    
+    try {
+      const success = await storage.deleteBankStatement(id);
+      if (success) {
+        res.status(200).json({ message: "Bank statement deleted successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to delete bank statement" });
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: `Error deleting bank statement: ${error.message}` });
+    }
+  }));
+  
+  app.get("/api/bank-accounts/:id/statements", isAuthenticated, asyncHandler(async (req: Request, res: Response) => {
+    const bankAccountId = parseInt(req.params.id);
+    const statements = await storage.getBankStatementsByBankAccountId(bankAccountId);
+    
+    // Check if any statements were found
+    if (statements.length === 0) {
+      return res.status(200).json([]); // Return empty array instead of 404
+    }
+    
+    // Check if the statements belong to the user (check the first one)
+    if (statements[0].userId !== req.user!.id) {
+      return res.status(403).json({ message: "Not authorized to access these statements" });
+    }
+    
+    res.status(200).json(statements);
+  }));
+  
+  app.post("/api/bank-statements/:id/process", isAuthenticated, asyncHandler(async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    const statement = await storage.getBankStatementById(id);
+    
+    if (!statement) {
+      return res.status(404).json({ message: "Bank statement not found" });
+    }
+    
+    // Check if the statement belongs to the user
+    if (statement.userId !== req.user!.id) {
+      return res.status(403).json({ message: "Not authorized to process this statement" });
+    }
+    
+    try {
+      // The extractedData would come from AI processing
+      const extractedData = req.body.extractedData || {};
+      const processedStatement = await storage.processStatement(id, extractedData);
+      res.status(200).json(processedStatement);
+    } catch (error: any) {
+      res.status(500).json({ message: `Error processing bank statement: ${error.message}` });
     }
   }));
 
