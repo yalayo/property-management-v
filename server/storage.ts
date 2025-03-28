@@ -17,7 +17,9 @@ import {
   // Maintenance module imports
   maintenanceRequests, type MaintenanceRequest, type InsertMaintenanceRequest,
   maintenanceComments, type MaintenanceComment, type InsertMaintenanceComment, 
-  serviceProviders, type ServiceProvider, type InsertServiceProvider
+  serviceProviders, type ServiceProvider, type InsertServiceProvider,
+  // Payment gateway/processing imports
+  paypalOrders, type PaypalOrder, type InsertPaypalOrder
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, count } from "drizzle-orm";
@@ -36,6 +38,14 @@ export interface IStorage {
   getSurveyResponseCount(): Promise<number>;
   getWaitingListCount(): Promise<number>;
   getSurveyResponses(): Promise<SurveyResponse[]>;
+  
+  // Payment Gateway 
+  createPayPalOrder(order: InsertPaypalOrder): Promise<PaypalOrder>;
+  getPayPalOrderById(id: number): Promise<PaypalOrder | undefined>;
+  getPayPalOrdersByUserId(userId: number): Promise<PaypalOrder[]>;
+  updatePayPalOrderStatus(id: number, status: string): Promise<PaypalOrder>;
+  updateUserPaymentGateway(userId: number, gateway: string): Promise<User>;
+  getUserPaymentGateway(userId: number): Promise<string | null>;
   
   // Properties
   createProperty(property: InsertProperty): Promise<Property>;
@@ -148,6 +158,18 @@ export interface IStorage {
     percentUsed: number
   }[]>;
   
+  // ===== PAYMENT GATEWAY MODULE =====
+
+  // PayPal Orders
+  createPayPalOrder(order: InsertPaypalOrder): Promise<PaypalOrder>;
+  getPayPalOrderById(id: number): Promise<PaypalOrder | undefined>;
+  getPayPalOrdersByUserId(userId: number): Promise<PaypalOrder[]>;
+  updatePayPalOrderStatus(id: number, status: string): Promise<PaypalOrder>;
+  
+  // Payment Gateway Preferences
+  updateUserPaymentGateway(userId: number, gateway: string): Promise<User>;
+  getUserPaymentGateway(userId: number): Promise<string | null>;
+  
   // ===== MAINTENANCE MODULE =====
   
   // Maintenance Requests
@@ -197,6 +219,9 @@ export class MemStorage implements IStorage {
   private maintenanceComments: Map<number, MaintenanceComment>;
   private serviceProviders: Map<number, ServiceProvider>;
   
+  // Payment gateway module storage
+  private paypalOrders: Map<number, PaypalOrder>;
+  
   private currentUserId: number;
   private currentPropertyId: number;
   private currentTenantId: number;
@@ -218,6 +243,9 @@ export class MemStorage implements IStorage {
   private currentMaintenanceRequestId: number;
   private currentMaintenanceCommentId: number;
   private currentServiceProviderId: number;
+  
+  // Payment gateway module IDs
+  private currentPaypalOrderId: number;
   
   constructor() {
     this.users = new Map();
@@ -242,6 +270,9 @@ export class MemStorage implements IStorage {
     this.maintenanceComments = new Map();
     this.serviceProviders = new Map();
     
+    // Initialize payment gateway module storage
+    this.paypalOrders = new Map();
+    
     this.currentUserId = 1;
     this.currentPropertyId = 1;
     this.currentTenantId = 1;
@@ -263,6 +294,9 @@ export class MemStorage implements IStorage {
     this.currentMaintenanceRequestId = 1;
     this.currentMaintenanceCommentId = 1;
     this.currentServiceProviderId = 1;
+    
+    // Initialize payment gateway module IDs
+    this.currentPaypalOrderId = 1;
     
     // Initialize with 20 questions
     const sampleQuestions = [
@@ -1129,6 +1163,64 @@ export class MemStorage implements IStorage {
     }
     
     return result;
+  }
+
+  // ===== PAYMENT GATEWAY MODULE =====
+  
+  // PayPal Orders
+  async createPayPalOrder(order: InsertPaypalOrder): Promise<PaypalOrder> {
+    const id = this.currentPaypalOrderId++;
+    const newOrder: PaypalOrder = {
+      ...order,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.paypalOrders.set(id, newOrder);
+    return newOrder;
+  }
+  
+  async getPayPalOrderById(id: number): Promise<PaypalOrder | undefined> {
+    return this.paypalOrders.get(id);
+  }
+  
+  async getPayPalOrdersByUserId(userId: number): Promise<PaypalOrder[]> {
+    return Array.from(this.paypalOrders.values()).filter(
+      (order) => order.userId === userId
+    );
+  }
+  
+  async updatePayPalOrderStatus(id: number, status: string): Promise<PaypalOrder> {
+    const order = this.paypalOrders.get(id);
+    if (!order) throw new Error("PayPal order not found");
+    
+    const updatedOrder = { 
+      ...order, 
+      status, 
+      updatedAt: new Date() 
+    };
+    this.paypalOrders.set(id, updatedOrder);
+    return updatedOrder;
+  }
+  
+  // Payment Gateway Preferences
+  async updateUserPaymentGateway(userId: number, gateway: string): Promise<User> {
+    const user = await this.getUser(userId);
+    if (!user) throw new Error("User not found");
+    
+    const updatedUser = { 
+      ...user, 
+      preferredPaymentGateway: gateway 
+    };
+    this.users.set(userId, updatedUser);
+    return updatedUser;
+  }
+  
+  async getUserPaymentGateway(userId: number): Promise<string | null> {
+    const user = await this.getUser(userId);
+    if (!user) throw new Error("User not found");
+    
+    return user.preferredPaymentGateway || null;
   }
 
   // ===== MAINTENANCE MODULE =====

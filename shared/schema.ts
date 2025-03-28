@@ -15,6 +15,8 @@ export const users = pgTable("users", {
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   stripePaymentIntentId: text("stripe_payment_intent_id"),
+  preferredPaymentGateway: text("preferred_payment_gateway"), // Can be 'stripe' or 'paypal'
+  isCrowdfundingContributor: boolean("is_crowdfunding_contributor").default(false), // For the €370 lifetime contribution
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -253,6 +255,18 @@ export const budgets = pgTable("budgets", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// PayPal orders for the round-robin payment gateway implementation
+export const paypalOrders = pgTable("paypal_orders", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  orderId: text("order_id").notNull().unique(),
+  amount: doublePrecision("amount").notNull(),
+  status: text("status").notNull(), // CREATED, APPROVED, COMPLETED, CANCELLED
+  metadata: text("metadata"), // JSON stringified additional information
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Insert schemas and types
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -328,6 +342,12 @@ export const insertTaxYearSchema = createInsertSchema(taxYears).omit({
 export const insertBudgetSchema = createInsertSchema(budgets).omit({
   id: true,
   createdAt: true,
+});
+
+export const insertPaypalOrderSchema = createInsertSchema(paypalOrders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 // Maintenance module schemas
@@ -461,6 +481,9 @@ export type TaxYear = typeof taxYears.$inferSelect;
 
 export type InsertBudget = z.infer<typeof insertBudgetSchema>;
 export type Budget = typeof budgets.$inferSelect;
+
+export type InsertPaypalOrder = z.infer<typeof insertPaypalOrderSchema>;
+export type PaypalOrder = typeof paypalOrders.$inferSelect;
 
 // Maintenance Module Types
 export type InsertMaintenanceRequest = z.infer<typeof insertMaintenanceRequestSchema>;
