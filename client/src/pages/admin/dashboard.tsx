@@ -32,8 +32,10 @@ import { apiRequest } from "@/lib/queryClient";
 function AdminLayout({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   
   const handleLogout = async () => {
+    setIsLoggingOut(true);
     try {
       const response = await apiRequest("POST", "/api/logout");
       if (response.ok) {
@@ -49,6 +51,8 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
         description: "Failed to logout",
         variant: "destructive",
       });
+    } finally {
+      setIsLoggingOut(false);
     }
   };
   
@@ -62,9 +66,18 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
             <h1 className="text-xl font-bold">Admin Portal</h1>
           </div>
           
-          <Button variant="outline" size="sm" onClick={handleLogout}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+          >
+            {isLoggingOut ? (
+              <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            ) : (
+              <LogOut className="h-4 w-4 mr-2" />
+            )}
+            {isLoggingOut ? 'Logging out...' : 'Logout'}
           </Button>
         </div>
       </header>

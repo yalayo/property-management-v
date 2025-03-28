@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Home, Users, FileText, BarChart2, Upload, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,9 +9,12 @@ import FileUpload from "@/components/dashboard/FileUpload";
 import UserAnalytics from "@/components/dashboard/UserAnalytics";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import DashboardSummary from "@/components/dashboard/DashboardSummary";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("overview");
+  const { logoutMutation } = useAuth();
+  const [_, navigate] = useLocation();
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -74,12 +77,25 @@ export default function Dashboard() {
             </nav>
           </div>
           <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
-            <Link href="/">
-              <Button variant="outline" className="w-full">
+            <Button 
+              variant="outline" 
+              className="w-full"
+              disabled={logoutMutation.isPending}
+              onClick={() => {
+                logoutMutation.mutate(undefined, {
+                  onSuccess: () => {
+                    navigate('/login');
+                  }
+                });
+              }}
+            >
+              {logoutMutation.isPending ? (
+                <div className="mr-3 h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              ) : (
                 <LogOut className="mr-3 h-5 w-5" />
-                Logout
-              </Button>
-            </Link>
+              )}
+              {logoutMutation.isPending ? 'Logging out...' : 'Logout'}
+            </Button>
           </div>
         </div>
       </aside>
