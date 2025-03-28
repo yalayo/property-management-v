@@ -19,6 +19,22 @@ import path from "path";
 import fs from "fs/promises";
 import { ZodError } from "zod";
 
+// Authentication middleware
+const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  return res.status(401).json({ message: "Not authenticated" });
+};
+
+// Admin check middleware
+const isAdmin = (req: Request, res: Response, next: Function) => {
+  if (!req.session || !req.session.user || !req.session.user.isAdmin) {
+    return res.status(403).json({ message: "Access denied: Admin privileges required" });
+  }
+  next();
+};
+
 // Helper for async request handling
 const asyncHandler = (fn: Function) => (req: ExpressRequest, res: Response, next: NextFunction) => {
   Promise.resolve(fn(req, res, next)).catch(next);
@@ -280,6 +296,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return res.status(401).json({ message: "Not authenticated" });
   }));
   
+
+  
+  // Update user tier
+  app.post("/api/user/tier", isAuthenticated, asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const { tier } = req.body;
+    
+    if (!tier) {
+      return res.status(400).json({ message: "Tier is required" });
+    }
+    
+    try {
+      const updatedUser = await storage.updateUserTier(userId, tier);
+      
+      // Update the session user data
+      if (req.session && req.session.user) {
+        req.session.user = {
+          ...req.session.user,
+          tier: updatedUser.tier,
+          isActive: updatedUser.isActive
+        };
+      }
+      
+      res.status(200).json(updatedUser);
+    } catch (error: any) {
+      res.status(400).json({ message: `Error updating user tier: ${error.message}` });
+    }
+  }));
+  
+  // Alternative endpoint for updating tier (used by subscription management UI)
+  app.post("/api/update-tier", isAuthenticated, asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const { tier } = req.body;
+    
+    if (!tier) {
+      return res.status(400).json({ message: "Tier is required" });
+    }
+    
+    try {
+      const updatedUser = await storage.updateUserTier(userId, tier);
+      
+      // Update the session user data
+      if (req.session && req.session.user) {
+        req.session.user = {
+          ...req.session.user,
+          tier: updatedUser.tier,
+          isActive: updatedUser.isActive
+        };
+      }
+      
+      res.status(200).json(updatedUser);
+    } catch (error: any) {
+      res.status(400).json({ message: `Error updating user tier: ${error.message}` });
+    }
+  }));
+  
   // Properties API
   app.get("/api/properties", handleErrors(async (req, res) => {
     if (!req.session || !req.session.user) {
@@ -357,13 +429,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   // Admin endpoints
-  // Middleware to check if user is admin
-  const isAdmin = (req: Request, res: Response, next: Function) => {
-    if (!req.session || !req.session.user || !req.session.user.isAdmin) {
-      return res.status(403).json({ message: "Access denied: Admin privileges required" });
-    }
-    next();
-  };
   
   // Admin dashboard data endpoint
   app.get("/api/admin/dashboard", isAdmin, handleErrors(async (req, res) => {
@@ -569,16 +634,132 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Stripe payment route for one-time payments
   app.post("/api/create-payment-intent", handleErrors(async (req, res) => {
     try {
-      const { amount } = req.body;
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(amount * 100), // Convert to cents
-        currency: "eur",
-      });
-      res.json({ clientSecret: paymentIntent.client_secret });
+      const { amount, tier } = req.body;
+      
+      // If this is a subscription (Done for You tier), handle differently
+      if (tier === 'done_for_you') {
+        // For subscriptions, we need to create a customer first if the user is logged in
+        let customerId = null;
+        
+        if (req.isAuthenticated() && req.user) {
+          // Check if user already has a customer ID
+          if (req.user.stripeCustomerId) {
+            customerId = req.user.stripeCustomerId;
+          } else {
+            // Create a new customer
+            const customer = await stripe.customers.create({
+              email: req.user.email,
+              name: req.user.fullName || req.user.username,
+            });
+            customerId = customer.id;
+            
+            // Update user with the new customer ID
+            await storage.updateStripeCustomerId(req.user.id, customer.id);
+          }
+        }
+        
+        // Create a subscription setup intent
+        const setupIntent = await stripe.setupIntents.create({
+          payment_method_types: ['card'],
+          customer: customerId,
+          usage: 'off_session',
+          metadata: {
+            tier: tier,
+            isSubscription: true
+          }
+        });
+        
+        res.json({ 
+          clientSecret: setupIntent.client_secret,
+          isSubscription: true,
+          setupIntentId: setupIntent.id
+        });
+      } else {
+        // For one-time payments, create a regular payment intent
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: Math.round(amount * 100), // Convert to cents
+          currency: "eur",
+          metadata: {
+            tier: tier,
+            isSubscription: false
+          }
+        });
+        res.json({ 
+          clientSecret: paymentIntent.client_secret, 
+          isSubscription: false 
+        });
+      }
     } catch (error: any) {
       res
         .status(500)
         .json({ message: "Error creating payment intent: " + error.message });
+    }
+  }));
+  
+  // Create subscription after setup intent is complete
+  app.post("/api/create-subscription", isAuthenticated, handleErrors(async (req, res) => {
+    try {
+      const { paymentMethodId } = req.body;
+      const userId = req.user!.id;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !user.stripeCustomerId) {
+        return res.status(400).json({ message: "User has no Stripe customer ID" });
+      }
+      
+      // Attach the payment method to the customer
+      await stripe.paymentMethods.attach(paymentMethodId, {
+        customer: user.stripeCustomerId,
+      });
+      
+      // Set as the default payment method
+      await stripe.customers.update(user.stripeCustomerId, {
+        invoice_settings: {
+          default_payment_method: paymentMethodId,
+        },
+      });
+      
+      // Create the subscription - €35/month
+      const subscription = await stripe.subscriptions.create({
+        customer: user.stripeCustomerId,
+        items: [
+          {
+            price_data: {
+              currency: 'eur',
+              product_data: {
+                name: 'Done for You - Monthly Subscription',
+                description: 'Monthly subscription for the Done for You plan',
+              },
+              unit_amount: 3500, // €35 in cents
+              recurring: {
+                interval: 'month',
+              },
+            },
+          },
+        ],
+        payment_settings: {
+          payment_method_types: ['card'],
+          save_default_payment_method: 'on_subscription',
+        },
+        expand: ['latest_invoice.payment_intent'],
+      });
+      
+      // Update user record with subscription ID
+      await storage.updateUserStripeInfo(userId, {
+        customerId: user.stripeCustomerId,
+        subscriptionId: subscription.id
+      });
+      
+      // Update user tier
+      await storage.updateUserTier(userId, 'done_for_you');
+      
+      res.json({
+        subscriptionId: subscription.id,
+        status: subscription.status,
+        success: true
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error creating subscription: " + error.message });
     }
   }));
   
@@ -657,12 +838,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   // Authentication middleware
-  const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Not authenticated" });
-    }
-    next();
-  };
+
 
   // Accounting Module - Bank Statement endpoints
   app.get("/api/bank-statements", isAuthenticated, asyncHandler(async (req: Request, res: Response) => {

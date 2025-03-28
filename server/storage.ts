@@ -30,6 +30,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateStripeCustomerId(userId: number, customerId: string): Promise<User>;
   updateUserStripeInfo(userId: number, info: { customerId: string, subscriptionId: string }): Promise<User>;
+  updateUserTier(userId: number, tier: string): Promise<User>;
   updateUserOnboardingStatus(userId: number, hasCompleted: boolean): Promise<User>;
   getUserCount(): Promise<number>;
   getSurveyResponseCount(): Promise<number>;
@@ -350,6 +351,19 @@ export class MemStorage implements IStorage {
       stripeCustomerId: info.customerId, 
       stripeSubscriptionId: info.subscriptionId,
       isActive: true
+    };
+    this.users.set(userId, updatedUser);
+    return updatedUser;
+  }
+  
+  async updateUserTier(userId: number, tier: string): Promise<User> {
+    const user = await this.getUser(userId);
+    if (!user) throw new Error("User not found");
+    
+    const updatedUser = { 
+      ...user, 
+      tier: tier,
+      isActive: true 
     };
     this.users.set(userId, updatedUser);
     return updatedUser;
@@ -1356,6 +1370,23 @@ export class DatabaseStorage implements IStorage {
         stripeCustomerId: info.customerId,
         stripeSubscriptionId: info.subscriptionId,
         tier: 'premium',
+        isActive: true,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    if (result.length === 0) {
+      throw new Error(`User with ID ${userId} not found`);
+    }
+    
+    return result[0];
+  }
+
+  async updateUserTier(userId: number, tier: string): Promise<User> {
+    const result = await db.update(users)
+      .set({ 
+        tier,
         isActive: true,
         updatedAt: new Date()
       })
