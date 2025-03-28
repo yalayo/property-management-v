@@ -577,6 +577,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
   
+  // User analytics endpoint
+  app.get("/api/user/analytics", handleErrors(async (req, res) => {
+    if (!req.session || !req.session.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const userId = req.session.user.id;
+    
+    // Sample data for now - in a real implementation, this would come from the database
+    // This matches the format expected by the UserAnalytics component
+    const monthlyIncome = [
+      { name: 'Jan', income: 3200 },
+      { name: 'Feb', income: 3200 },
+      { name: 'Mar', income: 3200 },
+      { name: 'Apr', income: 3400 },
+      { name: 'May', income: 3400 },
+      { name: 'Jun', income: 3400 },
+    ];
+
+    const expenseCategories = [
+      { name: 'Maintenance', value: 450 },
+      { name: 'Insurance', value: 180 },
+      { name: 'Taxes', value: 380 },
+      { name: 'Utilities', value: 120 },
+      { name: 'Other', value: 75 },
+    ];
+    
+    res.json({
+      monthlyIncome,
+      expenseCategories
+    });
+  }));
+  
   // User registration after successful payment
   app.post("/api/register-after-payment", handleErrors(async (req, res) => {
     try {

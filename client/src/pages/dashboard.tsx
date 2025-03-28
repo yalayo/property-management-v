@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PropertyList from "@/components/dashboard/PropertyList";
 import TenantPayments from "@/components/dashboard/TenantPayments";
 import FileUpload from "@/components/dashboard/FileUpload";
-import SurveyAnalytics from "@/components/dashboard/SurveyAnalytics";
+import UserAnalytics from "@/components/dashboard/UserAnalytics";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import DashboardSummary from "@/components/dashboard/DashboardSummary";
 
@@ -112,7 +112,7 @@ export default function Dashboard() {
               )}
 
               {activeTab === "analytics" && (
-                <SurveyAnalytics />
+                <UserAnalytics />
               )}
             </div>
           </div>
