@@ -18,6 +18,7 @@ import Login from "@/pages/login";
 import Register from "@/pages/register";
 import BankAccounts from "@/pages/bank-accounts";
 import SubscriptionTiers from "@/pages/subscription-tiers";
+import TenantOnboarding from "@/pages/tenant-onboarding";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/components/protected-route";
 import { ChatbotWidget } from "@/components/chatbot/ChatbotWidget";
@@ -39,6 +40,9 @@ function Router() {
       <ProtectedRoute path="/onboarding" component={Onboarding} />
       <ProtectedRoute path="/bank-accounts" component={BankAccounts} />
       <ProtectedRoute path="/subscription-tiers" component={SubscriptionTiers} />
+      <ProtectedRoute path="/tenant-onboarding" component={TenantOnboarding} />
+      <ProtectedRoute path="/tenant-onboarding/:tenantId" component={TenantOnboarding} />
+      <ProtectedRoute path="/properties/:propertyId/tenant-onboarding" component={TenantOnboarding} />
       
       {/* Admin routes */}
       <Route path="/admin-login" component={AdminLogin} />

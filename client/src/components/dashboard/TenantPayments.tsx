@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, CheckCircle, Loader2, Mail } from "lucide-react";
+import { AlertCircle, CheckCircle, Loader2, Mail, UserPlus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,11 +15,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 
 export default function TenantPayments() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [_, navigate] = useLocation();
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
   const [additionalMessage, setAdditionalMessage] = useState("");
@@ -163,21 +165,32 @@ export default function TenantPayments() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Tenant Payment Status</CardTitle>
-          {latePayments && latePayments.length > 0 && (
+          <div className="flex gap-2">
             <Button 
               size="sm" 
-              variant="outline" 
-              onClick={handleGenerateReport}
-              disabled={generateReportMutation.isPending}
+              variant="default" 
+              onClick={() => navigate('/tenant-onboarding')}
             >
-              {generateReportMutation.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Mail className="h-4 w-4 mr-2" />
-              )}
-              Generate Monthly Report
+              <UserPlus className="h-4 w-4 mr-2" />
+              Add New Tenant
             </Button>
-          )}
+            
+            {latePayments && latePayments.length > 0 && (
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={handleGenerateReport}
+                disabled={generateReportMutation.isPending}
+              >
+                {generateReportMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Mail className="h-4 w-4 mr-2" />
+                )}
+                Generate Monthly Report
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {latePayments && latePayments.length > 0 ? (
