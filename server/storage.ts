@@ -58,6 +58,7 @@ export interface IStorage {
   getTenantById(id: number): Promise<Tenant | undefined>;
   getTenantsByPropertyId(propertyId: number): Promise<Tenant[]>;
   getTenantsByUserId(userId: number): Promise<Tenant[]>;
+  updateTenant(id: number, tenant: Partial<InsertTenant>): Promise<Tenant>;
   
   // Payments
   createPayment(payment: InsertPayment): Promise<Payment>;
@@ -481,6 +482,17 @@ export class MemStorage implements IStorage {
     return Array.from(this.tenants.values()).filter(
       (tenant) => tenant.userId === userId
     );
+  }
+  
+  async updateTenant(id: number, tenant: Partial<InsertTenant>): Promise<Tenant> {
+    const existingTenant = await this.getTenantById(id);
+    if (!existingTenant) {
+      throw new Error(`Tenant with ID ${id} not found`);
+    }
+    
+    const updatedTenant = { ...existingTenant, ...tenant };
+    this.tenants.set(id, updatedTenant);
+    return updatedTenant;
   }
   
   // Payments
@@ -1549,6 +1561,15 @@ export class DatabaseStorage implements IStorage {
 
   async getTenantsByUserId(userId: number): Promise<Tenant[]> {
     return db.select().from(tenants).where(eq(tenants.userId, userId));
+  }
+
+  async updateTenant(id: number, tenant: Partial<InsertTenant>): Promise<Tenant> {
+    const result = await db
+      .update(tenants)
+      .set(tenant)
+      .where(eq(tenants.id, id))
+      .returning();
+    return result[0];
   }
 
   // Payments

@@ -35,18 +35,97 @@ export const properties = pgTable("properties", {
   currentValue: integer("current_value"),
 });
 
+export const employmentStatusEnum = pgEnum('employment_status', [
+  'employed',
+  'self-employed',
+  'student',
+  'unemployed',
+  'retired'
+]);
+
+export const paymentMethodEnum = pgEnum('payment_method', [
+  'bank_transfer',
+  'direct_debit',
+  'standing_order',
+  'other'
+]);
+
+export const leaseDurationEnum = pgEnum('lease_duration', [
+  'month_to_month',
+  '6_months',
+  '1_year',
+  '2_years',
+  'other'
+]);
+
+export const petPolicyEnum = pgEnum('pet_policy', [
+  'no_pets',
+  'cats_only',
+  'small_dogs',
+  'all_pets',
+  'case_by_case'
+]);
+
 export const tenants = pgTable("tenants", {
   id: serial("id").primaryKey(),
-  propertyId: integer("property_id").notNull(),
+  propertyId: integer("property_id"), // Optional, can be assigned later
   userId: integer("user_id").notNull(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   email: text("email"),
   phone: text("phone"),
-  leaseStart: timestamp("lease_start"),
-  leaseEnd: timestamp("lease_end"),
-  monthlyRent: integer("monthly_rent"),
+  dateOfBirth: date("date_of_birth"),
+  idNumber: text("id_number"),
+  
+  // Employment Information
+  employmentStatus: employmentStatusEnum("employment_status").default('employed'),
+  employerName: text("employer_name"),
+  employerPhone: text("employer_phone"),
+  occupation: text("occupation"),
+  monthlyIncome: integer("monthly_income"),
+  employmentDuration: text("employment_duration"),
+  
+  // References
+  reference1Name: text("reference1_name"),
+  reference1Relationship: text("reference1_relationship"),
+  reference1Phone: text("reference1_phone"),
+  reference1Email: text("reference1_email"),
+  reference2Name: text("reference2_name"),
+  reference2Relationship: text("reference2_relationship"),
+  reference2Phone: text("reference2_phone"),
+  reference2Email: text("reference2_email"),
+  
+  // Banking Information
+  accountHolder: text("account_holder"),
+  bankName: text("bank_name"),
+  accountNumber: text("account_number"),
+  iban: text("iban"),
+  bic: text("bic"),
+  paymentMethod: paymentMethodEnum("payment_method").default('bank_transfer'),
+  
+  // Lease Information
+  moveInDate: date("move_in_date"),
+  leaseStartDate: date("lease_start_date"),
+  leaseEndDate: date("lease_end_date"),
+  leaseDuration: leaseDurationEnum("lease_duration").default('1_year'),
+  customDuration: text("custom_duration"),
+  rentAmount: integer("rent_amount"),
+  depositAmount: integer("deposit_amount"),
+  petPolicy: petPolicyEnum("pet_policy").default('case_by_case'),
+  hasPets: boolean("has_pets").default(false),
+  petDetails: text("pet_details"),
+  
+  // Agreement
+  agreeToTerms: boolean("agree_to_terms").default(false),
+  agreeToRules: boolean("agree_to_rules").default(false),
+  agreeToPrivacyPolicy: boolean("agree_to_privacy_policy").default(false),
+  signature: text("signature"),
+  
+  // Status
+  onboardingCompleted: boolean("onboarding_completed").default(false),
   active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const payments = pgTable("payments", {
@@ -280,6 +359,8 @@ export const insertPropertySchema = createInsertSchema(properties).omit({
 
 export const insertTenantSchema = createInsertSchema(tenants).omit({
   id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 export const insertPaymentSchema = createInsertSchema(payments).omit({
@@ -420,6 +501,62 @@ export const serviceProviderFormSchema = insertServiceProviderSchema
     phone: z.string().optional().nullable(),
   });
 
+// Tenant Onboarding schema
+export const tenantOnboardingSchema = z.object({
+  personalInfo: z.object({
+    firstName: z.string().min(2, { message: 'First name is required' }),
+    lastName: z.string().min(2, { message: 'Last name is required' }),
+    email: z.string().email({ message: 'Invalid email address' }),
+    phone: z.string().min(8, { message: 'Valid phone number is required' }),
+    dateOfBirth: z.date().optional(),
+    idNumber: z.string().optional(),
+  }),
+  employmentInfo: z.object({
+    employmentStatus: z.enum(['employed', 'self-employed', 'student', 'unemployed', 'retired']),
+    employerName: z.string().optional(),
+    employerPhone: z.string().optional(),
+    occupation: z.string().optional(),
+    monthlyIncome: z.string().optional(),
+    employmentDuration: z.string().optional(),
+  }),
+  references: z.object({
+    reference1Name: z.string().min(2, { message: 'Reference name is required' }),
+    reference1Relationship: z.string().min(2, { message: 'Relationship is required' }),
+    reference1Phone: z.string().min(8, { message: 'Valid phone number is required' }),
+    reference1Email: z.string().email({ message: 'Invalid email address' }).optional(),
+    reference2Name: z.string().optional(),
+    reference2Relationship: z.string().optional(),
+    reference2Phone: z.string().optional(),
+    reference2Email: z.string().email({ message: 'Invalid email address' }).optional(),
+  }),
+  bankingInfo: z.object({
+    accountHolder: z.string().min(2, { message: 'Account holder name is required' }),
+    bankName: z.string().min(2, { message: 'Bank name is required' }),
+    accountNumber: z.string().min(5, { message: 'Account number is required' }),
+    iban: z.string().optional(),
+    bic: z.string().optional(),
+    paymentMethod: z.enum(['bank_transfer', 'direct_debit', 'standing_order', 'other']),
+  }),
+  leaseInfo: z.object({
+    moveInDate: z.date({ required_error: 'Move-in date is required' }),
+    leaseStartDate: z.date({ required_error: 'Lease start date is required' }),
+    leaseDuration: z.enum(['month_to_month', '6_months', '1_year', '2_years', 'other']),
+    customDuration: z.string().optional(),
+    rentAmount: z.string().min(1, { message: 'Rent amount is required' }),
+    depositAmount: z.string().min(1, { message: 'Deposit amount is required' }),
+    petPolicy: z.enum(['no_pets', 'cats_only', 'small_dogs', 'all_pets', 'case_by_case']),
+    hasPets: z.boolean().default(false),
+    petDetails: z.string().optional(),
+  }),
+  agreement: z.object({
+    agreeToTerms: z.boolean().refine(val => val === true, { message: 'You must agree to the terms' }),
+    agreeToRules: z.boolean().refine(val => val === true, { message: 'You must agree to the house rules' }),
+    agreeToPrivacyPolicy: z.boolean().refine(val => val === true, { message: 'You must agree to the privacy policy' }),
+    signature: z.string().min(2, { message: 'Signature is required' }),
+  }),
+  propertyId: z.number().optional().nullable(),
+});
+
 // Survey schema
 export const surveyQuestionResponseSchema = z.object({
   questionId: z.number(),
@@ -461,6 +598,7 @@ export type Question = typeof questions.$inferSelect;
 
 export type SurveySubmission = z.infer<typeof surveySubmissionSchema>;
 export type SurveyQuestionResponse = z.infer<typeof surveyQuestionResponseSchema>;
+export type TenantOnboarding = z.infer<typeof tenantOnboardingSchema>;
 
 // Accounting Module Types
 export type InsertTransactionCategory = z.infer<typeof insertTransactionCategorySchema>;

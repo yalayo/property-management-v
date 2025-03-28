@@ -407,6 +407,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(tenant);
   }));
   
+  app.put("/api/tenants/:id", handleErrors(async (req, res) => {
+    if (!req.session || !req.session.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const userId = req.session.user.id;
+    const tenantId = parseInt(req.params.id);
+    
+    // Verify tenant belongs to this user
+    const existingTenant = await storage.getTenantById(tenantId);
+    if (!existingTenant) {
+      return res.status(404).json({ message: "Tenant not found" });
+    }
+    
+    if (existingTenant.userId !== userId) {
+      return res.status(403).json({ message: "Access denied: You don't have permission to update this tenant" });
+    }
+    
+    const tenantData = req.body;
+    
+    // Use partial validation for update
+    const updatedTenant = await storage.updateTenant(tenantId, tenantData);
+    res.json(updatedTenant);
+  }));
+  
+  app.get("/api/tenants/:id", handleErrors(async (req, res) => {
+    if (!req.session || !req.session.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const userId = req.session.user.id;
+    const tenantId = parseInt(req.params.id);
+    
+    const tenant = await storage.getTenantById(tenantId);
+    
+    if (!tenant) {
+      return res.status(404).json({ message: "Tenant not found" });
+    }
+    
+    if (tenant.userId !== userId) {
+      return res.status(403).json({ message: "Access denied: You don't have permission to view this tenant" });
+    }
+    
+    res.json(tenant);
+  }));
+  
   // Late Payments API
   app.get("/api/late-payments", handleErrors(async (req, res) => {
     if (!req.session || !req.session.user) {

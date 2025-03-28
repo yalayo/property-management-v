@@ -1,177 +1,194 @@
-import { useState, useRef } from "react";
-import { UploadCloud, X, FileText } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import React, { useState, useRef } from 'react';
+import { Check, FileIcon, Loader2, UploadCloud, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface FileUploadProps {
+  id: string;
+  onFileSelect: (file: File) => void;
   accept?: string;
   maxSize?: number; // in MB
-  onFileSelect: (file: File) => void;
-  disabled?: boolean;
   className?: string;
+  disabled?: boolean;
+  status?: string; // 'idle', 'uploading', 'success', 'error'
 }
 
 export function FileUpload({
-  accept = "*",
-  maxSize = 10, // Default 10MB
+  id,
   onFileSelect,
-  disabled = false,
+  accept = ".pdf,.doc,.docx,.jpg,.jpeg,.png",
+  maxSize = 10, // 10MB default
   className,
+  disabled = false,
+  status = 'idle',
 }: FileUploadProps) {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [dragActive, setDragActive] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      validateAndSetFile(files[0]);
-    }
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    
+    const file = files[0];
+    validateAndSetFile(file);
   };
 
   const validateAndSetFile = (file: File) => {
-    setError(null);
-
     // Check file size
     if (file.size > maxSize * 1024 * 1024) {
-      setError(`File size exceeds the limit of ${maxSize}MB`);
+      setError(`File size exceeds ${maxSize}MB limit`);
+      setFileName(null);
       return;
     }
 
-    // Check file type if accept is specified
-    if (accept !== "*") {
-      const fileType = file.type;
-      const acceptTypes = accept.split(",").map(type => type.trim());
-      
-      // Check if any of the accepted types match the file type
-      const isValidType = acceptTypes.some(type => {
-        if (type.includes('/*')) {
-          // Handle wildcards like 'image/*'
-          const mainType = type.split('/')[0];
-          return fileType.startsWith(`${mainType}/`);
-        }
-        return type === fileType;
-      });
-
-      if (!isValidType) {
-        setError(`File type not accepted. Please upload ${accept}`);
-        return;
-      }
+    // Check file type
+    const fileType = file.type.split('/')[1];
+    const acceptedTypes = accept.split(',').map(type => 
+      type.trim().replace('.', '')
+    );
+    
+    if (!acceptedTypes.some(type => 
+      file.type.includes(type) || file.name.endsWith(`.${type}`)
+    )) {
+      setError(`File type not supported. Accepted: ${accept}`);
+      setFileName(null);
+      return;
     }
 
-    setSelectedFile(file);
+    // All validations passed
+    setError(null);
+    setFileName(file.name);
     onFileSelect(file);
   };
 
-  const handleDrag = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
+    if (!disabled) {
+      setIsDragging(true);
     }
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    setDragActive(false);
+    setIsDragging(false);
+    
+    if (disabled) return;
     
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       validateAndSetFile(e.dataTransfer.files[0]);
     }
   };
 
-  const handleClick = () => {
-    inputRef.current?.click();
+  const getStatusIcon = () => {
+    switch (status) {
+      case 'uploading':
+        return <Loader2 className="h-4 w-4 animate-spin text-primary" />;
+      case 'success':
+        return <Check className="h-4 w-4 text-green-500" />;
+      case 'error':
+        return <X className="h-4 w-4 text-red-500" />;
+      default:
+        return <UploadCloud className="h-4 w-4" />;
+    }
   };
 
-  const clearFile = () => {
-    setSelectedFile(null);
-    setError(null);
-    if (inputRef.current) inputRef.current.value = "";
+  const getStatusText = () => {
+    switch (status) {
+      case 'uploading':
+        return 'Uploading...';
+      case 'success':
+        return 'Uploaded successfully';
+      case 'error':
+        return 'Upload failed';
+      default:
+        return fileName ? 'Change file' : 'Choose file';
+    }
   };
 
   return (
-    <div className={className}>
-      <input
-        ref={inputRef}
-        type="file"
-        accept={accept}
-        onChange={handleFileChange}
-        className="hidden"
-        disabled={disabled}
-      />
-      
+    <div className={cn("space-y-2", className)}>
       <div
-        onClick={!disabled && !selectedFile ? handleClick : undefined}
-        onDragEnter={!disabled ? handleDrag : undefined}
-        onDragLeave={!disabled ? handleDrag : undefined}
-        onDragOver={!disabled ? handleDrag : undefined}
-        onDrop={!disabled ? handleDrop : undefined}
         className={cn(
-          "border-2 border-dashed rounded-lg p-6 transition-all text-center",
-          dragActive && !disabled
-            ? "border-primary-500 bg-primary-50"
-            : "border-gray-300",
-          selectedFile ? "bg-gray-50" : "hover:bg-gray-50",
-          disabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer",
-          className
+          "flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-md transition-colors",
+          isDragging ? "border-primary bg-primary/5" : "border-gray-300",
+          disabled ? "bg-gray-100 cursor-not-allowed opacity-60" : "cursor-pointer hover:border-gray-400",
+          status === 'error' && "border-red-400",
+          status === 'success' && "border-green-400",
+          fileName && "py-3"
         )}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onClick={() => !disabled && fileInputRef.current?.click()}
       >
-        {selectedFile ? (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <FileText className="h-8 w-8 text-gray-600 mr-3" />
-              <div className="text-left">
-                <p className="text-sm font-medium">{selectedFile.name}</p>
-                <p className="text-xs text-gray-500">
-                  {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                </p>
-              </div>
+        <input
+          id={id}
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          className="hidden"
+          accept={accept}
+          disabled={disabled || status === 'success' || status === 'uploading'}
+        />
+        
+        {fileName ? (
+          <div className="flex items-center space-x-2 w-full">
+            <FileIcon className="h-6 w-6 text-primary shrink-0" />
+            <div className="flex-1 overflow-hidden">
+              <p className="text-sm truncate">{fileName}</p>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={clearFile}
-              disabled={disabled}
-              className="ml-2"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="flex shrink-0 items-center space-x-2">
+              {getStatusIcon()}
+              <span className="text-xs font-medium">{getStatusText()}</span>
+            </div>
           </div>
         ) : (
-          <div>
-            <UploadCloud className="mx-auto h-12 w-12 text-gray-400" />
-            <div className="mt-4 flex text-sm text-gray-600">
-              <p className="text-center">
-                <span className="font-medium text-primary-600">
-                  Click to upload
-                </span>{" "}
-                or drag and drop
-                <br />
-                <span className="text-gray-500">
-                  {accept === "*"
-                    ? "Any file up to "
-                    : `${accept.replace(/,/g, ", ")} up to `}
-                  {maxSize}MB
-                </span>
-              </p>
-            </div>
-          </div>
-        )}
-
-        {error && (
-          <div className="mt-2 text-sm text-red-600">
-            {error}
+          <div className="flex flex-col items-center text-center p-2">
+            <UploadCloud className="h-8 w-8 text-gray-400 mb-2" />
+            <p className="text-sm font-medium mb-1">
+              Drag & drop file here or click to browse
+            </p>
+            <p className="text-xs text-gray-500">
+              Supports: {accept.replace(/\./g, '').replace(/,/g, ', ')}
+            </p>
+            {error && (
+              <p className="text-xs text-red-500 mt-2">{error}</p>
+            )}
           </div>
         )}
       </div>
+      
+      {status !== 'idle' && status !== 'success' && (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setFileName(null);
+              setError(null);
+              if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+              }
+            }}
+            disabled={disabled || !fileName || status === 'uploading'}
+            className="text-xs"
+          >
+            Reset
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
