@@ -65,6 +65,7 @@ interface Request extends ExpressRequest {
 }
 import { extractDataFromFile } from "./services/gemini";
 import { getChatbotResponse, clearChatHistory } from "./services/chatbot";
+import { sendPaymentReminder, sendMonthlyLatePaymentReport } from "./services/emailService";
 
 // Extend Express Request to include authentication properties
 declare global {
@@ -415,6 +416,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const userId = req.session.user.id;
     const latePayers = await storage.getLatePayers(userId);
     res.json(latePayers);
+  }));
+  
+  // Send payment reminder to tenant
+  app.post("/api/tenants/:id/send-payment-reminder", handleErrors(async (req, res) => {
+    if (!req.session || !req.session.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const userId = req.session.user.id;
+    const tenantId = parseInt(req.params.id);
+    const { message } = req.body; // Optional additional message
+    
+    // Verify tenant belongs to this user
+    const tenant = await storage.getTenantById(tenantId);
+    if (!tenant || tenant.userId !== userId) {
+      return res.status(404).json({ message: "Tenant not found" });
+    }
+    
+    // Check if tenant has an email
+    if (!tenant.email) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Cannot send reminder: tenant has no email address" 
+      });
+    }
+    
+    // Get tenant's last payment
+    const payments = await storage.getPaymentsByTenantId(tenantId);
+    const lastPayment = payments.length > 0 ? 
+      payments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0] : 
+      null;
+    
+    // Send the reminder email
+    const result = await sendPaymentReminder(tenant, lastPayment, message);
+    
+    if (result.success) {
+      res.json({ 
+        success: true,
+        message: "Payment reminder sent successfully",
+        previewUrl: result.previewUrl // For testing purposes
+      });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        message: `Failed to send reminder: ${result.error || "Unknown error"}` 
+      });
+    }
+  }));
+  
+  // Generate and send monthly late payment report
+  app.post("/api/generate-late-payment-report", handleErrors(async (req, res) => {
+    if (!req.session || !req.session.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const userId = req.session.user.id;
+    const user = await storage.getUser(userId);
+    
+    if (!user || !user.email) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "User has no email address for report delivery" 
+      });
+    }
+    
+    // Get list of late payers
+    const latePayers = await storage.getLatePayers(userId);
+    
+    // Send the report
+    const result = await sendMonthlyLatePaymentReport(user.email, latePayers);
+    
+    if (result.success) {
+      res.json({ 
+        success: true,
+        message: "Late payment report generated and sent successfully",
+        reportCount: latePayers.length,
+        previewUrl: result.previewUrl // For testing purposes
+      });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        message: `Failed to generate report: ${result.error || "Unknown error"}` 
+      });
+    }
   }));
   
   // Files API
