@@ -307,9 +307,9 @@ export class MemStorage implements IStorage {
       ...insertUser, 
       id, 
       isAdmin: false, 
-      hasCompletedOnboarding: false,
-      subscriptionType: null, 
-      subscriptionStatus: null, 
+      onboardingCompleted: false,
+      tier: null, 
+      isActive: false, 
       stripeCustomerId: null, 
       stripeSubscriptionId: null,
       fullName: insertUser.fullName || null
@@ -335,7 +335,7 @@ export class MemStorage implements IStorage {
       ...user, 
       stripeCustomerId: info.customerId, 
       stripeSubscriptionId: info.subscriptionId,
-      subscriptionStatus: 'active'
+      isActive: true
     };
     this.users.set(userId, updatedUser);
     return updatedUser;
@@ -347,7 +347,7 @@ export class MemStorage implements IStorage {
     
     const updatedUser = { 
       ...user, 
-      hasCompletedOnboarding: hasCompleted 
+      onboardingCompleted: hasCompleted 
     };
     this.users.set(userId, updatedUser);
     return updatedUser;
@@ -1238,12 +1238,15 @@ export class DatabaseStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const result = await db.insert(users).values({
       ...insertUser,
-      isAdmin: false,
-      hasCompletedOnboarding: false,
-      subscriptionType: null,
-      subscriptionStatus: null,
-      stripeCustomerId: null,
-      stripeSubscriptionId: null
+      isAdmin: insertUser.isAdmin !== undefined ? insertUser.isAdmin : false,
+      isActive: insertUser.isActive !== undefined ? insertUser.isActive : true,
+      onboardingCompleted: insertUser.onboardingCompleted !== undefined ? insertUser.onboardingCompleted : false,
+      tier: insertUser.tier || null,
+      stripeCustomerId: insertUser.stripeCustomerId || null,
+      stripeSubscriptionId: insertUser.stripeSubscriptionId || null,
+      stripePaymentIntentId: insertUser.stripePaymentIntentId || null,
+      createdAt: insertUser.createdAt || new Date(),
+      updatedAt: insertUser.updatedAt || new Date()
     }).returning();
     return result[0];
   }
@@ -1266,8 +1269,9 @@ export class DatabaseStorage implements IStorage {
       .set({ 
         stripeCustomerId: info.customerId,
         stripeSubscriptionId: info.subscriptionId,
-        subscriptionType: 'monthly',
-        subscriptionStatus: 'active'
+        tier: 'premium',
+        isActive: true,
+        updatedAt: new Date()
       })
       .where(eq(users.id, userId))
       .returning();
@@ -1282,7 +1286,8 @@ export class DatabaseStorage implements IStorage {
   async updateUserOnboardingStatus(userId: number, hasCompleted: boolean): Promise<User> {
     const result = await db.update(users)
       .set({ 
-        hasCompletedOnboarding: hasCompleted
+        onboardingCompleted: hasCompleted,
+        updatedAt: new Date()
       })
       .where(eq(users.id, userId))
       .returning();

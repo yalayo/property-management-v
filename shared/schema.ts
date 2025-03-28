@@ -9,11 +9,14 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   fullName: text("full_name"),
   isAdmin: boolean("is_admin").default(false),
-  hasCompletedOnboarding: boolean("has_completed_onboarding").default(false),
-  subscriptionType: text("subscription_type"),
-  subscriptionStatus: text("subscription_status"),
+  isActive: boolean("is_active").default(true),
+  onboardingCompleted: boolean("onboarding_completed").default(false),
+  tier: text("tier"),
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const properties = pgTable("properties", {
@@ -226,11 +229,10 @@ export const budgets = pgTable("budgets", {
 });
 
 // Insert schemas and types
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-  email: true,
-  fullName: true,
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 export const insertPropertySchema = createInsertSchema(properties).omit({

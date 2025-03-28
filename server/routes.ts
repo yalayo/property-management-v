@@ -35,9 +35,9 @@ interface Request extends ExpressRequest {
       email: string;
       fullName?: string;
       isAdmin: boolean;
-      hasCompletedOnboarding?: boolean;
-      subscriptionType?: string;
-      subscriptionStatus?: string;
+      onboardingCompleted?: boolean;
+      tier?: string;
+      isActive?: boolean;
     };
     destroy(callback: (err: any) => void): void;
   };
@@ -161,9 +161,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       email: user.email,
       fullName: user.fullName || undefined,
       isAdmin: user.isAdmin || false,
-      hasCompletedOnboarding: user.hasCompletedOnboarding || false,
-      subscriptionType: user.subscriptionType || undefined,
-      subscriptionStatus: user.subscriptionStatus || undefined
+      onboardingCompleted: user.onboardingCompleted || false,
+      tier: user.tier || undefined,
+      isActive: user.isActive || false
     };
     
     // Return user data (without password)
@@ -173,9 +173,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       email: user.email,
       fullName: user.fullName,
       isAdmin: user.isAdmin,
-      hasCompletedOnboarding: user.hasCompletedOnboarding,
-      subscriptionType: user.subscriptionType,
-      subscriptionStatus: user.subscriptionStatus
+      onboardingCompleted: user.onboardingCompleted,
+      tier: user.tier,
+      isActive: user.isActive
     });
   }));
   
@@ -252,9 +252,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           email: mockUser.email,
           fullName: mockUser.fullName,
           isAdmin: mockUser.isAdmin,
-          hasCompletedOnboarding: mockUser.hasCompletedOnboarding,
-          subscriptionType: mockUser.subscriptionType,
-          subscriptionStatus: mockUser.subscriptionStatus
+          onboardingCompleted: mockUser.onboardingCompleted,
+          tier: mockUser.tier,
+          isActive: mockUser.isActive
         });
       }
     }
@@ -445,6 +445,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res
         .status(500)
         .json({ message: "Error creating payment intent: " + error.message });
+    }
+  }));
+  
+  // User registration after successful payment
+  app.post("/api/register-after-payment", handleErrors(async (req, res) => {
+    try {
+      const { username, fullName, email, password, paymentIntentId, tier } = req.body;
+      
+      // Verify if this email is already registered
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ message: "Email already registered" });
+      }
+      
+      // Create new user record
+      const userToCreate = {
+        username,
+        fullName,
+        email,
+        password, // In production, this should be hashed!
+        isAdmin: false,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        onboardingCompleted: false,
+        tier,
+        stripePaymentIntentId: paymentIntentId,
+      };
+      
+      const createdUser = await storage.createUser(userToCreate);
+      
+      // Return success without sending the full user object (for security)
+      res.status(200).json({ 
+        success: true, 
+        message: "User registered successfully",
+        userId: createdUser.id
+      });
+      
+    } catch (error: any) {
+      console.error("Registration error:", error);
+      res.status(500).json({ message: "Error during registration: " + error.message });
     }
   }));
 
