@@ -262,6 +262,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Unauthorized if not logged in or no user found
     return res.status(401).json({ message: "Not authenticated" });
   }));
+  
+  // Add the /api/user endpoint to match what the frontend expects
+  app.get("/api/user", handleErrors(async (req, res) => {
+    // Check if user is logged in via session
+    if (req.session && req.session.user) {
+      return res.json(req.session.user);
+    }
+    
+    // Unauthorized if not logged in
+    return res.status(401).json({ message: "Not authenticated" });
+  }));
+  
+  // Properties API
+  app.get("/api/properties", handleErrors(async (req, res) => {
+    if (!req.session || !req.session.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const userId = req.session.user.id;
+    const properties = await storage.getPropertiesByUserId(userId);
+    res.json(properties);
+  }));
+  
+  app.post("/api/properties", handleErrors(async (req, res) => {
+    if (!req.session || !req.session.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const userId = req.session.user.id;
+    const propertyData = req.body;
+    const validatedData = insertPropertySchema.parse({
+      ...propertyData,
+      userId
+    });
+    
+    const property = await storage.createProperty(validatedData);
+    res.status(201).json(property);
+  }));
+  
+  // Tenants API
+  app.get("/api/tenants", handleErrors(async (req, res) => {
+    if (!req.session || !req.session.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const userId = req.session.user.id;
+    const tenants = await storage.getTenantsByUserId(userId);
+    res.json(tenants);
+  }));
+  
+  app.post("/api/tenants", handleErrors(async (req, res) => {
+    if (!req.session || !req.session.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const userId = req.session.user.id;
+    const tenantData = req.body;
+    const validatedData = insertTenantSchema.parse({
+      ...tenantData,
+      userId
+    });
+    
+    const tenant = await storage.createTenant(validatedData);
+    res.status(201).json(tenant);
+  }));
+  
+  // Late Payments API
+  app.get("/api/late-payments", handleErrors(async (req, res) => {
+    if (!req.session || !req.session.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const userId = req.session.user.id;
+    const latePayers = await storage.getLatePayers(userId);
+    res.json(latePayers);
+  }));
+  
+  // Files API
+  app.get("/api/files", handleErrors(async (req, res) => {
+    if (!req.session || !req.session.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const userId = req.session.user.id;
+    const files = await storage.getFilesByUserId(userId);
+    res.json(files);
+  }));
 
   // Admin endpoints
   // Middleware to check if user is admin
