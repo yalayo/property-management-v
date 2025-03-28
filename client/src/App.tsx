@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -18,6 +18,7 @@ import Login from "@/pages/login";
 import Register from "@/pages/register";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/components/protected-route";
+import { ChatbotWidget } from "@/components/chatbot/ChatbotWidget";
 
 function Router() {
   return (
@@ -48,10 +49,22 @@ function Router() {
 }
 
 function App() {
+  const [location] = useLocation();
+  const showChatbot = !location.startsWith("/admin") && 
+                      !location.startsWith("/login") && 
+                      !location.startsWith("/register") && 
+                      !location.startsWith("/waiting-list") && 
+                      !location.startsWith("/payment") &&
+                      !location.startsWith("/survey-results") &&
+                      !location.startsWith("/features-pricing") &&
+                      !location.startsWith("/admin-login") &&
+                      location !== "/";
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Router />
+        {showChatbot && <ChatbotWidget />}
         <Toaster />
       </AuthProvider>
     </QueryClientProvider>

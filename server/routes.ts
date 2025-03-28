@@ -43,6 +43,7 @@ interface Request extends ExpressRequest {
   };
 }
 import { extractDataFromFile } from "./services/gemini";
+import { getChatbotResponse, clearChatHistory } from "./services/chatbot";
 
 // Extend Express Request to include authentication properties
 declare global {
@@ -519,6 +520,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }));
 
+  // Chatbot API endpoints
+  app.post("/api/chatbot/message", handleErrors(async (req, res) => {
+    if (!req.session || !req.session.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const userId = req.session.user.id;
+    const { message } = req.body;
+    
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({ message: "Message is required" });
+    }
+    
+    // Get user properties to provide context to the chatbot
+    const properties = await storage.getPropertiesByUserId(userId);
+    
+    try {
+      const response = await getChatbotResponse(userId, message, properties);
+      res.json({ response });
+    } catch (error: any) {
+      console.error("Chatbot error:", error);
+      res.status(500).json({ 
+        message: "Error processing your message", 
+        error: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  }));
+  
+  app.post("/api/chatbot/reset", handleErrors(async (req, res) => {
+    if (!req.session || !req.session.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const userId = req.session.user.id;
+    
+    // Clear chat history for the user
+    clearChatHistory(userId);
+    
+    res.json({ message: "Chat history reset successfully" });
+  }));
+  
   // Stripe payment route for one-time payments
   app.post("/api/create-payment-intent", handleErrors(async (req, res) => {
     try {
