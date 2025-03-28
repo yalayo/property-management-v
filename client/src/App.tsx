@@ -14,18 +14,26 @@ import AdminLogin from "@/pages/admin-login";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminSurveyAnalytics from "@/pages/admin/survey-analytics";
 import AdminWaitingList from "@/pages/admin/waiting-list";
+import Login from "@/pages/login";
+import Register from "@/pages/register";
+import { AuthProvider } from "@/hooks/use-auth";
+import { ProtectedRoute } from "@/components/protected-route";
 
 function Router() {
   return (
     <Switch>
-      {/* User routes */}
+      {/* Public routes */}
       <Route path="/" component={Home} />
-      <Route path="/dashboard" component={Dashboard} />
+      <Route path="/login" component={Login} />
+      <Route path="/register" component={Register} />
       <Route path="/waiting-list" component={WaitingList} />
       <Route path="/payment/:tier" component={Payment} />
       <Route path="/survey-results" component={SurveyResults} />
-      <Route path="/onboarding" component={Onboarding} />
       <Route path="/features-pricing" component={FeaturesPricing} />
+      
+      {/* Protected user routes */}
+      <ProtectedRoute path="/dashboard" component={Dashboard} />
+      <ProtectedRoute path="/onboarding" component={Onboarding} />
       
       {/* Admin routes */}
       <Route path="/admin-login" component={AdminLogin} />
@@ -42,8 +50,10 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router />
-      <Toaster />
+      <AuthProvider>
+        <Router />
+        <Toaster />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
