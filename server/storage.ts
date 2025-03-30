@@ -28,13 +28,11 @@ import {
   // Tenant rating system imports
   tenantRatings, type TenantRating, type InsertTenantRating
 } from "@shared/schema";
-import { db } from "./db";
+import { db, getSqlClient } from "./db";
 import { eq, desc, count, and } from "drizzle-orm";
 
 import session from "express-session";
-import connectPg from "connect-pg-simple";
 import createMemoryStore from "memorystore";
-import { pool } from "./db";
 
 // Initialize memory store for in-memory sessions
 const MemoryStore = createMemoryStore(session);
@@ -1678,29 +1676,13 @@ export class DatabaseStorage implements IStorage {
   public sessionStore: session.Store;
 
   constructor() {
-    // For production (Cloudflare Workers), we'll use a fallback memory store
+    // Use MemoryStore for all environments for simplicity and Cloudflare compatibility
     // This avoids Node.js-specific dependencies in the Workers environment
-    // In production, use token-based authentication through the Hono API
-    if (process.env.NODE_ENV === 'production') {
-      this.sessionStore = new MemoryStore({
-        checkPeriod: 86400000, // 1 day in milliseconds
-      });
-    } else {
-      // For local development, use PostgreSQL session store if available
-      try {
-        const PostgresSessionStore = connectPg(session);
-        this.sessionStore = new PostgresSessionStore({
-          pool,
-          createTableIfMissing: true,
-          tableName: 'session'
-        });
-      } catch (error) {
-        console.warn('Failed to initialize PostgreSQL session store, falling back to memory store');
-        this.sessionStore = new MemoryStore({
-          checkPeriod: 86400000, // 1 day in milliseconds
-        });
-      }
-    }
+    // For more robust session handling in production, token-based authentication 
+    // would be better through the Hono API
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000, // 1 day in milliseconds
+    });
     
     // Initialize with some default questions data
     // Only do this if the database is already initialized

@@ -2,11 +2,10 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import session from "express-session";
-import { pool } from "./db";
-import connectPgSimple from "connect-pg-simple";
+import createMemoryStore from "memorystore";
 
-// Initialize PostgreSQL session store
-const PgSession = connectPgSimple(session);
+// Initialize memory session store (compatible with Cloudflare Workers)
+const MemoryStore = createMemoryStore(session);
 
 // Create the express app
 const app = express();
@@ -15,9 +14,8 @@ app.use(express.urlencoded({ extended: false }));
 
 // Configure session
 app.use(session({
-  store: new PgSession({
-    pool,
-    tableName: 'session' // Use default table name
+  store: new MemoryStore({
+    checkPeriod: 86400000, // Prune expired entries every day
   }),
   secret: process.env.SESSION_SECRET || 'your_session_secret_key', // In production, use environment variable
   resave: false,
