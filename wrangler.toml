@@ -3,15 +3,13 @@ main = "server/worker.ts"
 compatibility_date = "2024-03-30"
 nodejs_compat = true  # Enable Node.js compatibility
 
-[vars]
-NODE_ENV = "production"
-
 # For local development, use existing DB config
 [env.development]
 # keep using local database
 
 # Production with D1 database
 [env.production]
+vars = { NODE_ENV = "production" }
 # Bind the D1 database to the Worker
 [[env.production.d1_databases]]
 binding = "DB" # available in production as env.DB
