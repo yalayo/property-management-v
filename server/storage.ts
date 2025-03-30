@@ -19,10 +19,17 @@ import {
   maintenanceComments, type MaintenanceComment, type InsertMaintenanceComment, 
   serviceProviders, type ServiceProvider, type InsertServiceProvider,
   // Payment gateway/processing imports
-  paypalOrders, type PaypalOrder, type InsertPaypalOrder
+  paypalOrders, type PaypalOrder, type InsertPaypalOrder,
+  // Tenant portal access imports
+  tenantCredentials, type TenantCredential, type InsertTenantCredential,
+  // Document repository imports
+  sharedDocuments, type SharedDocument, type InsertSharedDocument,
+  tenantDocuments, type TenantDocument, type InsertTenantDocument,
+  // Tenant rating system imports
+  tenantRatings, type TenantRating, type InsertTenantRating
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, count } from "drizzle-orm";
+import { eq, desc, count, and } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -195,6 +202,42 @@ export interface IStorage {
   getServiceProviderById(id: number): Promise<ServiceProvider | undefined>;
   updateServiceProvider(id: number, data: Partial<InsertServiceProvider>): Promise<ServiceProvider | undefined>;
   deleteServiceProvider(id: number): Promise<boolean>;
+
+  // ===== TENANT MANAGEMENT MODULE =====
+
+  // Tenant Portal Access
+  createTenantCredential(credential: InsertTenantCredential): Promise<TenantCredential>;
+  getTenantCredentialById(id: number): Promise<TenantCredential | undefined>;
+  getTenantCredentialByUsername(username: string): Promise<TenantCredential | undefined>;
+  getTenantCredentialByTenantId(tenantId: number): Promise<TenantCredential | undefined>;
+  getTenantCredentialsByUserId(userId: number): Promise<TenantCredential[]>;
+  updateTenantCredential(id: number, data: Partial<InsertTenantCredential>): Promise<TenantCredential | undefined>;
+  deleteTenantCredential(id: number): Promise<boolean>;
+  updateTenantCredentialLastLogin(id: number): Promise<TenantCredential>;
+
+  // Document Repository
+  createSharedDocument(document: InsertSharedDocument): Promise<SharedDocument>;
+  getSharedDocumentById(id: number): Promise<SharedDocument | undefined>;
+  getSharedDocumentsByUserId(userId: number): Promise<SharedDocument[]>;
+  getPublicDocumentsByUserId(userId: number): Promise<SharedDocument[]>;
+  updateSharedDocument(id: number, data: Partial<InsertSharedDocument>): Promise<SharedDocument | undefined>;
+  deleteSharedDocument(id: number): Promise<boolean>;
+
+  createTenantDocument(document: InsertTenantDocument): Promise<TenantDocument>;
+  getTenantDocumentById(id: number): Promise<TenantDocument | undefined>;
+  getTenantDocumentsByTenantId(tenantId: number): Promise<TenantDocument[]>;
+  getTenantDocumentsByDocumentId(documentId: number): Promise<TenantDocument[]>;
+  updateTenantDocumentViewStatus(id: number, hasViewed: boolean): Promise<TenantDocument>;
+  deleteTenantDocument(id: number): Promise<boolean>;
+
+  // Tenant Rating System
+  createTenantRating(rating: InsertTenantRating): Promise<TenantRating>;
+  getTenantRatingById(id: number): Promise<TenantRating | undefined>;
+  getTenantRatingsByTenantId(tenantId: number): Promise<TenantRating[]>;
+  getTenantRatingsByUserId(userId: number): Promise<TenantRating[]>;
+  updateTenantRating(id: number, data: Partial<InsertTenantRating>): Promise<TenantRating | undefined>;
+  deleteTenantRating(id: number): Promise<boolean>;
+  getTenantAverageRating(tenantId: number): Promise<number>;
 }
 
 export class MemStorage implements IStorage {
@@ -223,6 +266,12 @@ export class MemStorage implements IStorage {
   // Payment gateway module storage
   private paypalOrders: Map<number, PaypalOrder>;
   
+  // Tenant Management Module storage
+  private tenantCredentials: Map<number, TenantCredential>;
+  private sharedDocuments: Map<number, SharedDocument>;
+  private tenantDocuments: Map<number, TenantDocument>;
+  private tenantRatings: Map<number, TenantRating>;
+  
   private currentUserId: number;
   private currentPropertyId: number;
   private currentTenantId: number;
@@ -247,6 +296,12 @@ export class MemStorage implements IStorage {
   
   // Payment gateway module IDs
   private currentPaypalOrderId: number;
+  
+  // Tenant Management Module IDs
+  private currentTenantCredentialId: number;
+  private currentSharedDocumentId: number;
+  private currentTenantDocumentId: number;
+  private currentTenantRatingId: number;
   
   constructor() {
     this.users = new Map();
@@ -274,6 +329,12 @@ export class MemStorage implements IStorage {
     // Initialize payment gateway module storage
     this.paypalOrders = new Map();
     
+    // Initialize tenant management module storage
+    this.tenantCredentials = new Map();
+    this.sharedDocuments = new Map();
+    this.tenantDocuments = new Map();
+    this.tenantRatings = new Map();
+    
     this.currentUserId = 1;
     this.currentPropertyId = 1;
     this.currentTenantId = 1;
@@ -298,6 +359,12 @@ export class MemStorage implements IStorage {
     
     // Initialize payment gateway module IDs
     this.currentPaypalOrderId = 1;
+    
+    // Initialize tenant management module IDs
+    this.currentTenantCredentialId = 1;
+    this.currentSharedDocumentId = 1;
+    this.currentTenantDocumentId = 1;
+    this.currentTenantRatingId = 1;
     
     // Initialize with 20 questions
     const sampleQuestions = [
@@ -1370,6 +1437,223 @@ export class MemStorage implements IStorage {
     
     return this.serviceProviders.delete(id);
   }
+
+  // ===== TENANT MANAGEMENT MODULE =====
+
+  // Tenant Portal Access
+  async createTenantCredential(credential: InsertTenantCredential): Promise<TenantCredential> {
+    const id = this.currentTenantCredentialId++;
+    const newCredential: TenantCredential = {
+      ...credential,
+      id,
+      lastLogin: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      isActive: credential.isActive ?? true
+    };
+    this.tenantCredentials.set(id, newCredential);
+    return newCredential;
+  }
+
+  async getTenantCredentialById(id: number): Promise<TenantCredential | undefined> {
+    return this.tenantCredentials.get(id);
+  }
+
+  async getTenantCredentialByUsername(username: string): Promise<TenantCredential | undefined> {
+    return Array.from(this.tenantCredentials.values()).find(
+      (credential) => credential.username === username
+    );
+  }
+
+  async getTenantCredentialByTenantId(tenantId: number): Promise<TenantCredential | undefined> {
+    return Array.from(this.tenantCredentials.values()).find(
+      (credential) => credential.tenantId === tenantId
+    );
+  }
+
+  async getTenantCredentialsByUserId(userId: number): Promise<TenantCredential[]> {
+    return Array.from(this.tenantCredentials.values()).filter(
+      (credential) => credential.userId === userId
+    );
+  }
+
+  async updateTenantCredential(id: number, data: Partial<InsertTenantCredential>): Promise<TenantCredential | undefined> {
+    const credential = await this.getTenantCredentialById(id);
+    if (!credential) return undefined;
+    
+    const updatedCredential = { 
+      ...credential, 
+      ...data,
+      updatedAt: new Date()
+    };
+    this.tenantCredentials.set(id, updatedCredential);
+    return updatedCredential;
+  }
+
+  async deleteTenantCredential(id: number): Promise<boolean> {
+    return this.tenantCredentials.delete(id);
+  }
+
+  async updateTenantCredentialLastLogin(id: number): Promise<TenantCredential> {
+    const credential = await this.getTenantCredentialById(id);
+    if (!credential) throw new Error("Tenant credential not found");
+    
+    const updatedCredential = { 
+      ...credential, 
+      lastLogin: new Date(),
+      updatedAt: new Date()
+    };
+    this.tenantCredentials.set(id, updatedCredential);
+    return updatedCredential;
+  }
+
+  // Document Repository - Shared Documents
+  async createSharedDocument(document: InsertSharedDocument): Promise<SharedDocument> {
+    const id = this.currentSharedDocumentId++;
+    const newDocument: SharedDocument = {
+      ...document,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      isPublic: document.isPublic ?? false
+    };
+    this.sharedDocuments.set(id, newDocument);
+    return newDocument;
+  }
+
+  async getSharedDocumentById(id: number): Promise<SharedDocument | undefined> {
+    return this.sharedDocuments.get(id);
+  }
+
+  async getSharedDocumentsByUserId(userId: number): Promise<SharedDocument[]> {
+    return Array.from(this.sharedDocuments.values()).filter(
+      (document) => document.userId === userId
+    );
+  }
+
+  async getPublicDocumentsByUserId(userId: number): Promise<SharedDocument[]> {
+    return Array.from(this.sharedDocuments.values()).filter(
+      (document) => document.userId === userId && document.isPublic
+    );
+  }
+
+  async updateSharedDocument(id: number, data: Partial<InsertSharedDocument>): Promise<SharedDocument | undefined> {
+    const document = await this.getSharedDocumentById(id);
+    if (!document) return undefined;
+    
+    const updatedDocument = { 
+      ...document, 
+      ...data,
+      updatedAt: new Date()
+    };
+    this.sharedDocuments.set(id, updatedDocument);
+    return updatedDocument;
+  }
+
+  async deleteSharedDocument(id: number): Promise<boolean> {
+    return this.sharedDocuments.delete(id);
+  }
+
+  // Document Repository - Tenant Documents
+  async createTenantDocument(document: InsertTenantDocument): Promise<TenantDocument> {
+    const id = this.currentTenantDocumentId++;
+    const newDocument: TenantDocument = {
+      ...document,
+      id,
+      hasViewed: document.hasViewed ?? false,
+      viewedAt: null,
+      createdAt: new Date()
+    };
+    this.tenantDocuments.set(id, newDocument);
+    return newDocument;
+  }
+
+  async getTenantDocumentById(id: number): Promise<TenantDocument | undefined> {
+    return this.tenantDocuments.get(id);
+  }
+
+  async getTenantDocumentsByTenantId(tenantId: number): Promise<TenantDocument[]> {
+    return Array.from(this.tenantDocuments.values()).filter(
+      (document) => document.tenantId === tenantId
+    );
+  }
+
+  async getTenantDocumentsByDocumentId(documentId: number): Promise<TenantDocument[]> {
+    return Array.from(this.tenantDocuments.values()).filter(
+      (document) => document.documentId === documentId
+    );
+  }
+
+  async updateTenantDocumentViewStatus(id: number, hasViewed: boolean): Promise<TenantDocument> {
+    const document = await this.getTenantDocumentById(id);
+    if (!document) throw new Error("Tenant document not found");
+    
+    const updatedDocument = { 
+      ...document, 
+      hasViewed,
+      viewedAt: hasViewed ? new Date() : null
+    };
+    this.tenantDocuments.set(id, updatedDocument);
+    return updatedDocument;
+  }
+
+  async deleteTenantDocument(id: number): Promise<boolean> {
+    return this.tenantDocuments.delete(id);
+  }
+
+  // Tenant Rating System
+  async createTenantRating(rating: InsertTenantRating): Promise<TenantRating> {
+    const id = this.currentTenantRatingId++;
+    const newRating: TenantRating = {
+      ...rating,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.tenantRatings.set(id, newRating);
+    return newRating;
+  }
+
+  async getTenantRatingById(id: number): Promise<TenantRating | undefined> {
+    return this.tenantRatings.get(id);
+  }
+
+  async getTenantRatingsByTenantId(tenantId: number): Promise<TenantRating[]> {
+    return Array.from(this.tenantRatings.values()).filter(
+      (rating) => rating.tenantId === tenantId
+    );
+  }
+
+  async getTenantRatingsByUserId(userId: number): Promise<TenantRating[]> {
+    return Array.from(this.tenantRatings.values()).filter(
+      (rating) => rating.userId === userId
+    );
+  }
+
+  async updateTenantRating(id: number, data: Partial<InsertTenantRating>): Promise<TenantRating | undefined> {
+    const rating = await this.getTenantRatingById(id);
+    if (!rating) return undefined;
+    
+    const updatedRating = { 
+      ...rating, 
+      ...data,
+      updatedAt: new Date()
+    };
+    this.tenantRatings.set(id, updatedRating);
+    return updatedRating;
+  }
+
+  async deleteTenantRating(id: number): Promise<boolean> {
+    return this.tenantRatings.delete(id);
+  }
+
+  async getTenantAverageRating(tenantId: number): Promise<number> {
+    const ratings = await this.getTenantRatingsByTenantId(tenantId);
+    if (ratings.length === 0) return 0;
+    
+    const total = ratings.reduce((sum, rating) => sum + rating.rating, 0);
+    return total / ratings.length;
+  }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2368,6 +2652,227 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     return result.length > 0;
+  }
+
+  // ===== TENANT MANAGEMENT MODULE =====
+
+  // Tenant Portal Access
+  async createTenantCredential(credential: InsertTenantCredential): Promise<TenantCredential> {
+    const result = await db.insert(tenantCredentials).values({
+      ...credential,
+      lastLogin: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      isActive: credential.isActive ?? true
+    }).returning();
+    
+    return result[0];
+  }
+
+  async getTenantCredentialById(id: number): Promise<TenantCredential | undefined> {
+    const result = await db.select().from(tenantCredentials).where(eq(tenantCredentials.id, id));
+    return result[0];
+  }
+
+  async getTenantCredentialByUsername(username: string): Promise<TenantCredential | undefined> {
+    const result = await db.select().from(tenantCredentials).where(eq(tenantCredentials.username, username));
+    return result[0];
+  }
+
+  async getTenantCredentialByTenantId(tenantId: number): Promise<TenantCredential | undefined> {
+    const result = await db.select().from(tenantCredentials).where(eq(tenantCredentials.tenantId, tenantId));
+    return result[0];
+  }
+
+  async getTenantCredentialsByUserId(userId: number): Promise<TenantCredential[]> {
+    return db.select().from(tenantCredentials).where(eq(tenantCredentials.userId, userId));
+  }
+
+  async updateTenantCredential(id: number, data: Partial<InsertTenantCredential>): Promise<TenantCredential | undefined> {
+    const result = await db.update(tenantCredentials)
+      .set({
+        ...data,
+        updatedAt: new Date()
+      })
+      .where(eq(tenantCredentials.id, id))
+      .returning();
+    
+    return result[0];
+  }
+
+  async deleteTenantCredential(id: number): Promise<boolean> {
+    const result = await db.delete(tenantCredentials)
+      .where(eq(tenantCredentials.id, id))
+      .returning();
+    
+    return result.length > 0;
+  }
+
+  async updateTenantCredentialLastLogin(id: number): Promise<TenantCredential> {
+    const result = await db.update(tenantCredentials)
+      .set({
+        lastLogin: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(tenantCredentials.id, id))
+      .returning();
+    
+    if (result.length === 0) {
+      throw new Error("Tenant credential not found");
+    }
+    
+    return result[0];
+  }
+
+  // Document Repository - Shared Documents
+  async createSharedDocument(document: InsertSharedDocument): Promise<SharedDocument> {
+    const result = await db.insert(sharedDocuments).values({
+      ...document,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      isPublic: document.isPublic ?? false
+    }).returning();
+    
+    return result[0];
+  }
+
+  async getSharedDocumentById(id: number): Promise<SharedDocument | undefined> {
+    const result = await db.select().from(sharedDocuments).where(eq(sharedDocuments.id, id));
+    return result[0];
+  }
+
+  async getSharedDocumentsByUserId(userId: number): Promise<SharedDocument[]> {
+    return db.select().from(sharedDocuments).where(eq(sharedDocuments.userId, userId));
+  }
+
+  async getPublicDocumentsByUserId(userId: number): Promise<SharedDocument[]> {
+    return db.select()
+      .from(sharedDocuments)
+      .where(and(
+        eq(sharedDocuments.userId, userId),
+        eq(sharedDocuments.isPublic, true)
+      ));
+  }
+
+  async updateSharedDocument(id: number, data: Partial<InsertSharedDocument>): Promise<SharedDocument | undefined> {
+    const result = await db.update(sharedDocuments)
+      .set({
+        ...data,
+        updatedAt: new Date()
+      })
+      .where(eq(sharedDocuments.id, id))
+      .returning();
+    
+    return result[0];
+  }
+
+  async deleteSharedDocument(id: number): Promise<boolean> {
+    const result = await db.delete(sharedDocuments)
+      .where(eq(sharedDocuments.id, id))
+      .returning();
+    
+    return result.length > 0;
+  }
+
+  // Document Repository - Tenant Documents
+  async createTenantDocument(document: InsertTenantDocument): Promise<TenantDocument> {
+    const result = await db.insert(tenantDocuments).values({
+      ...document,
+      hasViewed: document.hasViewed ?? false,
+      viewedAt: null,
+      createdAt: new Date()
+    }).returning();
+    
+    return result[0];
+  }
+
+  async getTenantDocumentById(id: number): Promise<TenantDocument | undefined> {
+    const result = await db.select().from(tenantDocuments).where(eq(tenantDocuments.id, id));
+    return result[0];
+  }
+
+  async getTenantDocumentsByTenantId(tenantId: number): Promise<TenantDocument[]> {
+    return db.select().from(tenantDocuments).where(eq(tenantDocuments.tenantId, tenantId));
+  }
+
+  async getTenantDocumentsByDocumentId(documentId: number): Promise<TenantDocument[]> {
+    return db.select().from(tenantDocuments).where(eq(tenantDocuments.documentId, documentId));
+  }
+
+  async updateTenantDocumentViewStatus(id: number, hasViewed: boolean): Promise<TenantDocument> {
+    const result = await db.update(tenantDocuments)
+      .set({
+        hasViewed,
+        viewedAt: hasViewed ? new Date() : null
+      })
+      .where(eq(tenantDocuments.id, id))
+      .returning();
+    
+    if (result.length === 0) {
+      throw new Error("Tenant document not found");
+    }
+    
+    return result[0];
+  }
+
+  async deleteTenantDocument(id: number): Promise<boolean> {
+    const result = await db.delete(tenantDocuments)
+      .where(eq(tenantDocuments.id, id))
+      .returning();
+    
+    return result.length > 0;
+  }
+
+  // Tenant Rating System
+  async createTenantRating(rating: InsertTenantRating): Promise<TenantRating> {
+    const result = await db.insert(tenantRatings).values({
+      ...rating,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }).returning();
+    
+    return result[0];
+  }
+
+  async getTenantRatingById(id: number): Promise<TenantRating | undefined> {
+    const result = await db.select().from(tenantRatings).where(eq(tenantRatings.id, id));
+    return result[0];
+  }
+
+  async getTenantRatingsByTenantId(tenantId: number): Promise<TenantRating[]> {
+    return db.select().from(tenantRatings).where(eq(tenantRatings.tenantId, tenantId));
+  }
+
+  async getTenantRatingsByUserId(userId: number): Promise<TenantRating[]> {
+    return db.select().from(tenantRatings).where(eq(tenantRatings.userId, userId));
+  }
+
+  async updateTenantRating(id: number, data: Partial<InsertTenantRating>): Promise<TenantRating | undefined> {
+    const result = await db.update(tenantRatings)
+      .set({
+        ...data,
+        updatedAt: new Date()
+      })
+      .where(eq(tenantRatings.id, id))
+      .returning();
+    
+    return result[0];
+  }
+
+  async deleteTenantRating(id: number): Promise<boolean> {
+    const result = await db.delete(tenantRatings)
+      .where(eq(tenantRatings.id, id))
+      .returning();
+    
+    return result.length > 0;
+  }
+
+  async getTenantAverageRating(tenantId: number): Promise<number> {
+    const ratings = await this.getTenantRatingsByTenantId(tenantId);
+    if (ratings.length === 0) return 0;
+    
+    const total = ratings.reduce((sum, rating) => sum + rating.rating, 0);
+    return total / ratings.length;
   }
 }
 

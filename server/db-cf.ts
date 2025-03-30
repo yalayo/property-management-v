@@ -1,0 +1,27 @@
+import * as schema from '../shared/schema';
+import { drizzle } from 'drizzle-orm/d1';
+import { Pool } from '@neondatabase/serverless';
+import { drizzle as drizzlePg } from 'drizzle-orm/postgres-js';
+
+/**
+ * Provides the appropriate database connection based on environment
+ * - For production: Uses Cloudflare D1
+ * - For development: Uses PostgreSQL
+ */
+export function getDatabase() {
+  // Check if we're in production environment (Cloudflare Workers)
+  if (process.env.NODE_ENV === 'production') {
+    // Check if D1 database is available (should be set in worker.ts)
+    if (globalThis.__D1_DB) {
+      return globalThis.__D1_DB;
+    }
+    throw new Error('D1 database not initialized in production environment');
+  } 
+  
+  // For local development, use PostgreSQL
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  return drizzlePg(pool, { schema });
+}
+
+// Exported for backward compatibility
+export const db = getDatabase();

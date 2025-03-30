@@ -346,6 +346,57 @@ export const paypalOrders = pgTable("paypal_orders", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Tenant portal credentials to allow tenants to login to their portal
+export const tenantCredentials = pgTable("tenant_credentials", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().references(() => tenants.id),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
+  isActive: boolean("is_active").default(true),
+  lastLogin: timestamp("last_login"),
+  expiryDate: timestamp("expiry_date"), // Optional expiry date for temporary access
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Shared documents between landlords and tenants
+export const sharedDocuments = pgTable("shared_documents", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id), // Landlord who shared the document
+  fileId: integer("file_id").notNull().references(() => uploadedFiles.id),
+  documentName: text("document_name").notNull(),
+  documentType: text("document_type").notNull(), // "lease", "rules", "notice", "receipt", etc.
+  description: text("description"),
+  isPublic: boolean("is_public").default(false), // If true, visible to all tenants of this landlord
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Links documents to specific tenants
+export const tenantDocuments = pgTable("tenant_documents", {
+  id: serial("id").primaryKey(),
+  documentId: integer("document_id").notNull().references(() => sharedDocuments.id),
+  tenantId: integer("tenant_id").notNull().references(() => tenants.id),
+  hasViewed: boolean("has_viewed").default(false),
+  lastViewed: timestamp("last_viewed"),
+  expiryDate: timestamp("expiry_date"), // Optional, for time-limited document access
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Tenant ratings given by landlords to track tenant reliability
+export const tenantRatings = pgTable("tenant_ratings", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().references(() => tenants.id),
+  userId: integer("user_id").notNull().references(() => users.id), // Landlord who created rating
+  paymentRating: integer("payment_rating").notNull(), // 1-5 scale
+  propertyRating: integer("property_rating").notNull(), // 1-5 scale
+  communicationRating: integer("communication_rating").notNull(), // 1-5 scale
+  overallRating: integer("overall_rating").notNull(), // 1-5 scale
+  notes: text("notes"),
+  ratingDate: timestamp("rating_date").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Insert schemas and types
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -447,6 +498,33 @@ export const insertMaintenanceCommentSchema = createInsertSchema(maintenanceComm
 export const insertServiceProviderSchema = createInsertSchema(serviceProviders).omit({
   id: true,
   createdAt: true,
+});
+
+// Insert schemas for tenant portal access and document sharing
+export const insertTenantCredentialSchema = createInsertSchema(tenantCredentials).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastLogin: true,
+});
+
+export const insertSharedDocumentSchema = createInsertSchema(sharedDocuments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTenantDocumentSchema = createInsertSchema(tenantDocuments).omit({
+  id: true,
+  createdAt: true,
+  hasViewed: true,
+  lastViewed: true,
+});
+
+export const insertTenantRatingSchema = createInsertSchema(tenantRatings).omit({
+  id: true,
+  ratingDate: true,
+  updatedAt: true,
 });
 
 // Form validation schemas for accounting
@@ -635,3 +713,18 @@ export type MaintenanceCommentForm = z.infer<typeof maintenanceCommentFormSchema
 export type InsertServiceProvider = z.infer<typeof insertServiceProviderSchema>;
 export type ServiceProvider = typeof serviceProviders.$inferSelect;
 export type ServiceProviderForm = z.infer<typeof serviceProviderFormSchema>;
+
+// Tenant Portal Access Types
+export type InsertTenantCredential = z.infer<typeof insertTenantCredentialSchema>;
+export type TenantCredential = typeof tenantCredentials.$inferSelect;
+
+// Document Sharing Types
+export type InsertSharedDocument = z.infer<typeof insertSharedDocumentSchema>;
+export type SharedDocument = typeof sharedDocuments.$inferSelect;
+
+export type InsertTenantDocument = z.infer<typeof insertTenantDocumentSchema>;
+export type TenantDocument = typeof tenantDocuments.$inferSelect;
+
+// Tenant Rating Types
+export type InsertTenantRating = z.infer<typeof insertTenantRatingSchema>;
+export type TenantRating = typeof tenantRatings.$inferSelect;

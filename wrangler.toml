@@ -1,0 +1,30 @@
+name = "german-landlord-property-management"
+main = "server/worker.ts"
+compatibility_date = "2024-03-30"
+
+[vars]
+NODE_ENV = "production"
+
+# For local development, use existing DB config
+[env.development]
+# keep using local database
+
+# Production with D1 database
+[env.production]
+# Bind the D1 database to the Worker
+[[env.production.d1_databases]]
+binding = "DB" # available in production as env.DB
+database_name = "landlord_db"
+database_id = "${DATABASE_ID}" # will be filled via GitHub Actions
+
+# Secrets that will be set via GitHub Actions or wrangler
+# - STRIPE_SECRET_KEY
+# - VITE_STRIPE_PUBLIC_KEY
+# - GOOGLE_GEMINI_API_KEY
+
+[build]
+command = "npm run build"
+watch_dir = ["server", "shared"]
+
+[site]
+bucket = "./client/dist"

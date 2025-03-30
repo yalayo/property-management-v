@@ -1260,6 +1260,342 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
+  // ===== TENANT MANAGEMENT MODULE ROUTES =====
+
+  // Tenant Portal Access Routes
+  app.post("/api/tenant-credentials", isAuthenticated, async (req, res) => {
+    try {
+      const credentialData = req.body;
+      const result = await storage.createTenantCredential(credentialData);
+      res.status(201).json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/tenant-credentials/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const credential = await storage.getTenantCredentialById(id);
+      
+      if (!credential) {
+        return res.status(404).json({ error: "Tenant credential not found" });
+      }
+      
+      res.json(credential);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/tenant-credentials/by-tenant/:tenantId", isAuthenticated, async (req, res) => {
+    try {
+      const tenantId = parseInt(req.params.tenantId);
+      const credential = await storage.getTenantCredentialByTenantId(tenantId);
+      
+      if (!credential) {
+        return res.status(404).json({ error: "Tenant credential not found" });
+      }
+      
+      res.json(credential);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/tenant-credentials/user/:userId", isAuthenticated, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const credentials = await storage.getTenantCredentialsByUserId(userId);
+      res.json(credentials);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put("/api/tenant-credentials/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const credentialData = req.body;
+      const result = await storage.updateTenantCredential(id, credentialData);
+      
+      if (!result) {
+        return res.status(404).json({ error: "Tenant credential not found" });
+      }
+      
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/tenant-credentials/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const result = await storage.deleteTenantCredential(id);
+      
+      if (!result) {
+        return res.status(404).json({ error: "Tenant credential not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/tenant-credentials/:id/login", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const result = await storage.updateTenantCredentialLastLogin(id);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Tenant Document Repository Routes
+  app.post("/api/shared-documents", isAuthenticated, async (req, res) => {
+    try {
+      const documentData = req.body;
+      const result = await storage.createSharedDocument(documentData);
+      res.status(201).json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/shared-documents/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const document = await storage.getSharedDocumentById(id);
+      
+      if (!document) {
+        return res.status(404).json({ error: "Shared document not found" });
+      }
+      
+      res.json(document);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/shared-documents/user/:userId", isAuthenticated, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const documents = await storage.getSharedDocumentsByUserId(userId);
+      res.json(documents);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/shared-documents/public/user/:userId", isAuthenticated, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const documents = await storage.getPublicDocumentsByUserId(userId);
+      res.json(documents);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put("/api/shared-documents/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const documentData = req.body;
+      const result = await storage.updateSharedDocument(id, documentData);
+      
+      if (!result) {
+        return res.status(404).json({ error: "Shared document not found" });
+      }
+      
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/shared-documents/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const result = await storage.deleteSharedDocument(id);
+      
+      if (!result) {
+        return res.status(404).json({ error: "Shared document not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/tenant-documents", isAuthenticated, async (req, res) => {
+    try {
+      const documentData = req.body;
+      const result = await storage.createTenantDocument(documentData);
+      res.status(201).json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/tenant-documents/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const document = await storage.getTenantDocumentById(id);
+      
+      if (!document) {
+        return res.status(404).json({ error: "Tenant document not found" });
+      }
+      
+      res.json(document);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/tenant-documents/tenant/:tenantId", isAuthenticated, async (req, res) => {
+    try {
+      const tenantId = parseInt(req.params.tenantId);
+      const documents = await storage.getTenantDocumentsByTenantId(tenantId);
+      res.json(documents);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/tenant-documents/document/:documentId", isAuthenticated, async (req, res) => {
+    try {
+      const documentId = parseInt(req.params.documentId);
+      const documents = await storage.getTenantDocumentsByDocumentId(documentId);
+      res.json(documents);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put("/api/tenant-documents/:id/view-status", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { hasViewed } = req.body;
+      
+      if (typeof hasViewed !== 'boolean') {
+        return res.status(400).json({ error: "hasViewed must be a boolean" });
+      }
+      
+      const result = await storage.updateTenantDocumentViewStatus(id, hasViewed);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/tenant-documents/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const result = await storage.deleteTenantDocument(id);
+      
+      if (!result) {
+        return res.status(404).json({ error: "Tenant document not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Tenant Rating System Routes
+  app.post("/api/tenant-ratings", isAuthenticated, async (req, res) => {
+    try {
+      const ratingData = req.body;
+      const result = await storage.createTenantRating(ratingData);
+      res.status(201).json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/tenant-ratings/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const rating = await storage.getTenantRatingById(id);
+      
+      if (!rating) {
+        return res.status(404).json({ error: "Tenant rating not found" });
+      }
+      
+      res.json(rating);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/tenant-ratings/tenant/:tenantId", isAuthenticated, async (req, res) => {
+    try {
+      const tenantId = parseInt(req.params.tenantId);
+      const ratings = await storage.getTenantRatingsByTenantId(tenantId);
+      res.json(ratings);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/tenant-ratings/user/:userId", isAuthenticated, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const ratings = await storage.getTenantRatingsByUserId(userId);
+      res.json(ratings);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/tenant-ratings/tenant/:tenantId/average", isAuthenticated, async (req, res) => {
+    try {
+      const tenantId = parseInt(req.params.tenantId);
+      const averageRating = await storage.getTenantAverageRating(tenantId);
+      res.json({ averageRating });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put("/api/tenant-ratings/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const ratingData = req.body;
+      const result = await storage.updateTenantRating(id, ratingData);
+      
+      if (!result) {
+        return res.status(404).json({ error: "Tenant rating not found" });
+      }
+      
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/tenant-ratings/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const result = await storage.deleteTenantRating(id);
+      
+      if (!result) {
+        return res.status(404).json({ error: "Tenant rating not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== TENANT MANAGEMENT MODULE ROUTES END =====
+
   // Initialize HTTP server
   const httpServer = createServer(app);
   return httpServer;
