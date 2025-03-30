@@ -1,0 +1,17 @@
+name = "pmanagement"
+main = "server/simplified-worker.ts" # Use our simplified worker
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+node_compat = true
+
+# No need for complex configurations for this simple worker
+# We'll just have a minimal configuration
+
+# Production settings
+[env.production]
+vars = { NODE_ENV = "production" }
+
+# Define routes for the SPA
+[[env.production.routes]]
+pattern = "immo.busqandote.com"
+custom_domain = true
