@@ -38,11 +38,6 @@ external = ["postgres", "pg", "pg-native", "crypto", "url", "path", "util", "fs"
 [site]
 bucket = "./client/dist" # Where your built client assets are located
 
-# Configuring deployment
-[miniflare]
-kv_persist = true
-cache_persist = true
-
 # Asset configuration
 [env.production.site]
 bucket = "./client/dist"
