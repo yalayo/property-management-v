@@ -47,8 +47,8 @@ wrangler d1 migrations apply landlord-db
 
 # Deploy to Cloudflare Workers
 echo "Deploying to Cloudflare Workers..."
-# Added external flag for Node.js built-in modules to avoid bundling errors
-WRANGLER_EXTERNAL=crypto,postgres,pg,pg-native,url,path,util,fs wrangler deploy --env production --compatibility-flags=nodejs_compat
+# Added external flag for Node.js built-in modules and postgres driver to avoid bundling errors
+WRANGLER_EXTERNAL=crypto,postgres,pg,pg-native,url,path,util,fs,@neondatabase/serverless,ws,events,drizzle-orm/postgres-js wrangler deploy --env production --compatibility-flags=nodejs_compat --node-compat
 
 # Restore original wrangler.toml
 echo "Restoring wrangler.toml..."

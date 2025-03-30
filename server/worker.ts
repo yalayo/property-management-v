@@ -2,8 +2,21 @@ import { Env } from "./types";
 import * as schema from "../shared/schema";
 import { drizzle } from "drizzle-orm/d1";
 import { ExecutionContext } from "@cloudflare/workers-types";
-// Import initDatabase from db-cf to ensure proper initialization
-import { initDatabase } from "./db-cf";
+
+// Cloudflare Workers environment detection
+const isCloudflareWorker = typeof globalThis.caches !== 'undefined';
+
+// Only load db-cf module when needed - dynamic import to avoid Node.js module issues
+async function getInitDatabaseFunction() {
+  try {
+    // In Cloudflare Workers environment, we can safely import db-cf
+    const { initDatabase } = await import('./db-cf');
+    return initDatabase;
+  } catch (error) {
+    console.error('Failed to import database initialization:', error);
+    throw new Error('Database module loading failed');
+  }
+}
 
 // Cloudflare Workers entry point
 export default {
@@ -22,9 +35,13 @@ export default {
         globalThis.__D1_DB = db;
         
         // Initialize the database using our async initialization function
-        ctx.waitUntil(initDatabase().catch(err => {
-          console.error('Failed to initialize database in worker:', err);
-        }));
+        ctx.waitUntil(
+          getInitDatabaseFunction()
+            .then(initDatabaseFn => initDatabaseFn())
+            .catch((err: Error) => {
+              console.error('Failed to initialize database in worker:', err);
+            })
+        );
         
         console.log('Worker D1 database binding initialized successfully');
       } catch (error) {

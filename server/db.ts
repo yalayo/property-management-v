@@ -1,23 +1,35 @@
-// Import necessary modules
-import { Pool } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
+// Import only schema to avoid bundling Node.js-specific modules
 import * as schema from "@shared/schema";
 
 // Create a placeholder for the database that will be populated after async initialization
 let _db: any = null;
 
-// Configure neon for WebSocket support in development mode - but do it async
-// without top-level await which isn't supported in some environments
+// Instead of direct imports, we'll load all driver-specific modules dynamically
+// This prevents Cloudflare Workers build from bundling Node.js modules
+let Pool: any;
+let drizzle: any;
 let wsConfigPromise: Promise<void> | null = null;
+
+// Configure environment-specific modules asynchronously
 if (process.env.NODE_ENV !== 'production') {
-  wsConfigPromise = Promise.all([
-    import('ws'),
-    import('@neondatabase/serverless')
-  ]).then(([ws, neon]) => {
-    neon.neonConfig.webSocketConstructor = ws.default;
-  }).catch(err => {
-    console.error('Failed to configure WebSocket for Neon:', err);
-  });
+  wsConfigPromise = (async () => {
+    try {
+      // Dynamically import all required modules
+      const wsModule = await import('ws');
+      const neonModule = await import('@neondatabase/serverless');
+      const drizzleModule = await import('drizzle-orm/neon-serverless');
+      
+      // Store references to these modules for later use
+      Pool = neonModule.Pool;
+      drizzle = drizzleModule.drizzle;
+      
+      // Configure WebSocket support for Neon
+      neonModule.neonConfig.webSocketConstructor = wsModule.default;
+      console.log('WebSocket configured for Neon database');
+    } catch (err) {
+      console.error('Failed to configure WebSocket for Neon:', err);
+    }
+  })();
 }
 
 /**
@@ -76,11 +88,28 @@ export function getDatabase() {
   return _db;
 }
 
-// Create and export the database pool for session store
-// Only in development mode to avoid Node.js dependencies in Cloudflare Workers
-export const pool = process.env.NODE_ENV !== 'production' 
-  ? new Pool({ connectionString: process.env.DATABASE_URL || '' }) 
-  : undefined;
+// Create a pool getter function for session store
+// This prevents top-level instantiation and avoids bundling issues
+let _pool: any = undefined;
+
+export function getPool() {
+  if (process.env.NODE_ENV === 'production') {
+    return undefined; // No pool needed in production (Cloudflare D1)
+  }
+  
+  if (!_pool && Pool) {
+    try {
+      _pool = new Pool({ connectionString: process.env.DATABASE_URL || '' });
+    } catch (err) {
+      console.error('Failed to create database pool:', err);
+    }
+  }
+  
+  return _pool;
+}
+
+// Expose pool for backward compatibility
+export const pool = process.env.NODE_ENV !== 'production' ? getPool() : undefined;
 
 // Initialize database immediately for development
 if (process.env.NODE_ENV !== 'production') {

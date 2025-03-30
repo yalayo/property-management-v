@@ -30,25 +30,37 @@ export async function initDatabase() {
     }
   } 
   
-  // For local development, use PostgreSQL with dynamic imports
+  // For local development only - use PostgreSQL with dynamic imports
+  // This code will never run in production (Cloudflare Workers)
+  // We're using conditional import to prevent bundling issues
   try {
-    const { Pool } = await import('@neondatabase/serverless');
-    const ws = await import('ws');
-    const { neonConfig } = await import('@neondatabase/serverless');
-    const { drizzle: drizzlePg } = await import('drizzle-orm/postgres-js');
-    
-    // Configure neon for WebSocket support
-    neonConfig.webSocketConstructor = ws.default;
-    
-    const pool = new Pool({
-      connectionString: process.env.DATABASE_URL || '',
-    });
-    
-    _db = drizzlePg(pool, { schema });
-    return _db;
+    // Check if we're in a Node.js environment before importing Node-specific modules
+    if (typeof process !== 'undefined' && 
+        process.versions && 
+        process.versions.node && 
+        process.env.NODE_ENV !== 'production') {
+      
+      const { Pool } = await import('@neondatabase/serverless');
+      const ws = await import('ws');
+      const { neonConfig } = await import('@neondatabase/serverless');
+      const { drizzle: drizzlePg } = await import('drizzle-orm/postgres-js');
+      
+      // Configure neon for WebSocket support
+      neonConfig.webSocketConstructor = ws.default;
+      
+      const pool = new Pool({
+        connectionString: process.env.DATABASE_URL || '',
+      });
+      
+      _db = drizzlePg(pool, { schema });
+      console.log('Successfully connected to PostgreSQL database for development');
+      return _db;
+    } else {
+      throw new Error('Attempted to initialize PostgreSQL in non-Node.js environment');
+    }
   } catch (error) {
     console.error('Failed to initialize database connection:', error);
-    throw new Error('Database connection failed');
+    throw new Error('Database connection failed: ' + (error instanceof Error ? error.message : String(error)));
   }
 }
 
