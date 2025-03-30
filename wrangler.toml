@@ -1,7 +1,8 @@
 name = "pmanagement"
 main = "server/worker.ts"
 compatibility_date = "2024-03-30"
-compatibility_flags = ["nodejs_compat"]  # Enable Node.js compatibility
+compatibility_flags = ["nodejs_compat"]
+node_compat = true  # Added for backward compatibility
 
 # For local development, use existing DB config
 [env.development]

@@ -6,11 +6,18 @@ import * as schema from "@shared/schema";
 // Create a placeholder for the database that will be populated after async initialization
 let _db: any = null;
 
-// Configure neon for WebSocket support in development mode
+// Configure neon for WebSocket support in development mode - but do it async
+// without top-level await which isn't supported in some environments
+let wsConfigPromise: Promise<void> | null = null;
 if (process.env.NODE_ENV !== 'production') {
-  const ws = await import('ws');
-  const { neonConfig } = await import('@neondatabase/serverless');
-  neonConfig.webSocketConstructor = ws.default;
+  wsConfigPromise = Promise.all([
+    import('ws'),
+    import('@neondatabase/serverless')
+  ]).then(([ws, neon]) => {
+    neon.neonConfig.webSocketConstructor = ws.default;
+  }).catch(err => {
+    console.error('Failed to configure WebSocket for Neon:', err);
+  });
 }
 
 /**
@@ -21,6 +28,11 @@ if (process.env.NODE_ENV !== 'production') {
 export async function initDatabase() {
   // Skip initialization if already done
   if (_db) return _db;
+
+  // Wait for websocket configuration to complete in development
+  if (process.env.NODE_ENV !== 'production' && wsConfigPromise) {
+    await wsConfigPromise;
+  }
 
   // In production, use Cloudflare Worker's D1 database
   if (process.env.NODE_ENV === 'production') {

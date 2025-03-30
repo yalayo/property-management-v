@@ -12,12 +12,22 @@ let _db: any = null;
 export async function initDatabase() {
   // Check if we're in production environment (Cloudflare Workers)
   if (process.env.NODE_ENV === 'production') {
-    // Check if D1 database is available (set in worker.ts)
-    if (globalThis.__D1_DB) {
-      _db = globalThis.__D1_DB;
-      return _db;
+    try {
+      // Check if D1 database is available (set in worker.ts)
+      if (globalThis.__D1_DB) {
+        _db = globalThis.__D1_DB;
+        console.log('Successfully connected to D1 database in Cloudflare Workers environment');
+        return _db;
+      }
+      
+      // If we're trying to access the DB in a production environment
+      // but don't have a D1 binding, this is a deployment configuration error
+      console.error('D1 database binding missing in Cloudflare Workers environment');
+      throw new Error('D1 database not initialized in production environment');
+    } catch (error) {
+      console.error('Error initializing D1 database:', error);
+      throw error;
     }
-    throw new Error('D1 database not initialized in production environment');
   } 
   
   // For local development, use PostgreSQL with dynamic imports

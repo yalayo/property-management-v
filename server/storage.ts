@@ -1703,7 +1703,18 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Initialize with some default questions data
-    this.initializeDefaultData();
+    // Only do this if the database is already initialized
+    if (db && typeof db.select === 'function') {
+      // Use setTimeout to ensure this runs after the database is fully initialized
+      // This avoids race conditions during startup
+      setTimeout(() => {
+        this.initializeDefaultData().catch(err => {
+          console.error('Error initializing default data:', err);
+        });
+      }, 1000);
+    } else {
+      console.warn('Database not initialized yet, skipping default data initialization');
+    }
   }
 
   private async initializeDefaultData() {

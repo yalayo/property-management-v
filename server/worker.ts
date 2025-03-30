@@ -14,14 +14,28 @@ export default {
   ): Promise<Response> {
     // Initialize D1 database connection when in production
     if (env.DB) {
-      const db = drizzle(env.DB, { schema });
-      
-      // Set DB instance in a global variable or context
-      // @ts-ignore - making the DB available to our adapters
-      globalThis.__D1_DB = db;
-      
-      // Initialize the database using our async initialization function
-      ctx.waitUntil(initDatabase());
+      try {
+        const db = drizzle(env.DB, { schema });
+        
+        // Set DB instance in a global variable or context
+        // @ts-ignore - making the DB available to our adapters
+        globalThis.__D1_DB = db;
+        
+        // Initialize the database using our async initialization function
+        ctx.waitUntil(initDatabase().catch(err => {
+          console.error('Failed to initialize database in worker:', err);
+        }));
+        
+        console.log('Worker D1 database binding initialized successfully');
+      } catch (error) {
+        console.error('Failed to initialize D1 database in worker:', error);
+        return new Response('Error initializing database. Please check your Cloudflare Worker configuration.', { 
+          status: 500,
+          headers: { 'Content-Type': 'text/plain' }
+        });
+      }
+    } else {
+      console.warn('No D1 database binding found in worker environment');
     }
 
     const url = new URL(request.url);
