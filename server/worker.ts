@@ -33,11 +33,20 @@ export default {
         });
       }
       
-      // For static assets - you could use Cloudflare Pages for this instead
-      // of manually handling it here
-      return new Response('Cloudflare Worker is running', {
-        headers: { 'Content-Type': 'text/plain' },
-      });
+      const url = new URL(request.url)
+      let path = url.pathname === '/' ? '/index.html' : url.pathname
+
+      // Adjust if the path should be relative to the 'dist' directory
+      const filePath = `./dist${path}`
+      const file = await fetch(filePath)
+
+      // Check if file is found
+      if (file.ok) {
+        return file
+      }
+
+      // If file is not found, return a 404 page
+      return new Response('Not Found', { status: 404 })
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       return new Response(`Error: ${errorMessage}`, { status: 500 });
