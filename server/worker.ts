@@ -2,6 +2,7 @@ import { Env } from "./types";
 import * as schema from "../shared/schema";
 import { drizzle } from "drizzle-orm/d1";
 import { ExecutionContext } from "@cloudflare/workers-types";
+import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
 
 // Cloudflare Workers environment detection
 const isCloudflareWorker = typeof globalThis.caches !== 'undefined';
@@ -65,64 +66,44 @@ export default {
         return await handleApiRequest(request, env, ctx);
       }
       
-      // For all other routes, serve the SPA frontend
+      // Define HTML content with proper path references
       const htmlContent = `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>German Landlord Property Management</title>
-    <link rel="stylesheet" href="/assets/index.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>PropManager - Property Management Solution</title>
+    <meta name="description" content="The property management solution for German landlords" />
+    <link rel="stylesheet" href="/index.css" />
     <link rel="icon" type="image/png" href="/favicon.ico" />
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/assets/index.js"></script>
+    <script type="module" src="/index.js"></script>
   </body>
 </html>`;
 
-      // Try to serve static assets from the Assets binding
-      try {
-        // Check if we have an Assets binding (available in production)
-        if ('ASSETS' in env) {
-          // If the path includes a file extension, it's likely a static asset
-          if (url.pathname.includes(".")) {
-            // Try to get the asset from Cloudflare's asset storage
-            const asset = await env.ASSETS!.fetch(new Request(url.toString()));
+      // Try to serve static assets from the Assets binding first
+      if (env.ASSETS) {
+        try {
+          // Check if this is a request for a static asset
+          if (url.pathname.includes(".") && !url.pathname.endsWith('.html')) {
+            // Request the asset from the ASSETS binding
+            const assetUrl = new URL(url.pathname, url.origin);
+            const assetResponse = await env.ASSETS.fetch(new Request(assetUrl.toString()));
             
-            // If we found the asset, return it
-            if (asset.status === 200) {
+            if (assetResponse.status === 200) {
               console.log(`Serving asset from ASSETS: ${url.pathname}`);
-              return asset;
+              return assetResponse;
             }
           }
-        } else {
-          // Fallback for development environment
-          // In production, we should rely on Cloudflare's asset handling
-          console.log(`No ASSETS binding available, falling back to standard handling for: ${url.pathname}`);
-          
-          // For local development or when ASSETS is not available
-          if (url.pathname.endsWith(".js")) {
-            return new Response("console.log('Asset serving not available in this environment');", {
-              headers: { "Content-Type": "application/javascript" }
-            });
-          } else if (url.pathname.endsWith(".css")) {
-            return new Response("/* Asset serving not available in this environment */", {
-              headers: { "Content-Type": "text/css" }
-            });
-          } else if (url.pathname.includes(".")) {
-            // For other assets, respond with a placeholder
-            return new Response("Asset serving not available in this environment", {
-              status: 404,
-              headers: { "Content-Type": "text/plain" }
-            });
-          }
+        } catch (e) {
+          console.error("Error serving asset from KV:", e);
         }
-      } catch (e) {
-        console.error("Failed to serve static asset:", e);
       }
       
-      // Default case: serve the SPA HTML
+      // For all routes that aren't API routes or assets, serve the SPA HTML
+      // This enables client-side routing to work properly
       return new Response(htmlContent, {
         headers: { 
           "Content-Type": "text/html",

@@ -32,7 +32,7 @@ format = "modules"
 
 # Explicitly mark problematic modules as external to exclude from bundling
 [build.external]
-external = ["postgres", "pg", "pg-native", "crypto", "url", "path", "util", "fs", "@neondatabase/serverless", "ws", "drizzle-orm/postgres-js"]
+external = ["postgres", "pg", "pg-native", "crypto", "url", "path", "util", "fs", "@neondatabase/serverless", "ws", "drizzle-orm/postgres-js", "express-session", "connect-pg-simple", "memorystore"]
 
 # Configure static asset handling
 [site]
@@ -41,6 +41,7 @@ bucket = "./dist" # Where your built client assets are located
 # Asset configuration
 [env.production.site]
 bucket = "./dist"
+include = ["**/*"]  # Include all files from the bucket
 
 # Assets binding for worker - maps to the site
 [[env.production.bindings]]

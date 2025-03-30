@@ -47,13 +47,35 @@ wrangler d1 migrations apply landlord-db
 
 # Deploy to Cloudflare Workers
 echo "Deploying to Cloudflare Workers..."
-# Added external flag for Node.js built-in modules and postgres driver to avoid bundling errors
-WRANGLER_EXTERNAL=crypto,postgres,pg,pg-native,url,path,util,fs,@neondatabase/serverless,ws,events,drizzle-orm/postgres-js wrangler deploy --env production --compatibility-flags=nodejs_compat --node-compat
+# Added external flag for Node.js built-in modules and problematic packages to avoid bundling errors
+WRANGLER_EXTERNAL=crypto,postgres,pg,pg-native,url,path,util,fs,@neondatabase/serverless,ws,events,drizzle-orm/postgres-js,express-session,connect-pg-simple,memorystore wrangler deploy --env production --compatibility-flags=nodejs_compat --node-compat
 
 # Restore original wrangler.toml
 echo "Restoring wrangler.toml..."
 mv wrangler.toml.bak wrangler.toml
 
 echo "Deployment complete! Your application should now be accessible at your Cloudflare Workers domain."
-echo "If your application displays 'Cloudflare Worker is running', then your assets weren't deployed correctly."
-echo "Check the wrangler.toml configuration and make sure your client/dist directory contains the built assets."
+
+# Provide additional debugging tips
+echo ""
+echo "Deployment Troubleshooting Tips:"
+echo "--------------------------------"
+echo "1. If your application displays a blank page or 'Cloudflare Worker is running', check the following:"
+echo "   - Open browser developer tools and look for console errors"
+echo "   - Make sure your assets are being served correctly from the correct path"
+echo "   - Check wrangler.toml site configuration is pointing to the correct bucket"
+echo ""
+echo "2. If you see Node.js module errors in the console (e.g., 'crypto is not defined'):"
+echo "   - Verify that node_compat = true is set in wrangler.toml"
+echo "   - Make sure problematic modules are marked as external in the WRANGLER_EXTERNAL variable"
+echo ""
+echo "3. For session/auth issues:"
+echo "   - The application uses Web Crypto API instead of Node.js crypto in production"
+echo "   - Session management is handled via tokens rather than express-session"
+echo ""
+echo "4. To check your deployed worker assets, run:"
+echo "   wrangler kv:namespace list"
+echo "   wrangler kv:key list --namespace-id <YOUR_NAMESPACE_ID>"
+echo ""
+echo "5. Check that your database migrations have been applied correctly with:"
+echo "   wrangler d1 execute landlord-db --command=\"SELECT name FROM sqlite_master WHERE type='table';\""
