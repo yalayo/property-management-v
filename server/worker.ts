@@ -27,10 +27,10 @@ export default {
     const url = new URL(request.url);
     
     try {
-      // For API requests, use the routes.ts handler
+      // For API requests, use the Hono API handler
       if (url.pathname.startsWith("/api/")) {
         // Import dynamically to avoid initialization issues
-        const { handleApiRequest } = await import("./api-handler");
+        const { handleApiRequest } = await import("./api-handler-hono");
         return await handleApiRequest(request, env, ctx);
       }
       
