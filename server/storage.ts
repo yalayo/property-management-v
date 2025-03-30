@@ -1678,13 +1678,29 @@ export class DatabaseStorage implements IStorage {
   public sessionStore: session.Store;
 
   constructor() {
-    // Initialize PostgreSQL session store
-    const PostgresSessionStore = connectPg(session);
-    this.sessionStore = new PostgresSessionStore({
-      pool,
-      createTableIfMissing: true,
-      tableName: 'session'
-    });
+    // For production (Cloudflare Workers), we'll use a fallback memory store
+    // This avoids Node.js-specific dependencies in the Workers environment
+    // In production, use token-based authentication through the Hono API
+    if (process.env.NODE_ENV === 'production') {
+      this.sessionStore = new MemoryStore({
+        checkPeriod: 86400000, // 1 day in milliseconds
+      });
+    } else {
+      // For local development, use PostgreSQL session store if available
+      try {
+        const PostgresSessionStore = connectPg(session);
+        this.sessionStore = new PostgresSessionStore({
+          pool,
+          createTableIfMissing: true,
+          tableName: 'session'
+        });
+      } catch (error) {
+        console.warn('Failed to initialize PostgreSQL session store, falling back to memory store');
+        this.sessionStore = new MemoryStore({
+          checkPeriod: 86400000, // 1 day in milliseconds
+        });
+      }
+    }
     
     // Initialize with some default questions data
     this.initializeDefaultData();

@@ -1,0 +1,162 @@
+[ERROR] Build failed with 33 errors:
+  
+    ✘ [ERROR] Could not resolve "crypto"
+    
+        node_modules/express-session/index.js:18:21:
+          18 │ var crypto = require('crypto')
+             ╵                      ~~~~~~~~
+    
+      The package "crypto" wasn't found on the file system but is built into node.
+      - Add the "nodejs_compat" compatibility flag to your project.
+      
+    
+    
+    ✘ [ERROR] Could not resolve "crypto"
+    
+        node_modules/express-session/node_modules/cookie-signature/index.js:5:21:
+          5 │ var crypto = require('crypto');
+            ╵                      ~~~~~~~~
+    
+      The package "crypto" wasn't found on the file system but is built into node.
+      - Add the "nodejs_compat" compatibility flag to your project.
+      
+    
+    
+    ✘ [ERROR] Could not resolve "util"
+    
+        node_modules/express-session/session/memory.js:17:19:
+          17 │ var util = require('util')
+             ╵                    ~~~~~~
+    
+      The package "util" wasn't found on the file system but is built into node.
+      - Add the "nodejs_compat" compatibility flag to your project.
+      
+    
+    
+    ✘ [ERROR] Could not resolve "events"
+    
+        node_modules/express-session/session/store.js:16:27:
+          16 │ var EventEmitter = require('events').EventEmitter
+             ╵                            ~~~~~~~~
+    
+      The package "events" wasn't found on the file system but is built into node.
+      - Add the "nodejs_compat" compatibility flag to your project.
+      
+    
+    
+    ✘ [ERROR] Could not resolve "util"
+    
+        node_modules/express-session/session/store.js:18:19:
+          18 │ var util = require('util')
+             ╵                    ~~~~~~
+    
+      The package "util" wasn't found on the file system but is built into node.
+      - Add the "nodejs_compat" compatibility flag to your project.
+      
+    
+    
+    ✘ [ERROR] Could not resolve "util"
+    
+        node_modules/memorystore/lib/memorystore.js:9:19:
+          9 │ var util = require('util')
+            ╵                    ~~~~~~
+    
+      The package "util" wasn't found on the file system but is built into node.
+      - Add the "nodejs_compat" compatibility flag to your project.
+      
+    
+    
+    ✘ [ERROR] Could not resolve "util"
+    
+        node_modules/memorystore/node_modules/lru-cache/index.js:8:19:
+          8 │ var util = require('util')
+            ╵                    ~~~~~~
+    
+      The package "util" wasn't found on the file system but is built into node.
+      - Add the "nodejs_compat" compatibility flag to your project.
+      
+    
+    
+    ✘ [ERROR] Could not resolve "url"
+    
+        node_modules/parseurl/index.js:15:18:
+          15 │ var url = require('url')
+             ╵                   ~~~~~
+    
+      The package "url" wasn't found on the file system but is built into node.
+      - Add the "nodejs_compat" compatibility flag to your project.
+      
+    
+    
+    ✘ [ERROR] Could not resolve "events"
+    
+        node_modules/pg-cloudflare/dist/index.js:1:29:
+          1 │ import { EventEmitter } from 'events';
+            ╵                              ~~~~~~~~
+    
+      The package "events" wasn't found on the file system but is built into node.
+      - Add the "nodejs_compat" compatibility flag to your project.
+      
+    
+    
+    ✘ [ERROR] Could not resolve "fs"
+    
+        node_modules/pg-connection-string/index.js:76:77:
+          76 │ ...cert || config.sslkey || config.sslrootcert ? require('fs') : null
+             ╵                                                          ~~~~
+    
+      The package "fs" wasn't found on the file system but is built into node.
+      - Add the "nodejs_compat" compatibility flag to your project.
+      
+    
+    
+    ✘ [ERROR] Could not resolve "events"
+    
+        node_modules/pg-pool/index.js:2:29:
+          2 │ const EventEmitter = require('events').EventEmitter
+            ╵                              ~~~~~~~~
+    
+      The package "events" wasn't found on the file system but is built into node.
+      - Add the "nodejs_compat" compatibility flag to your project.
+      
+    
+    
+    ✘ [ERROR] Could not resolve "events"
+    
+        node_modules/pg/lib/client.js:3:27:
+          3 │ var EventEmitter = require('events').EventEmitter
+            ╵                            ~~~~~~~~
+    
+      The package "events" wasn't found on the file system but is built into node.
+    
+    
+    ✘ [ERROR] Could not resolve "buffer"
+    
+        node_modules/safe-buffer/index.js:3:21:
+          3 │ var buffer = require('buffer')
+            ╵                      ~~~~~~~~
+    
+      The package "buffer" wasn't found on the file system but is built into node.
+      - Add the "nodejs_compat" compatibility flag to your project.
+      
+    
+    
+    ✘ [ERROR] Could not resolve "stream"
+    
+        node_modules/split2/index.js:19:30:
+          19 │ const { Transform } = require('stream')
+             ╵                               ~~~~~~~~
+    
+      The package "stream" wasn't found on the file system but is built into node.
+      - Add the "nodejs_compat" compatibility flag to your project.
+      
+    
+    
+    ✘ [ERROR] Could not resolve "buffer"
+    
+        node_modules/string_decoder/node_modules/safe-buffer/index.js:2:21:
+          2 │ var buffer = require('buffer')
+            ╵                      ~~~~~~~~
+    
+      The package "buffer" wasn't found on the file system but is built into node.
+      - Add the "nodejs_compat" compatibility flag to your project.

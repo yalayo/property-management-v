@@ -2,7 +2,8 @@ import { Env } from "./types";
 import * as schema from "../shared/schema";
 import { drizzle } from "drizzle-orm/d1";
 import { ExecutionContext } from "@cloudflare/workers-types";
-import { getAssetFromKV } from "@cloudflare/kv-asset-handler";
+// Import initDatabase from db-cf to ensure proper initialization
+import { initDatabase } from "./db-cf";
 
 // Cloudflare Workers entry point
 export default {
@@ -16,12 +17,11 @@ export default {
       const db = drizzle(env.DB, { schema });
       
       // Set DB instance in a global variable or context
-      ctx.waitUntil(
-        Promise.resolve().then(() => {
-          // @ts-ignore - making the DB available to our adapters
-          globalThis.__D1_DB = db;
-        }),
-      );
+      // @ts-ignore - making the DB available to our adapters
+      globalThis.__D1_DB = db;
+      
+      // Initialize the database using our async initialization function
+      ctx.waitUntil(initDatabase());
     }
 
     const url = new URL(request.url);
