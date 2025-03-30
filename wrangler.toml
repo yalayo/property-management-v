@@ -32,7 +32,7 @@ format = "modules"
 
 # Explicitly mark problematic modules as external to exclude from bundling
 [build.external]
-external = ["postgres", "pg", "pg-native", "crypto", "url", "path", "util", "fs", "@neondatabase/serverless", "ws", "drizzle-orm/postgres-js"]
+external = ["pg", "pg-native", "crypto", "url", "path", "util", "fs", "ws"]
 
 # Configure static asset handling
 [site]
