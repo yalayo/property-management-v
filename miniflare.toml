@@ -1,0 +1,3 @@
+[miniflare]
+kv_persist = true
+cache_persist = true

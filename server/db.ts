@@ -11,23 +11,31 @@ let drizzle: any;
 let wsConfigPromise: Promise<void> | null = null;
 
 // Configure environment-specific modules asynchronously
+// NOTE: We're using a multi-step dynamic import approach to prevent any
+// static dependencies on 'postgres' or other Node-specific modules
 if (process.env.NODE_ENV !== 'production') {
   wsConfigPromise = (async () => {
     try {
-      // Dynamically import all required modules
+      // Step 1: Import only the WebSocket module first
       const wsModule = await import('ws');
+      
+      // Step 2: Import Neon without any postgres dependencies yet
       const neonModule = await import('@neondatabase/serverless');
+      
+      // Step 3: Configure WebSocket support for Neon
+      neonModule.neonConfig.webSocketConstructor = wsModule.default;
+      
+      // Step 4: Now it's safe to import drizzle with the configured dependencies
+      // Using a more direct drizzle import to avoid postgres-js dependency
       const drizzleModule = await import('drizzle-orm/neon-serverless');
       
       // Store references to these modules for later use
       Pool = neonModule.Pool;
       drizzle = drizzleModule.drizzle;
       
-      // Configure WebSocket support for Neon
-      neonModule.neonConfig.webSocketConstructor = wsModule.default;
-      console.log('WebSocket configured for Neon database');
+      console.log('Database modules configured for development environment');
     } catch (err) {
-      console.error('Failed to configure WebSocket for Neon:', err);
+      console.error('Failed to configure database modules:', err);
     }
   })();
 }
