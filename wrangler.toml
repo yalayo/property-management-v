@@ -41,13 +41,5 @@ bucket = "./client/dist"
 
 # Define routes for the SPA
 [[env.production.routes]]
-pattern = "immo.busqandote.com/api/*"
-custom_domain = true
-
-[[env.production.routes]]
-pattern = "immo.busqandote.com/assets/*"
-custom_domain = true
-
-[[env.production.routes]]
-pattern = "immo.busqandote.com/*"
+pattern = "immo.busqandote.com"
 custom_domain = true
