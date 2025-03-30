@@ -28,3 +28,4 @@ watch_dir = ["server", "shared"]
 
 [site]
 bucket = "./dist/"
+#entry-point = "workers-site"  # The default entry point for the Cloudflare Pages Worker
