@@ -36,11 +36,11 @@ external = ["postgres", "pg", "pg-native", "crypto", "url", "path", "util", "fs"
 
 # Configure static asset handling
 [site]
-bucket = "./client/dist" # Where your built client assets are located
+bucket = "./dist" # Where your built client assets are located
 
 # Asset configuration
 [env.production.site]
-bucket = "./client/dist"
+bucket = "./dist"
 
 # Define routes for the SPA
 [[env.production.routes]]
