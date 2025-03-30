@@ -40,19 +40,12 @@ export async function initDatabase() {
         process.versions.node && 
         process.env.NODE_ENV !== 'production') {
       
-      const { Pool } = await import('@neondatabase/serverless');
-      const ws = await import('ws');
-      const { neonConfig } = await import('@neondatabase/serverless');
-      const { drizzle: drizzlePg } = await import('drizzle-orm/postgres-js');
+      // Use neon HTTP client which is Cloudflare-compatible
+      const { neon } = await import('@neondatabase/serverless');
+      const { drizzle } = await import('drizzle-orm/neon-http');
       
-      // Configure neon for WebSocket support
-      neonConfig.webSocketConstructor = ws.default;
-      
-      const pool = new Pool({
-        connectionString: process.env.DATABASE_URL || '',
-      });
-      
-      _db = drizzlePg(pool, { schema });
+      const client = neon(process.env.DATABASE_URL || '');
+      _db = drizzle(client, { schema });
       console.log('Successfully connected to PostgreSQL database for development');
       return _db;
     } else {

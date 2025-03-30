@@ -2,6 +2,7 @@
 import * as schema from "@shared/schema";
 // The neon serverless client properly handles different environments
 import { neon } from "@neondatabase/serverless";
+// Use the neon-http driver which is compatible with Cloudflare Workers
 import { drizzle } from "drizzle-orm/neon-http";
 import { sql } from "drizzle-orm";
 
