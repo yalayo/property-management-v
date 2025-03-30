@@ -128,13 +128,36 @@ export const tenants = pgTable("tenants", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const paymentStatusEnum = pgEnum('payment_status', [
+  'pending',
+  'received',
+  'late',
+  'overdue',
+  'partially_paid',
+  'waived'
+]);
+
 export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
   tenantId: integer("tenant_id").notNull(),
-  amount: integer("amount").notNull(),
-  date: timestamp("date").notNull(),
-  status: text("status").default("received"),
+  propertyId: integer("property_id").references(() => properties.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  amount: doublePrecision("amount").notNull(),
+  dueDate: date("due_date").notNull(),
+  periodStartDate: date("period_start_date"),
+  periodEndDate: date("period_end_date"),
+  datePaid: timestamp("date_paid"),
+  status: paymentStatusEnum("status").default("pending"),
+  paymentMethod: paymentMethodEnum("payment_method"),
+  transactionId: integer("transaction_id").references(() => transactions.id),
+  remindersSent: integer("reminders_sent").default(0),
+  lastReminderDate: timestamp("last_reminder_date"),
+  attachmentId: integer("attachment_id").references(() => uploadedFiles.id),
+  isRecurring: boolean("is_recurring").default(false),
+  paymentCategory: text("payment_category").default("rent"), // rent, utility, other
   notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const surveyResponses = pgTable("survey_responses", {
@@ -162,6 +185,40 @@ export const uploadedFiles = pgTable("uploaded_files", {
   extractedData: jsonb("extracted_data"),
   processingStatus: text("processing_status"), // 'pending', 'processing', 'completed', 'failed'
   processingError: text("processing_error"),
+});
+
+// Transaction status enum for bank transactions
+export const transactionStatusEnum = pgEnum('transaction_status', [
+  'unprocessed',  // Not yet processed
+  'processed',    // Processed but not matched
+  'matched',      // Matched to a tenant or category
+  'ignored',      // Flagged to be ignored
+  'needs_review'  // Needs manual review
+]);
+
+// Bank statement transactions table - for individual transactions in bank statements
+export const bankTransactions = pgTable("bank_transactions", {
+  id: serial("id").primaryKey(),
+  bankStatementId: integer("bank_statement_id").notNull().references(() => bankStatements.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  bankAccountId: integer("bank_account_id").references(() => bankAccounts.id),
+  transactionDate: date("transaction_date").notNull(),
+  valueDate: date("value_date"),
+  description: text("description").notNull(),
+  amount: doublePrecision("amount").notNull(),
+  isDeposit: boolean("is_deposit").notNull(),
+  balance: doublePrecision("balance"),
+  reference: text("reference"),
+  counterparty: text("counterparty"),
+  counterpartyIban: text("counterparty_iban"),
+  status: transactionStatusEnum("status").default("unprocessed"),
+  categoryId: integer("category_id").references(() => transactionCategories.id),
+  tenantId: integer("tenant_id").references(() => tenants.id),
+  paymentId: integer("payment_id").references(() => payments.id),
+  propertyId: integer("property_id").references(() => properties.id),
+  reconciled: boolean("reconciled").default(false),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Bank statements table
@@ -334,6 +391,46 @@ export const budgets = pgTable("budgets", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Payment reminder types
+export const reminderTypeEnum = pgEnum('reminder_type', [
+  'upcoming',  // Reminder before payment is due
+  'due',       // Reminder on due date
+  'overdue',   // Reminder after due date
+  'final',     // Final notice
+  'custom'     // Custom reminder
+]);
+
+// Reminder status types
+export const reminderStatusEnum = pgEnum('reminder_status', [
+  'pending',   // Not yet sent
+  'sent',      // Successfully sent
+  'failed',    // Failed to send
+  'cancelled'  // Cancelled
+]);
+
+// Table for storing payment reminders to tenants
+export const paymentReminders = pgTable("payment_reminders", {
+  id: serial("id").primaryKey(),
+  paymentId: integer("payment_id").notNull().references(() => payments.id),
+  tenantId: integer("tenant_id").notNull().references(() => tenants.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  reminderType: reminderTypeEnum("reminder_type").notNull(),
+  reminderStatus: reminderStatusEnum("reminder_status").default("pending"),
+  scheduledDate: timestamp("scheduled_date").notNull(),
+  sentDate: timestamp("sent_date"),
+  subject: text("subject").notNull(),
+  message: text("message").notNull(),
+  deliveryChannel: text("delivery_channel").default("email"), // 'email', 'sms', 'whatsapp', etc.
+  emailAddress: text("email_address"),
+  phoneNumber: text("phone_number"),
+  responseReceived: boolean("response_received").default(false),
+  responseDate: timestamp("response_date"),
+  responseMessage: text("response_message"),
+  notificationId: text("notification_id"), // ID from notification service if applicable
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // PayPal orders for the round-robin payment gateway implementation
 export const paypalOrders = pgTable("paypal_orders", {
   id: serial("id").primaryKey(),
@@ -476,6 +573,34 @@ export const insertBudgetSchema = createInsertSchema(budgets).omit({
   createdAt: true,
 });
 
+export const insertBankTransactionSchema = createInsertSchema(bankTransactions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPaymentReminderSchema = createInsertSchema(paymentReminders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  sentDate: true,
+  responseReceived: true,
+  responseDate: true,
+  responseMessage: true,
+});
+
+export const paymentReminderFormSchema = insertPaymentReminderSchema
+  .extend({
+    scheduledDate: z.coerce.date(),
+    paymentId: z.number(),
+    tenantId: z.number(),
+    reminderType: z.enum(['upcoming', 'due', 'overdue', 'final', 'custom']),
+    subject: z.string().min(1, "Subject is required"),
+    message: z.string().min(1, "Message is required"),
+    deliveryChannel: z.string().default("email"),
+    emailAddress: z.string().email("Valid email address is required").optional().nullable(),
+    phoneNumber: z.string().optional().nullable(),
+  });
+
 export const insertPaypalOrderSchema = createInsertSchema(paypalOrders).omit({
   id: true,
   createdAt: true,
@@ -554,6 +679,21 @@ export const bankStatementFormSchema = insertBankStatementSchema
     endingBalance: z.coerce.number(),
     currency: z.string().min(1, "Currency is required").default("EUR"),
     bankAccountId: z.number().optional().nullable(),
+  });
+
+export const bankTransactionFormSchema = insertBankTransactionSchema
+  .extend({
+    transactionDate: z.coerce.date(),
+    valueDate: z.coerce.date().optional().nullable(),
+    description: z.string().min(1, "Description is required"),
+    amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
+    isDeposit: z.boolean(),
+    balance: z.coerce.number().optional().nullable(),
+    status: z.enum(['unprocessed', 'processed', 'matched', 'ignored', 'needs_review']).default('unprocessed'),
+    bankAccountId: z.number().optional().nullable(),
+    tenantId: z.number().optional().nullable(),
+    categoryId: z.number().optional().nullable(),
+    propertyId: z.number().optional().nullable(),
   });
 
 // Maintenance request form validation schema
@@ -691,6 +831,14 @@ export type BankAccount = typeof bankAccounts.$inferSelect;
 export type BankAccountForm = z.infer<typeof bankAccountFormSchema>;
 
 export type BankStatementForm = z.infer<typeof bankStatementFormSchema>;
+
+export type InsertBankTransaction = z.infer<typeof insertBankTransactionSchema>;
+export type BankTransaction = typeof bankTransactions.$inferSelect;
+export type BankTransactionForm = z.infer<typeof bankTransactionFormSchema>;
+
+export type InsertPaymentReminder = z.infer<typeof insertPaymentReminderSchema>;
+export type PaymentReminder = typeof paymentReminders.$inferSelect;
+export type PaymentReminderForm = z.infer<typeof paymentReminderFormSchema>;
 
 export type InsertTaxYear = z.infer<typeof insertTaxYearSchema>;
 export type TaxYear = typeof taxYears.$inferSelect;
