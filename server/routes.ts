@@ -353,6 +353,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
   
+  // Endpoint to create a subscription after setup intent is confirmed
+  app.post("/api/create-subscription", isAuthenticated, asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    
+    try {
+      const { paymentMethodId } = req.body;
+      
+      if (!paymentMethodId) {
+        return res.status(400).json({ message: "Payment method ID is required" });
+      }
+      
+      // Get the user from database to have the most up-to-date info
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Get the user's stripe customer ID
+      if (!user.stripeCustomerId) {
+        return res.status(400).json({ message: "No customer ID found for user" });
+      }
+      
+      // Create the subscription
+      const subscription = await stripe.subscriptions.create({
+        customer: user.stripeCustomerId,
+        items: [
+          {
+            price: process.env.STRIPE_PRICE_ID || 'price_1Opvk3KZIAYrIVWbK5N53HKP', // Monthly subscription price ID
+          },
+        ],
+        default_payment_method: paymentMethodId,
+        expand: ['latest_invoice.payment_intent'],
+      });
+      
+      // Update the user with subscription ID
+      await storage.updateUserStripeInfo(userId, {
+        customerId: user.stripeCustomerId,
+        subscriptionId: subscription.id
+      });
+      
+      // Update user tier
+      await storage.updateUserTier(userId, 'done_for_you');
+      
+      // Update the session user data
+      if (req.session && req.session.user) {
+        req.session.user = {
+          ...req.session.user,
+          tier: 'done_for_you',
+          stripeSubscriptionId: subscription.id
+        };
+      }
+      
+      res.json({
+        subscriptionId: subscription.id,
+        status: subscription.status,
+      });
+    } catch (error: any) {
+      console.error("Subscription creation error:", error);
+      res.status(500).json({ message: "Error creating subscription: " + error.message });
+    }
+  }));
+  
   // Properties API
   app.get("/api/properties", handleErrors(async (req, res) => {
     if (!req.session || !req.session.user) {
@@ -1012,43 +1075,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       });
       
-      // Create the subscription - €35/month
-      const subscription = await stripe.subscriptions.create({
-        customer: user.stripeCustomerId,
-        items: [
-          {
-            price_data: {
-              currency: 'eur',
-              product_data: {
-                name: 'Done for You - Monthly Subscription',
-                description: 'Monthly subscription for the Done for You plan',
-              },
-              unit_amount: 3500, // €35 in cents
-              recurring: {
-                interval: 'month',
-              },
-            },
-          },
-        ],
-        payment_settings: {
-          payment_method_types: ['card'],
-          save_default_payment_method: 'on_subscription',
-        },
-        expand: ['latest_invoice.payment_intent'],
+      // Create the subscription - €35/month using the PaymentGateway service
+      const { createSubscription } = await import('./services/paymentGateway');
+      const subscriptionResult = await createSubscription(user.stripeCustomerId, {
+        amount: 35, // €35
+        productName: 'Done for You - Monthly Subscription',
+        productDescription: 'Monthly subscription for the Done for You plan',
       });
+      
+      // Extract the subscription ID and status from the result
+      const { subscriptionId, status } = subscriptionResult;
       
       // Update user record with subscription ID
       await storage.updateUserStripeInfo(userId, {
         customerId: user.stripeCustomerId,
-        subscriptionId: subscription.id
+        subscriptionId: subscriptionId
       });
       
       // Update user tier
       await storage.updateUserTier(userId, 'done_for_you');
       
       res.json({
-        subscriptionId: subscription.id,
-        status: subscription.status,
+        subscriptionId: subscriptionId,
+        status: status,
         success: true
       });
     } catch (error: any) {

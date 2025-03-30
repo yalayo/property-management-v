@@ -42,6 +42,11 @@ bucket = "./dist" # Where your built client assets are located
 [env.production.site]
 bucket = "./dist"
 
+# Assets binding for worker - maps to the site
+[[env.production.bindings]]
+name = "ASSETS"
+type = "site"
+
 # Define routes for the SPA
 [[env.production.routes]]
 pattern = "immo.busqandote.com"

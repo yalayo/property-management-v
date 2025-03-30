@@ -5,6 +5,11 @@ export interface Env {
   // D1 Database binding - available in production
   DB?: D1Database;
   
+  // Assets binding for static files - available in production
+  ASSETS?: {
+    fetch: (request: Request) => Promise<Response>;
+  };
+  
   // Environment variables
   NODE_ENV: string;
   STRIPE_SECRET_KEY?: string;

@@ -59,7 +59,7 @@ export function TierSelection() {
     
     if (selectedTier === 'doneForYou') {
       // For monthly subscription, redirect to payment page
-      setLocation('/payment/doneForYou');
+      setLocation('/payment/done_for_you');
     } else {
       // For one-time payments or free tier updates
       updateTierMutation.mutate(selectedTier);

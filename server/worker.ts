@@ -81,37 +81,41 @@ export default {
   </body>
 </html>`;
 
-      // Try to serve static assets based on pathname
+      // Try to serve static assets from the Assets binding
       try {
-        if (url.pathname.endsWith(".js")) {
-          const assetUrl = new URL("/assets/index.js", url.origin);
-          const assetResponse = await fetch(assetUrl);
-          if (assetResponse.ok) {
-            const response = new Response(assetResponse.body, {
-              headers: {
-                "Content-Type": "application/javascript",
-                "Cache-Control": "public, max-age=31536000",
-              },
-            });
-            return response;
+        // Check if we have an Assets binding (available in production)
+        if ('ASSETS' in env) {
+          // If the path includes a file extension, it's likely a static asset
+          if (url.pathname.includes(".")) {
+            // Try to get the asset from Cloudflare's asset storage
+            const asset = await env.ASSETS!.fetch(new Request(url.toString()));
+            
+            // If we found the asset, return it
+            if (asset.status === 200) {
+              console.log(`Serving asset from ASSETS: ${url.pathname}`);
+              return asset;
+            }
           }
-        } else if (url.pathname.endsWith(".css")) {
-          const assetUrl = new URL("/assets/index.css", url.origin);
-          const assetResponse = await fetch(assetUrl);
-          if (assetResponse.ok) {
-            const response = new Response(assetResponse.body, {
-              headers: {
-                "Content-Type": "text/css",
-                "Cache-Control": "public, max-age=31536000",
-              },
+        } else {
+          // Fallback for development environment
+          // In production, we should rely on Cloudflare's asset handling
+          console.log(`No ASSETS binding available, falling back to standard handling for: ${url.pathname}`);
+          
+          // For local development or when ASSETS is not available
+          if (url.pathname.endsWith(".js")) {
+            return new Response("console.log('Asset serving not available in this environment');", {
+              headers: { "Content-Type": "application/javascript" }
             });
-            return response;
-          }
-        } else if (url.pathname.includes(".")) {
-          // For other assets like images, try to serve from origin
-          const assetResponse = await fetch(new URL(url.pathname, url.origin));
-          if (assetResponse.ok) {
-            return assetResponse;
+          } else if (url.pathname.endsWith(".css")) {
+            return new Response("/* Asset serving not available in this environment */", {
+              headers: { "Content-Type": "text/css" }
+            });
+          } else if (url.pathname.includes(".")) {
+            // For other assets, respond with a placeholder
+            return new Response("Asset serving not available in this environment", {
+              status: 404,
+              headers: { "Content-Type": "text/plain" }
+            });
           }
         }
       } catch (e) {

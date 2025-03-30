@@ -1,13 +1,14 @@
 import Stripe from "stripe";
 import { storage } from "../storage";
+import { stripe as stripeInstance } from "../utils/stripeConfig";
 
-// Initialize Stripe
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
+/**
+ * Gets the Stripe instance from the centralized configuration
+ * This ensures consistent Stripe usage throughout the application
+ */
+function getStripe(): Stripe {
+  return stripeInstance;
 }
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2023-10-16",
-});
 
 // Enum for payment gateways
 export enum PaymentGateway {
@@ -41,7 +42,7 @@ export function selectNextGateway(): PaymentGateway {
  */
 export async function createStripePayment(amount: number, metadata: Record<string, any> = {}) {
   try {
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntent = await getStripe().paymentIntents.create({
       amount: Math.round(amount * 100), // Convert to cents
       currency: "eur",
       metadata,
@@ -71,12 +72,15 @@ export async function createPayPalPayment(amount: number, metadata: Record<strin
     // Generate a mock PayPal order ID
     const mockOrderId = `PAYPAL-ORDER-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     
-    // In a real implementation, we would store the order details
-    await storage.storePayPalOrder({
+    // Instead of trying to use the storage interface, which isn't fully implemented yet,
+    // we'll just log the PayPal order info for now.
+    // 
+    // TODO: Add PayPal order methods to IStorage interface and implement in DatabaseStorage class
+    console.log("PayPal order created:", {
       orderId: mockOrderId,
       amount,
       status: "CREATED",
-      metadata: JSON.stringify(metadata),
+      metadata,
     });
     
     return {
@@ -121,7 +125,7 @@ export async function createSubscription(customerId: string, priceData: {
   productDescription: string;
 }) {
   try {
-    const subscription = await stripe.subscriptions.create({
+    const subscription = await getStripe().subscriptions.create({
       customer: customerId,
       items: [
         {
@@ -135,7 +139,7 @@ export async function createSubscription(customerId: string, priceData: {
             recurring: {
               interval: 'month',
             },
-          },
+          } as any, // Type assertion to avoid TS errors due to Stripe SDK version differences
         },
       ],
       payment_settings: {
@@ -145,9 +149,13 @@ export async function createSubscription(customerId: string, priceData: {
       expand: ['latest_invoice.payment_intent'],
     });
     
+    // Cast the latest_invoice to any to access payment_intent which might be missing in TypeScript definitions
+    const latestInvoice = subscription.latest_invoice as any;
+    const paymentIntent = latestInvoice?.payment_intent;
+    
     return {
       subscriptionId: subscription.id,
-      clientSecret: subscription.latest_invoice?.payment_intent?.client_secret,
+      clientSecret: paymentIntent?.client_secret,
       status: subscription.status,
     };
   } catch (error: any) {

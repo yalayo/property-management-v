@@ -49,6 +49,8 @@ function CheckoutForm({ tierName, onPaymentSuccess }: { tierName: string; onPaym
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { toast } = useToast();
+  
+  const isSubscription = tierName === 'done_for_you';
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -60,31 +62,78 @@ function CheckoutForm({ tierName, onPaymentSuccess }: { tierName: string; onPaym
     setIsProcessing(true);
     setErrorMessage(null);
 
-    // Use the most complete method to retrieve payment intent details
-    const { error, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      redirect: 'if_required',
-      confirmParams: {
-        // We'll handle redirect in our own component
-        return_url: window.location.origin + "/payment-success",
-      },
-    });
+    try {
+      if (isSubscription) {
+        // For subscriptions, handle setup intent
+        const { error, setupIntent } = await stripe.confirmSetup({
+          elements,
+          redirect: 'if_required',
+          confirmParams: {
+            return_url: window.location.origin + "/payment-success",
+          },
+        });
 
-    if (error) {
+        if (error) {
+          throw new Error(error.message || "An unknown error occurred");
+        }
+
+        if (setupIntent && setupIntent.status === "succeeded") {
+          // Setup succeeded, now create the subscription using the payment method
+          const result = await fetch('/api/create-subscription', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              paymentMethodId: setupIntent.payment_method,
+            })
+          });
+
+          if (!result.ok) {
+            const data = await result.json();
+            throw new Error(data.message || "Error creating subscription");
+          }
+
+          const subscription = await result.json();
+          
+          toast({
+            title: "Subscription Activated",
+            description: "Your subscription has been activated successfully!",
+          });
+          
+          onPaymentSuccess(subscription.subscriptionId);
+        }
+      } else {
+        // For one-time payments, handle payment intent
+        const { error, paymentIntent } = await stripe.confirmPayment({
+          elements,
+          redirect: 'if_required',
+          confirmParams: {
+            // We'll handle redirect in our own component
+            return_url: window.location.origin + "/payment-success",
+          },
+        });
+
+        if (error) {
+          throw new Error(error.message || "An unknown error occurred");
+        }
+
+        if (paymentIntent && paymentIntent.status === "succeeded") {
+          // Payment succeeded! Call the callback with the payment intent ID
+          toast({
+            title: "Payment Successful",
+            description: "Thank you for your purchase!",
+          });
+          onPaymentSuccess(paymentIntent.id);
+        }
+      }
+    } catch (error: any) {
       setErrorMessage(error.message || "An unknown error occurred");
       toast({
         title: "Payment Failed",
         description: error.message || "An unknown error occurred",
         variant: "destructive",
       });
+    } finally {
       setIsProcessing(false);
-    } else if (paymentIntent && paymentIntent.status === "succeeded") {
-      // Payment succeeded! Call the callback with the payment intent ID
-      toast({
-        title: "Payment Successful",
-        description: "Thank you for your purchase!",
-      });
-      onPaymentSuccess(paymentIntent.id);
     }
   };
 
@@ -145,19 +194,30 @@ export default function Payment() {
     }
   }, [tier, navigate, toast]);
 
-  // Create payment intent when component mounts
+  // Create payment intent or subscription setup intent when component mounts
   useEffect(() => {
     if (!tier || !Object.keys(tiers).includes(tier)) return;
 
-    const createPaymentIntent = async () => {
+    const initializePayment = async () => {
       try {
         setIsLoading(true);
         const selectedTier = tiers[tier as keyof typeof tiers];
+        let response;
         
-        const response = await apiRequest("POST", "/api/create-payment-intent", {
-          amount: selectedTier.amount / 100, // Convert to euros from cents
-          tier: tier
-        });
+        // If this is a subscription (Done for You tier), handle differently
+        if (tier === 'done_for_you') {
+          // For subscriptions, we need to create a setup intent
+          response = await apiRequest("POST", "/api/create-payment-intent", {
+            amount: selectedTier.amount / 100, // Convert to euros from cents
+            tier: tier
+          });
+        } else {
+          // For one-time payments, create a payment intent
+          response = await apiRequest("POST", "/api/create-payment-intent", {
+            amount: selectedTier.amount / 100, // Convert to euros from cents
+            tier: tier
+          });
+        }
         
         const data = await response.json();
         setClientSecret(data.clientSecret);
@@ -173,10 +233,10 @@ export default function Payment() {
       }
     };
 
-    createPaymentIntent();
+    initializePayment();
   }, [tier, toast]);
 
-  // Handle successful payment
+  // Handle successful payment or setup
   const handlePaymentSuccess = (paymentId: string) => {
     setPaymentSuccessful(true);
     setPaymentIntentId(paymentId);
