@@ -22,6 +22,19 @@ jobs:
       
       - name: Build frontend
         run: npm run build
+
+      - name: Check if D1 database exists
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if wrangler d1 list | grep -q 'landlord_db'; then
+            echo "D1 database exists, skipping creation."
+            echo "DB_EXISTS=true" >> $GITHUB_ENV
+          else
+            echo "D1 database does not exist, creating..."
+            echo "DB_EXISTS=false" >> $GITHUB_ENV
+          fi
         
       # Creating the D1 database if it doesn't exist
       - name: Create D1 Database (if not exists)
