@@ -27,4 +27,4 @@ command = "npm run build"
 watch_dir = ["server", "shared"]
 
 [site]
-bucket = ".dist"
+bucket = "../dist"
