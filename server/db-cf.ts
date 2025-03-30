@@ -1,6 +1,7 @@
 import * as schema from '../shared/schema';
 import { drizzle } from 'drizzle-orm/d1';
-import { Pool } from '@neondatabase/serverless';
+// For development, use the regular pg library since we're not in Workers environment
+import { Pool } from 'pg';
 import { drizzle as drizzlePg } from 'drizzle-orm/postgres-js';
 
 /**
@@ -18,8 +19,11 @@ export function getDatabase() {
     throw new Error('D1 database not initialized in production environment');
   } 
   
-  // For local development, use PostgreSQL
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  // For local development, use PostgreSQL with regular pg
+  // Only use pg-cloudflare in production
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL || '',
+  });
   return drizzlePg(pool, { schema });
 }
 

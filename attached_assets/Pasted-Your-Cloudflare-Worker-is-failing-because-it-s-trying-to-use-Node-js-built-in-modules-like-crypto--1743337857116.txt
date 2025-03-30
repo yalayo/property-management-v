@@ -1,0 +1,99 @@
+Your Cloudflare Worker is failing because it's trying to use Node.js built-in modules (like crypto, util, events, fs, net, etc.), which are not natively available in Cloudflare Workers unless you enable Node.js compatibility mode.
+✅ Step 1: Enable Node.js Compatibility Mode
+
+Add this line to your wrangler.toml file:
+
+node_compat = true
+
+Your wrangler.toml should look something like this:
+
+name = "your-worker-name"
+main = "server/worker.ts"
+compatibility_date = "2024-03-30"
+node_compat = true
+
+✅ Step 2: Remove express-session & Other Incompatible Packages
+
+    Cloudflare Workers do not support express-session because it relies on fs, crypto, and events.
+
+    You need to replace express-session with a Cloudflare-compatible session storage, such as:
+
+        hono-session for Hono
+
+        Cloudflare KV Storage or Durable Objects for session management
+
+🔄 Replace express-session with hono-session
+
+If you're using Express:
+
+const session = require("express-session");
+app.use(session({ secret: "your-secret", resave: false, saveUninitialized: true }));
+
+🔻 Replace it with Hono’s session middleware:
+
+import { session } from "hono/middleware";
+
+app.use("*", session());
+
+✅ Step 3: Remove pg (PostgreSQL) & Use pg-cloudflare Instead
+
+    The pg package requires fs, net, tls, and crypto, which are not supported in Cloudflare Workers.
+
+    Use pg-cloudflare, which is built for Workers.
+
+Replace pg with pg-cloudflare
+
+1️⃣ Uninstall pg:
+
+npm uninstall pg
+
+2️⃣ Install pg-cloudflare:
+
+npm install pg-cloudflare
+
+3️⃣ Update Your Code:
+
+- import { Client } from 'pg';
++ import { Client } from 'pg-cloudflare';
+
+✅ Step 4: Use Web Crypto API Instead of crypto
+
+    Cloudflare Workers do not support Node.js crypto.
+
+    Instead, use the Web Crypto API (crypto.subtle).
+
+Example: Replacing crypto with Web Crypto API
+
+Before (Node.js crypto ❌):
+
+const crypto = require("crypto");
+const hash = crypto.createHash("sha256").update("hello").digest("hex");
+
+After (Web Crypto API ✅):
+
+const encoder = new TextEncoder();
+const data = encoder.encode("hello");
+const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+const hashArray = Array.from(new Uint8Array(hashBuffer));
+const hashHex = hashArray.map(byte => byte.toString(16).padStart(2, "0")).join("");
+
+✅ Step 5: Reinstall Dependencies
+
+After making the changes, delete node_modules and package-lock.json, then reinstall:
+
+rm -rf node_modules package-lock.json
+npm install
+
+✅ Step 6: Deploy Again
+
+Once you've made all the changes, redeploy:
+
+npx wrangler publish
+
+🔎 Summary of Fixes
+Issue	Fix
+Missing Node.js built-in modules (crypto, fs, path, etc.)	Add node_compat = true in wrangler.toml
+express-session not working	Use hono-session or Cloudflare KV for session storage
+pg (PostgreSQL) not working	Replace with pg-cloudflare
+crypto module missing	Use Web Crypto API (crypto.subtle)
+Old dependencies causing issues	Delete node_modules & reinstall
