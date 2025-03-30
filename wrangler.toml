@@ -23,9 +23,31 @@ database_id = "${DATABASE_ID}" # will be filled via GitHub Actions
 # - GOOGLE_GEMINI_API_KEY
 
 [build]
-command = "npm run build"
+command = "npm run build" 
 watch_dir = ["server", "shared"]
 
+# Configure static asset handling
 [site]
-bucket = "./dist/"
-#entry-point = "workers-site"  # The default entry point for the Cloudflare Pages Worker
+bucket = "./client/dist" # Where your built client assets are located
+
+# Configuring deployment
+[miniflare]
+kv_persist = true
+cache_persist = true
+
+# Asset configuration
+[env.production.site]
+bucket = "./client/dist"
+
+# Define routes for the SPA
+[[env.production.routes]]
+pattern = "/api/*"
+script = "server/worker.ts"
+
+[[env.production.routes]]
+pattern = "/assets/*"
+script = "server/worker.ts"
+
+[[env.production.routes]]
+pattern = "/*"
+script = "server/worker.ts"

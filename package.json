@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@cloudflare/d1": "^1.4.1",
+    "@cloudflare/kv-asset-handler": "^0.4.0",
     "@cloudflare/workers-types": "^4.20250327.0",
     "@google/generative-ai": "^0.24.0",
     "@hookform/resolvers": "^3.9.1",

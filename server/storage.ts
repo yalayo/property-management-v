@@ -31,7 +31,18 @@ import {
 import { db } from "./db";
 import { eq, desc, count, and } from "drizzle-orm";
 
+import session from "express-session";
+import connectPg from "connect-pg-simple";
+import createMemoryStore from "memorystore";
+import { pool } from "./db";
+
+// Initialize memory store for in-memory sessions
+const MemoryStore = createMemoryStore(session);
+
 export interface IStorage {
+  // Session management
+  sessionStore: session.Store;
+  
   // Users
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -240,7 +251,10 @@ export interface IStorage {
   getTenantAverageRating(tenantId: number): Promise<number>;
 }
 
+
+
 export class MemStorage implements IStorage {
+  public sessionStore: session.Store;
   private users: Map<number, User>;
   private properties: Map<number, Property>;
   private tenants: Map<number, Tenant>;
@@ -304,6 +318,10 @@ export class MemStorage implements IStorage {
   private currentTenantRatingId: number;
   
   constructor() {
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000, // 1 day in milliseconds
+    });
+    
     this.users = new Map();
     this.properties = new Map();
     this.tenants = new Map();
@@ -1657,7 +1675,17 @@ export class MemStorage implements IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  public sessionStore: session.Store;
+
   constructor() {
+    // Initialize PostgreSQL session store
+    const PostgresSessionStore = connectPg(session);
+    this.sessionStore = new PostgresSessionStore({
+      pool,
+      createTableIfMissing: true,
+      tableName: 'session'
+    });
+    
     // Initialize with some default questions data
     this.initializeDefaultData();
   }
