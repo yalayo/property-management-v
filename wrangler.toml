@@ -1,6 +1,7 @@
 name = "pmanagement"
 main = "server/worker.ts"
 compatibility_date = "2024-03-30"
+node_compat = true  # Enable Node.js compatibility
 
 [vars]
 NODE_ENV = "production"
