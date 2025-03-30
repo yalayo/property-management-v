@@ -45,11 +45,13 @@ jobs:
           DB_LIST='${{ steps.get-db-id.outputs.result }}'
           DB_ID=$(echo $DB_LIST | jq -r '.[] | select(.name=="landlord-db") | .uuid')
           echo "DATABASE_ID=$DB_ID" >> $GITHUB_ENV
+          echo $GITHUB_ENV
           
       # Update wrangler.toml with the database ID
       - name: Update wrangler.toml with Database ID
         run: |
           sed -i "s/\${DATABASE_ID}/${{ env.DATABASE_ID }}/g" wrangler.toml
+          cat wrangler.toml
       
       # Apply migrations to D1 database
       - name: Apply D1 Migrations
