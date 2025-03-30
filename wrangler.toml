@@ -42,12 +42,9 @@ bucket = "./client/dist"
 # Define routes for the SPA
 [[env.production.routes]]
 pattern = "/api/*"
-script = "server/worker.ts"
 
 [[env.production.routes]]
 pattern = "/assets/*"
-script = "server/worker.ts"
 
 [[env.production.routes]]
 pattern = "/*"
-script = "server/worker.ts"
