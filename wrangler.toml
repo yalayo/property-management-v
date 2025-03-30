@@ -14,7 +14,7 @@ NODE_ENV = "production"
 # Bind the D1 database to the Worker
 [[env.production.d1_databases]]
 binding = "DB" # available in production as env.DB
-database_name = "landlord_db"
+database_name = "landlord-db"
 database_id = "${DATABASE_ID}" # will be filled via GitHub Actions
 
 # Secrets that will be set via GitHub Actions or wrangler
@@ -27,4 +27,4 @@ command = "npm run build"
 watch_dir = ["server", "shared"]
 
 [site]
-bucket = "./client/"
+bucket = "./dist/"
