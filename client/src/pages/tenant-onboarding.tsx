@@ -1,96 +1,64 @@
-import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useLocation, useParams } from 'wouter';
+import { useLocation } from 'wouter';
+import { useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
+import { OnboardingWizard } from '@/components/tenant/OnboardingWizard';
 import { Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import TenantOnboardingWizard from '@/components/tenants/TenantOnboardingWizard';
 
 export default function TenantOnboardingPage() {
-  const { user } = useAuth();
-  const [, navigate] = useLocation();
-  const params = useParams();
-  const propertyId = params.propertyId ? parseInt(params.propertyId) : undefined;
-  const tenantId = params.tenantId ? parseInt(params.tenantId) : undefined;
+  const { user, isLoading: authLoading } = useAuth();
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
   
-  // Fetch existing tenant data if we're editing
-  const { data: existingTenant, isLoading: isLoadingTenant } = useQuery({
-    queryKey: tenantId ? [`/api/tenants/${tenantId}`] : null,
-    enabled: !!tenantId,
+  // Fetch available properties
+  const { data: properties, isLoading: propertiesLoading, error } = useQuery({
+    queryKey: ['/api/properties/available'],
+    enabled: !!user,
   });
-
-  // Fetch property data if propertyId is provided
-  const { data: property, isLoading: isLoadingProperty } = useQuery({
-    queryKey: propertyId ? [`/api/properties/${propertyId}`] : null,
-    enabled: !!propertyId,
-  });
-
-  if (!user) {
+  
+  // Check if user is authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      toast({
+        title: 'Authentication Required',
+        description: 'Please log in to access the tenant application form.',
+        variant: 'destructive',
+      });
+      setLocation('/auth');
+    }
+  }, [authLoading, user, setLocation, toast]);
+  
+  // Show loading state
+  if (authLoading || propertiesLoading) {
     return (
-      <div className="container max-w-7xl py-10">
-        <div className="flex flex-col items-center justify-center min-h-[400px]">
-          <p className="text-lg mb-4">You need to be logged in to access this page.</p>
-          <Button onClick={() => navigate('/login')}>Login</Button>
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
-
-  if (isLoadingTenant || isLoadingProperty) {
+  
+  // Show error state
+  if (error) {
     return (
-      <div className="container max-w-7xl py-10">
-        <div className="flex flex-col items-center justify-center min-h-[400px]">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-          <p>Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Prepare the existing data for the wizard from the fetched tenant data
-  const existingData = tenantId && existingTenant ? {
-    personalInfo: {
-      firstName: existingTenant.firstName || '',
-      lastName: existingTenant.lastName || '',
-      email: existingTenant.email || '',
-      phone: existingTenant.phone || '',
-      dateOfBirth: existingTenant.dateOfBirth ? new Date(existingTenant.dateOfBirth) : undefined,
-      idNumber: existingTenant.idNumber || '',
-    },
-    employmentInfo: {
-      employmentStatus: existingTenant.employmentStatus || 'employed',
-      employerName: existingTenant.employerName || '',
-      employerPhone: existingTenant.employerPhone || '',
-      occupation: existingTenant.occupation || '',
-      monthlyIncome: existingTenant.monthlyIncome?.toString() || '',
-      employmentDuration: existingTenant.employmentDuration || '',
-    },
-    // Add other sections as needed based on your data structure
-  } : undefined;
-
-  return (
-    <div className="container max-w-7xl py-10">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">
-          {tenantId ? 'Update Tenant Details' : 'New Tenant Onboarding'}
-        </h1>
+      <div className="max-w-4xl mx-auto my-10 p-6 bg-destructive/10 rounded-lg">
+        <h2 className="text-xl font-bold text-destructive mb-2">Error Loading Properties</h2>
         <p className="text-muted-foreground">
-          {propertyId && property 
-            ? `Property: ${property.name || property.address}`
-            : 'Complete the form to onboard a new tenant'}
+          There was an error loading available properties: {error.message}
         </p>
       </div>
-
-      <TenantOnboardingWizard 
+    );
+  }
+  
+  // Extract property ID from URL if present
+  const urlParams = new URLSearchParams(window.location.search);
+  const propertyId = urlParams.get('propertyId') ? parseInt(urlParams.get('propertyId')!) : undefined;
+  
+  return (
+    <div className="container py-10">
+      <OnboardingWizard
         propertyId={propertyId}
-        tenantId={tenantId}
-        existingData={existingData}
-        onComplete={(data) => {
-          // Handle completion, e.g., navigate to the tenant details page
-          navigate(propertyId 
-            ? `/properties/${propertyId}/tenants/${data.id}` 
-            : `/tenants/${data.id}`);
-        }}
+        availableProperties={properties || []}
       />
     </div>
   );

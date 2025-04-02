@@ -395,7 +395,7 @@ export const budgets = pgTable("budgets", {
 export const reminderTypeEnum = pgEnum('reminder_type', [
   'upcoming',  // Reminder before payment is due
   'due',       // Reminder on due date
-  'overdue',   // Reminder after due date
+  'overdue',   // Reminder after payment is overdueer after due date
   'final',     // Final notice
   'custom'     // Custom reminder
 ]);
@@ -719,6 +719,76 @@ export const serviceProviderFormSchema = insertServiceProviderSchema
     phone: z.string().optional().nullable(),
   });
 
+// Tenant Application status enum
+export const applicationStatusEnum = pgEnum('application_status', [
+  'submitted',
+  'reviewing',
+  'approved',
+  'declined',
+  'pending_verification',
+  'incomplete'
+]);
+
+// Tenant applications table
+export const tenantApplications = pgTable("tenant_applications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  propertyId: integer("property_id").references(() => properties.id),
+  applicationData: jsonb("application_data").notNull(),
+  status: applicationStatusEnum("status").default("submitted").notNull(),
+  submissionDate: timestamp("submission_date").defaultNow().notNull(),
+  reviewDate: timestamp("review_date"),
+  reviewedBy: integer("reviewed_by").references(() => users.id),
+  notes: text("notes"),
+  backgroundCheckStatus: text("background_check_status"),
+  creditCheckStatus: text("credit_check_status"),
+  approvalDate: timestamp("approval_date"),
+  moveInDate: date("move_in_date"),
+  tenantId: integer("tenant_id").references(() => tenants.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Tenant Application Document Types
+export const applicationDocumentTypes = pgEnum('application_document_type', [
+  'id_document',
+  'proof_of_income',
+  'credit_report',
+  'bank_statement',
+  'reference_letter',
+  'employment_verification',
+  'other'
+]);
+
+// Tenant application documents
+export const tenantApplicationDocuments = pgTable("tenant_application_documents", {
+  id: serial("id").primaryKey(),
+  applicationId: integer("application_id").notNull().references(() => tenantApplications.id),
+  fileId: integer("file_id").notNull().references(() => uploadedFiles.id),
+  documentType: applicationDocumentTypes("document_type").notNull(),
+  uploadDate: timestamp("upload_date").defaultNow().notNull(),
+  verified: boolean("verified").default(false),
+  verificationDate: timestamp("verification_date"),
+  verifiedBy: integer("verified_by").references(() => users.id),
+  notes: text("notes"),
+});
+
+// Tenant application insert schemas
+export const insertTenantApplicationSchema = createInsertSchema(tenantApplications).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  submissionDate: true,
+  reviewDate: true,
+  approvalDate: true,
+});
+
+export const insertTenantApplicationDocumentSchema = createInsertSchema(tenantApplicationDocuments).omit({
+  id: true,
+  uploadDate: true,
+  verificationDate: true,
+});
+
 // Tenant Onboarding schema
 export const tenantOnboardingSchema = z.object({
   personalInfo: z.object({
@@ -876,3 +946,10 @@ export type TenantDocument = typeof tenantDocuments.$inferSelect;
 // Tenant Rating Types
 export type InsertTenantRating = z.infer<typeof insertTenantRatingSchema>;
 export type TenantRating = typeof tenantRatings.$inferSelect;
+
+// Tenant Application Types
+export type InsertTenantApplication = z.infer<typeof insertTenantApplicationSchema>;
+export type TenantApplication = typeof tenantApplications.$inferSelect;
+
+export type InsertTenantApplicationDocument = z.infer<typeof insertTenantApplicationDocumentSchema>;
+export type TenantApplicationDocument = typeof tenantApplicationDocuments.$inferSelect;
