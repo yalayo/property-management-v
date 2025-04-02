@@ -1,23 +1,19 @@
 import * as schema from '../shared/schema';
 import { drizzle } from 'drizzle-orm/d1';
+import { type Env } from './types';
 
-// DB variable will be populated during initialization
-let _db: any = null;
-
-export async function initDatabase(env) {
-  if (!env.DB) {
-    throw new Error('D1 database binding is missing');
-  }
-  _db = drizzle(env.DB);
-  return _db;
-}
-
+/**
+ * Access the Drizzle DB instance that was initialized in worker.ts
+ * This function is used throughout the application for database access
+ */
 export function getDatabase() {
-  if (!_db) {
-    throw new Error('Database not initialized. Call initDatabase() first.');
+  // @ts-ignore - accessing the global Drizzle instance
+  if (!globalThis.__D1_DB) {
+    throw new Error('Database not initialized. Make sure the worker has initialized the database.');
   }
-  return _db;
+  // @ts-ignore - accessing the global Drizzle instance
+  return globalThis.__D1_DB;
 }
 
-// Export the database instance - will be populated after initialization
-export const db = _db;
+// For convenience, export a db reference that will resolve at runtime
+export const db = getDatabase();

@@ -12,10 +12,13 @@ export async function handleApiRequest(
   ctx: ExecutionContext
 ): Promise<Response> {
   try {
-    // Make sure env and db are properly available
-    if (process.env.NODE_ENV === 'production' && !globalThis.__D1_DB) {
+    // Make sure db is properly available - should have been initialized in worker.ts
+    if (!globalThis.__D1_DB) {
       console.error('API request received, but D1 database not initialized');
-      return new Response('Database connection error', { 
+      return new Response(JSON.stringify({
+        error: 'Database connection not available',
+        success: false
+      }), { 
         status: 503,
         headers: { 'Content-Type': 'application/json' } 
       });

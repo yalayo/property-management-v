@@ -4,21 +4,6 @@ import { drizzle } from "drizzle-orm/d1";
 import { ExecutionContext } from "@cloudflare/workers-types";
 import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
 
-// Cloudflare Workers environment detection
-const isCloudflareWorker = typeof globalThis.caches !== 'undefined';
-
-// Only load db-cf module when needed - dynamic import to avoid Node.js module issues
-async function getInitDatabaseFunction() {
-  try {
-    // In Cloudflare Workers environment, we can safely import db-cf
-    const { initDatabase } = await import('./db-cf');
-    return initDatabase;
-  } catch (error) {
-    console.error('Failed to import database initialization:', error);
-    throw new Error('Database module loading failed');
-  }
-}
-
 // Cloudflare Workers entry point
 export default {
   async fetch(
@@ -26,23 +11,15 @@ export default {
     env: Env,
     ctx: ExecutionContext,
   ): Promise<Response> {
-    // Initialize D1 database connection when in production
+    // Initialize D1 database connection
     if (env.DB) {
       try {
+        // Create Drizzle instance with schema
         const db = drizzle(env.DB, { schema });
         
-        // Set DB instance in a global variable or context
+        // Set DB instance in a global variable for access in other modules
         // @ts-ignore - making the DB available to our adapters
         globalThis.__D1_DB = db;
-        
-        // Initialize the database using our async initialization function
-        ctx.waitUntil(
-          getInitDatabaseFunction()
-            .then(initDatabaseFn => initDatabaseFn())
-            .catch((err: Error) => {
-              console.error('Failed to initialize database in worker:', err);
-            })
-        );
         
         console.log('Worker D1 database binding initialized successfully');
       } catch (error) {

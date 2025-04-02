@@ -1,5 +1,7 @@
 import { Env } from "./types";
 import { ExecutionContext } from "@cloudflare/workers-types";
+import * as schema from "../shared/schema";
+import { drizzle } from "drizzle-orm/d1";
 
 // SPA-compatible Worker that inlines critical CSS and avoids external assets
 export default {
@@ -8,6 +10,21 @@ export default {
     env: Env,
     ctx: ExecutionContext,
   ): Promise<Response> {
+    // Initialize D1 database connection if available
+    if (env.DB) {
+      try {
+        // Create Drizzle instance with schema
+        const db = drizzle(env.DB, { schema });
+        
+        // Set DB instance in a global variable for access in other modules
+        // @ts-ignore - making the DB available to our adapters
+        globalThis.__D1_DB = db;
+        
+        console.log('SPA Worker: D1 database binding initialized successfully');
+      } catch (error) {
+        console.error('Failed to initialize D1 database in SPA worker:', error);
+      }
+    }
     const url = new URL(request.url);
     
     // API requests will be handled by a separate worker later
