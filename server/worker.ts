@@ -74,7 +74,7 @@ export default {
             if (indexHtml.ok) {
               const bodyContent = await indexHtml.text();
               return new Response(bodyContent, {
-                headers: { "Content-Type": "text/html" }
+                headers: { "Content-Type": "text/html" } 
               });
             }
           }
