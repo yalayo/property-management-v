@@ -5,9 +5,13 @@ export interface Env {
   // D1 Database binding - available in production
   DB?: D1Database;
   
-  // Assets binding for static files - available in production
+  // Assets binding for static files with KV capabilities - available in production
   ASSETS?: {
     fetch: (request: Request) => Promise<Response>;
+    // Add KV methods that might be needed for asset management
+    list?: (options?: { prefix?: string, limit?: number, cursor?: string }) => Promise<{ keys: { name: string }[], list_complete: boolean, cursor?: string }>;
+    get?: (key: string, options?: any) => Promise<string | null>;
+    put?: (key: string, value: string | ReadableStream | ArrayBuffer | FormData, options?: any) => Promise<void>;
   };
   
   // Environment variables

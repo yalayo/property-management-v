@@ -35,6 +35,39 @@ export default {
       });
     }
     
+    // Check if requesting static assets from KV store
+    if (env.ASSETS && url.pathname !== "/" && url.pathname !== "" && url.pathname.includes(".")) {
+      try {
+        // For static assets, try to serve directly from KV
+        const assetResponse = await env.ASSETS.fetch(request);
+        if (assetResponse.ok) {
+          return assetResponse;
+        }
+      } catch (err) {
+        console.error(`Error fetching asset ${url.pathname}:`, err);
+      }
+    }
+    
+    // For the root path or client-side routes, try to serve index.html from KV
+    if (env.ASSETS && (url.pathname === "/" || url.pathname === "" || !url.pathname.includes("."))) {
+      try {
+        // Try common paths first for index.html
+        for (const possibleKey of ["index.html", "public/index.html"]) {
+          try {
+            const indexHtml = await env.ASSETS.fetch(new Request(possibleKey));
+            if (indexHtml.ok) {
+              return indexHtml;
+            }
+          } catch (err) {
+            // Continue trying other keys
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching index.html from KV:", err);
+      }
+    }
+    
+    // If assets not found or any error, fall back to the inline HTML
     // Define a complete SPA HTML template with inlined CSS and minimal JavaScript
     const htmlContent = `<!DOCTYPE html>
 <html lang="en">

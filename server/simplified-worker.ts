@@ -35,7 +35,75 @@ export default {
       });
     }
     
-    // Define a simple HTML page with minimal content
+    // Check if requesting static assets from KV store
+    if (env.ASSETS && url.pathname !== "/" && url.pathname !== "") {
+      try {
+        // For static assets, try to serve directly from KV
+        // Add a null check for ASSETS and its fetch method
+        if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
+          const assetResponse = await env.ASSETS.fetch(request);
+          if (assetResponse.ok) {
+            return assetResponse;
+          }
+        }
+      } catch (err) {
+        console.error(`Error fetching asset ${url.pathname}:`, err);
+      }
+    }
+    
+    // For root path or if asset not found, serve the SPA HTML
+    if (env.ASSETS && (url.pathname === "/" || url.pathname === "" || !url.pathname.includes("."))) {
+      try {
+        // Try common index.html paths with various possible hashes
+        const possibleIndexPaths = [
+          "index.html",
+          "public/index.html",
+          // Previous known hash
+          "public/index.7831ed9bd0.html",
+          // Other possible paths
+          "index", 
+          "public/index"
+        ];
+        
+        // Try each possible path
+        for (const path of possibleIndexPaths) {
+          try {
+            console.log(`Trying to fetch index at: ${path}`);
+            // Add a null check for ASSETS and its fetch method
+            if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
+              const response = await env.ASSETS.fetch(new Request(path));
+              if (response.ok) {
+                console.log(`Found and serving index.html from: ${path}`);
+                return response;
+              }
+            }
+          } catch (err) {
+            console.warn(`Error trying path ${path}:`, err);
+            // Continue trying other paths
+          }
+        }
+        
+        // If specific paths didn't work, try to serve the default SPA index
+        // This is a catch-all approach for client-side routing
+        try {
+          // Add a null check for ASSETS and its fetch method
+          if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
+            const response = await env.ASSETS.fetch(new Request('/'));
+            if (response.ok) {
+              return response;
+            }
+          }
+        } catch (err) {
+          console.error("Could not serve SPA index:", err);
+        }
+        
+        console.warn("Could not find index.html in assets");
+      } catch (err) {
+        console.error("Error fetching index.html from KV:", err);
+      }
+    }
+    
+    // If index.html not found in KV or any other error, fall back to inline HTML
     const htmlContent = `<!DOCTYPE html>
 <html lang="en">
   <head>

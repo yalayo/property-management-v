@@ -43,20 +43,67 @@ export default {
         return await handleApiRequest(request, env, ctx);
       }
 
-      // If request is for the root page, load index from KV
-      if (url.pathname === "/" || url.pathname.endsWith("/index.html")) {
+      // If request is for the root page or any client route, load index.html from KV
+      if (url.pathname === "/" || url.pathname === "" || url.pathname.endsWith("/index.html") || !url.pathname.startsWith("/api")) {
         try {
           if (env.ASSETS) {
-            const indexHtml = await env.ASSETS.fetch(new Request("public/index.7831ed9bd0.html"));
-            if (indexHtml.ok) {
-              const bodyContent = await indexHtml.text();
-              return new Response(bodyContent, {
-                headers: { "Content-Type": "text/html" } 
-              });
+            // Try common index.html paths with various possible hashes
+            let indexHtmlKey = null;
+            
+            // Try predefined list of common paths for index.html
+            const possibleIndexPaths = [
+              "index.html",
+              "public/index.html",
+              // Add common hashed patterns
+              "public/index.7831ed9bd0.html", // Previous known hash
+              "public/index.*.html", // Won't work directly but shows intent
+              "index", 
+              "public/index"
+            ];
+            
+            // Try each possible path
+            for (const path of possibleIndexPaths) {
+              try {
+                console.log(`Trying to fetch index at: ${path}`);
+                // Add a null check for ASSETS and its fetch method
+                if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
+                  const response = await env.ASSETS.fetch(new Request(path));
+                  if (response.ok) {
+                    indexHtmlKey = path;
+                    const bodyContent = await response.text();
+                    console.log(`Found and serving index.html from: ${path}`);
+                    return new Response(bodyContent, {
+                      headers: { "Content-Type": "text/html" }
+                    });
+                  }
+                }
+              } catch (err) {
+                console.warn(`Error trying path ${path}:`, err);
+                // Continue trying other paths
+              }
             }
+            
+            // If specific paths didn't work, try to serve the default SPA index
+            // This is a catch-all approach for client-side routing
+            try {
+              // Add a null check for ASSETS and its fetch method
+              if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
+                const response = await env.ASSETS.fetch(new Request('/'));
+                if (response.ok) {
+                  const bodyContent = await response.text();
+                  return new Response(bodyContent, {
+                    headers: { "Content-Type": "text/html" }
+                  });
+                }
+              }
+            } catch (err) {
+              console.error("Could not serve SPA index:", err);
+            }
+            
+            console.warn("Could not find index.html in assets");
           }
         } catch (e) {
-          console.error("Error fetching index.html from KV:", e);
+          console.error("Error fetching index.html from assets:", e);
         }
       }
 
