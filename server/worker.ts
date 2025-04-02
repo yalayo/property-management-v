@@ -65,51 +65,26 @@ export default {
         const { handleApiRequest } = await import("./api-handler-hono");
         return await handleApiRequest(request, env, ctx);
       }
-      
-      // Define HTML content with proper path references
-      const htmlContent = `<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-    <title>PropManager - Property Management Solution</title>
-    <meta name="description" content="The property management solution for German landlords" />
-    <link rel="stylesheet" href="/index.css" />
-    <link rel="icon" type="image/png" href="/favicon.ico" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/index.js"></script>
-  </body>
-</html>`;
 
-      // Try to serve static assets from the Assets binding first
-      if (env.ASSETS) {
+      // If request is for the root page, load index from KV
+      if (url.pathname === "/" || url.pathname.endsWith("/index.html")) {
         try {
-          // Check if this is a request for a static asset
-          if (url.pathname.includes(".") && !url.pathname.endsWith('.html')) {
-            // Request the asset from the ASSETS binding
-            const assetUrl = new URL(url.pathname, url.origin);
-            const assetResponse = await env.ASSETS.fetch(new Request(assetUrl.toString()));
-            
-            if (assetResponse.status === 200) {
-              console.log(`Serving asset from ASSETS: ${url.pathname}`);
-              return assetResponse;
+          if (env.ASSETS) {
+            const indexHtml = await env.ASSETS.fetch(new Request("index.html"));
+            if (indexHtml.ok) {
+              const bodyContent = await indexHtml.text();
+              return new Response(bodyContent, {
+                headers: { "Content-Type": "text/html" }
+              });
             }
           }
         } catch (e) {
-          console.error("Error serving asset from KV:", e);
+          console.error("Error fetching index.html from KV:", e);
         }
       }
-      
-      // For all routes that aren't API routes or assets, serve the SPA HTML
-      // This enables client-side routing to work properly
-      return new Response(htmlContent, {
-        headers: { 
-          "Content-Type": "text/html",
-          "Cache-Control": "no-cache, no-store, must-revalidate"
-        },
-      });
+
+      // If no asset or index page is found, return a 404 response
+      return new Response("Not Found", { status: 404 });
     } catch (error: unknown) {
       console.error("Worker error:", error);
       const errorMessage =
