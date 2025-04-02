@@ -5,10 +5,18 @@ export interface Env {
   // D1 Database binding - available in production
   DB?: D1Database;
   
-  // Assets binding for static files with KV capabilities - available in production
-  ASSETS?: {
+  // Static content KV namespace - available in production
+  __STATIC_CONTENT?: {
     fetch: (request: Request) => Promise<Response>;
     // Add KV methods that might be needed for asset management
+    list?: (options?: { prefix?: string, limit?: number, cursor?: string }) => Promise<{ keys: { name: string }[], list_complete: boolean, cursor?: string }>;
+    get?: (key: string, options?: any) => Promise<string | null>;
+    put?: (key: string, value: string | ReadableStream | ArrayBuffer | FormData, options?: any) => Promise<void>;
+  };
+  
+  // For backward compatibility - alias to __STATIC_CONTENT
+  ASSETS?: {
+    fetch: (request: Request) => Promise<Response>;
     list?: (options?: { prefix?: string, limit?: number, cursor?: string }) => Promise<{ keys: { name: string }[], list_complete: boolean, cursor?: string }>;
     get?: (key: string, options?: any) => Promise<string | null>;
     put?: (key: string, value: string | ReadableStream | ArrayBuffer | FormData, options?: any) => Promise<void>;

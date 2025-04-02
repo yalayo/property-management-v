@@ -35,13 +35,19 @@ export default {
       });
     }
     
+    // Check both possible bindings: __STATIC_CONTENT (KV namespace) or ASSETS (site binding)
+    const staticBinding = env.__STATIC_CONTENT || env.ASSETS;
+    
     // Check if requesting static assets from KV store
-    if (env.ASSETS && url.pathname !== "/" && url.pathname !== "" && url.pathname.includes(".")) {
+    if (staticBinding && url.pathname !== "/" && url.pathname !== "" && url.pathname.includes(".")) {
       try {
         // For static assets, try to serve directly from KV
-        const assetResponse = await env.ASSETS.fetch(request);
-        if (assetResponse.ok) {
-          return assetResponse;
+        if (typeof staticBinding.fetch === 'function') {
+          console.log(`Trying to fetch asset ${url.pathname} using binding: ${env.__STATIC_CONTENT ? '__STATIC_CONTENT' : 'ASSETS'}`);
+          const assetResponse = await staticBinding.fetch(request);
+          if (assetResponse.ok) {
+            return assetResponse;
+          }
         }
       } catch (err) {
         console.error(`Error fetching asset ${url.pathname}:`, err);
@@ -49,22 +55,53 @@ export default {
     }
     
     // For the root path or client-side routes, try to serve index.html from KV
-    if (env.ASSETS && (url.pathname === "/" || url.pathname === "" || !url.pathname.includes("."))) {
+    if (staticBinding && (url.pathname === "/" || url.pathname === "" || !url.pathname.includes("."))) {
       try {
         // Try common paths first for index.html
-        for (const possibleKey of ["index.html", "public/index.html"]) {
+        const possiblePaths = [
+          "index.html",
+          "public/index.html",
+          // Previous known hash
+          "public/index.7831ed9bd0.html",
+          // Other possible paths
+          "index", 
+          "public/index"
+        ];
+        
+        for (const path of possiblePaths) {
           try {
-            const indexHtml = await env.ASSETS.fetch(new Request(possibleKey));
-            if (indexHtml.ok) {
-              return indexHtml;
+            console.log(`Trying to fetch index at: ${path} using binding: ${env.__STATIC_CONTENT ? '__STATIC_CONTENT' : 'ASSETS'}`);
+            if (typeof staticBinding.fetch === 'function') {
+              const indexHtml = await staticBinding.fetch(new Request(path));
+              if (indexHtml.ok) {
+                console.log(`Found and serving index.html from: ${path}`);
+                return indexHtml;
+              }
             }
           } catch (err) {
-            // Continue trying other keys
+            console.warn(`Error trying path ${path}:`, err);
+            // Continue trying other paths
           }
+        }
+        
+        // If specific paths didn't work, try to serve the default SPA index
+        try {
+          if (typeof staticBinding.fetch === 'function') {
+            console.log('Trying to fetch root path /');
+            const response = await staticBinding.fetch(new Request('/'));
+            if (response.ok) {
+              console.log('Successfully fetched root path, serving as index');
+              return response;
+            }
+          }
+        } catch (err) {
+          console.error("Could not serve SPA index:", err);
         }
       } catch (err) {
         console.error("Error fetching index.html from KV:", err);
       }
+    } else if (!staticBinding) {
+      console.warn("No static content binding found: neither __STATIC_CONTENT nor ASSETS is available");
     }
     
     // If assets not found or any error, fall back to the inline HTML

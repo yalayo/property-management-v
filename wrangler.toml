@@ -43,7 +43,12 @@ bucket = "./dist" # Where your built client assets are located
 bucket = "./dist"
 include = ["**/*"]  # Include all files from the bucket
 
-# Assets binding for worker - maps to the site
+# Static content binding via KV namespace (__STATIC_CONTENT is a special binding name)
+# In Cloudflare, this maps to the KV namespace: __STATIC_CONTENT
+# This is managed automatically by Cloudflare Workers
+
+# For backward compatibility, also define the ASSETS binding
+# This allows our code to work with both binding types
 [[env.production.bindings]]
 name = "ASSETS"
 type = "site"

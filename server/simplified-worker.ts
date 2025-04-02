@@ -35,13 +35,16 @@ export default {
       });
     }
     
+    // Check both possible bindings: __STATIC_CONTENT (KV namespace) or ASSETS (site binding)
+    const staticBinding = env.__STATIC_CONTENT || env.ASSETS;
+    
     // Check if requesting static assets from KV store
-    if (env.ASSETS && url.pathname !== "/" && url.pathname !== "") {
+    if (staticBinding && url.pathname !== "/" && url.pathname !== "") {
       try {
         // For static assets, try to serve directly from KV
-        // Add a null check for ASSETS and its fetch method
-        if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
-          const assetResponse = await env.ASSETS.fetch(request);
+        if (typeof staticBinding.fetch === 'function') {
+          console.log(`Trying to fetch asset ${url.pathname} using binding: ${env.__STATIC_CONTENT ? '__STATIC_CONTENT' : 'ASSETS'}`);
+          const assetResponse = await staticBinding.fetch(request);
           if (assetResponse.ok) {
             return assetResponse;
           }
@@ -52,7 +55,7 @@ export default {
     }
     
     // For root path or if asset not found, serve the SPA HTML
-    if (env.ASSETS && (url.pathname === "/" || url.pathname === "" || !url.pathname.includes("."))) {
+    if (staticBinding && (url.pathname === "/" || url.pathname === "" || !url.pathname.includes("."))) {
       try {
         // Try common index.html paths with various possible hashes
         const possibleIndexPaths = [
@@ -68,10 +71,9 @@ export default {
         // Try each possible path
         for (const path of possibleIndexPaths) {
           try {
-            console.log(`Trying to fetch index at: ${path}`);
-            // Add a null check for ASSETS and its fetch method
-            if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
-              const response = await env.ASSETS.fetch(new Request(path));
+            console.log(`Trying to fetch index at: ${path} using binding: ${env.__STATIC_CONTENT ? '__STATIC_CONTENT' : 'ASSETS'}`);
+            if (typeof staticBinding.fetch === 'function') {
+              const response = await staticBinding.fetch(new Request(path));
               if (response.ok) {
                 console.log(`Found and serving index.html from: ${path}`);
                 return response;
@@ -86,10 +88,11 @@ export default {
         // If specific paths didn't work, try to serve the default SPA index
         // This is a catch-all approach for client-side routing
         try {
-          // Add a null check for ASSETS and its fetch method
-          if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
-            const response = await env.ASSETS.fetch(new Request('/'));
+          if (typeof staticBinding.fetch === 'function') {
+            console.log('Trying to fetch root path /');
+            const response = await staticBinding.fetch(new Request('/'));
             if (response.ok) {
+              console.log('Successfully fetched root path, serving as index');
               return response;
             }
           }
@@ -101,6 +104,8 @@ export default {
       } catch (err) {
         console.error("Error fetching index.html from KV:", err);
       }
+    } else if (!staticBinding) {
+      console.warn("No static content binding found: neither __STATIC_CONTENT nor ASSETS is available");
     }
     
     // If index.html not found in KV or any other error, fall back to inline HTML
