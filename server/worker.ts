@@ -70,7 +70,7 @@ export default {
       if (url.pathname === "/" || url.pathname.endsWith("/index.html")) {
         try {
           if (env.ASSETS) {
-            const indexHtml = await env.ASSETS.fetch(new Request("index.html"));
+            const indexHtml = await env.ASSETS.fetch(new Request("public/index.7831ed9bd0.html"));
             if (indexHtml.ok) {
               const bodyContent = await indexHtml.text();
               return new Response(bodyContent, {
