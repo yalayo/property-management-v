@@ -80,14 +80,16 @@ export class CloudflareStorage implements IStorage {
         // In Node.js environment, patch the MemoryStore to handle the unref issue safely
         // Monkey patch the global setInterval function to handle unref safely when it doesn't exist
         const originalSetInterval = globalThis.setInterval;
-        globalThis.setInterval = function(...args: any[]) {
-          const intervalId = originalSetInterval(...args);
+        // Use a properly typed wrapper for setInterval
+        globalThis.setInterval = function(callback: (...args: any[]) => void, ms?: number, ...args: any[]) {
+          const intervalId = originalSetInterval(callback, ms || 0);
           // Add a no-op unref method if it doesn't exist
           if (typeof intervalId.unref !== 'function') {
+            // @ts-ignore - adding unref method to the object
             intervalId.unref = () => intervalId; // No-op function that returns the interval id
           }
           return intervalId;
-        };
+        } as typeof setInterval;
         
         // Now create the memory store which will use our patched setInterval
         const MemoryStore = createMemoryStore(session);
@@ -142,7 +144,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async updateStripeCustomerId(userId: number, customerId: string): Promise<User> {
-    const [user] = await db
+    const database = getDb();
+    const [user] = await database
       .update(users)
       .set({ stripeCustomerId: customerId })
       .where(eq(users.id, userId))
@@ -151,7 +154,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async updateUserStripeInfo(userId: number, info: { customerId: string, subscriptionId: string }): Promise<User> {
-    const [user] = await db
+    const database = getDb();
+    const [user] = await database
       .update(users)
       .set({
         stripeCustomerId: info.customerId,

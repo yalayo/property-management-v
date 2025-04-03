@@ -37,6 +37,10 @@ echo "Using D1 database ID: $DATABASE_ID"
 echo "Updating wrangler.toml with database ID..."
 sed -i.bak "s/\${DATABASE_ID}/$DATABASE_ID/g" wrangler.toml
 
+# Generate migrations from current schema
+echo "Generating schema migrations for D1..."
+./generate-d1-migrations.sh
+
 # Apply migrations to D1 database
 echo "Applying D1 migrations..."
 wrangler d1 migrations apply landlord-db --local
