@@ -41,7 +41,11 @@ async function createAdminUserMigration() {
 export default createAdminUserMigration;
 
 // Run the migration if this script is executed directly
-if (require.main === module) {
+// Using ESM pattern for detecting direct execution
+import { fileURLToPath } from 'url';
+const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
+
+if (isMainModule) {
   createAdminUserMigration()
     .then((result) => {
       if (result.success) {
