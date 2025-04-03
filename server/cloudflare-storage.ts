@@ -167,7 +167,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async updateUserTier(userId: number, tier: string): Promise<User> {
-    const [user] = await db
+    const database = getDb();
+    const [user] = await database
       .update(users)
       .set({ tier })
       .where(eq(users.id, userId))
@@ -176,7 +177,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async updateUserOnboardingStatus(userId: number, hasCompleted: boolean): Promise<User> {
-    const [user] = await db
+    const database = getDb();
+    const [user] = await database
       .update(users)
       .set({ onboardingCompleted: hasCompleted })
       .where(eq(users.id, userId))
@@ -326,7 +328,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async updateProperty(id: number, property: Partial<InsertProperty>): Promise<Property | undefined> {
-    const [updatedProperty] = await db
+    const database = getDb();
+    const [updatedProperty] = await database
       .update(properties)
       .set(property)
       .where(eq(properties.id, id))
@@ -359,7 +362,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async updateTenant(id: number, tenant: Partial<InsertTenant>): Promise<Tenant> {
-    const [updatedTenant] = await db
+    const database = getDb();
+    const [updatedTenant] = await database
       .update(tenants)
       .set(tenant)
       .where(eq(tenants.id, id))
@@ -376,11 +380,13 @@ export class CloudflareStorage implements IStorage {
   }
   
   async getPaymentsByTenantId(tenantId: number): Promise<Payment[]> {
-    return await db
+    const database = getDb();
+    // Use SQL for more dynamic ordering that handles various schema versions
+    return await database
       .select()
       .from(payments)
       .where(eq(payments.tenantId, tenantId))
-      .orderBy(desc(payments.date));
+      .orderBy(sql`COALESCE(${payments.paymentDate}, ${payments.createdAt}) DESC`);
   }
   
   async getLatePayers(userId: number): Promise<{ tenant: Tenant; lastPayment: Payment | null; }[]> {
@@ -396,9 +402,21 @@ export class CloudflareStorage implements IStorage {
       // Consider a tenant late if they haven't paid this month
       // or if their last payment was marked as late
       const now = new Date();
-      const isLate = !lastPayment || 
-        (lastPayment.date.getMonth() !== now.getMonth() && lastPayment.date.getFullYear() !== now.getFullYear()) ||
-        lastPayment.isLate;
+      let isLate = !lastPayment;
+      
+      if (lastPayment) {
+        // Check if payment has a date field and if it's in the current month
+        const paymentDate = lastPayment.paymentDate || lastPayment.createdAt;
+        if (paymentDate) {
+          isLate = paymentDate.getMonth() !== now.getMonth() || 
+                  paymentDate.getFullYear() !== now.getFullYear();
+        }
+        
+        // Check if payment is explicitly marked as late
+        if (lastPayment.status === 'late' || lastPayment.status === 'overdue') {
+          isLate = true;
+        }
+      }
       
       if (isLate) {
         result.push({ tenant, lastPayment });
@@ -426,7 +444,8 @@ export class CloudflareStorage implements IStorage {
       ? extractedData 
       : JSON.stringify(extractedData);
     
-    const [updatedFile] = await db
+    const database = getDb();
+    const [updatedFile] = await database
       .update(uploadedFiles)
       .set({ extractedData: extractedDataStr })
       .where(eq(uploadedFiles.id, fileId))
@@ -460,7 +479,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async updatePayPalOrderStatus(id: number, status: string): Promise<PaypalOrder> {
-    const [updatedOrder] = await db
+    const database = getDb();
+    const [updatedOrder] = await database
       .update(paypalOrders)
       .set({ status })
       .where(eq(paypalOrders.id, id))
@@ -469,7 +489,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async updateUserPaymentGateway(userId: number, gateway: string): Promise<User> {
-    const [user] = await db
+    const database = getDb();
+    const [user] = await database
       .update(users)
       .set({ preferredPaymentGateway: gateway })
       .where(eq(users.id, userId))
@@ -506,7 +527,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async updateTransactionCategory(id: number, data: Partial<InsertTransactionCategory>): Promise<TransactionCategory | undefined> {
-    const [updatedCategory] = await db
+    const database = getDb();
+    const [updatedCategory] = await database
       .update(transactionCategories)
       .set(data)
       .where(eq(transactionCategories.id, id))
@@ -587,7 +609,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async updateTransaction(id: number, data: Partial<InsertTransaction>): Promise<Transaction | undefined> {
-    const [updatedTransaction] = await db
+    const database = getDb();
+    const [updatedTransaction] = await database
       .update(transactions)
       .set(data)
       .where(eq(transactions.id, id))
@@ -682,7 +705,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async updateBankAccount(id: number, data: Partial<InsertBankAccount>): Promise<BankAccount | undefined> {
-    const [updatedAccount] = await db
+    const database = getDb();
+    const [updatedAccount] = await database
       .update(bankAccounts)
       .set(data)
       .where(eq(bankAccounts.id, id))
@@ -703,7 +727,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async getBankStatementsByUserId(userId: number): Promise<BankStatement[]> {
-    return await db
+    const database = getDb();
+    return await database
       .select()
       .from(bankStatements)
       .innerJoin(bankAccounts, eq(bankStatements.bankAccountId, bankAccounts.id))
@@ -712,7 +737,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async getBankStatementsByBankAccountId(bankAccountId: number): Promise<BankStatement[]> {
-    return await db
+    const database = getDb();
+    return await database
       .select()
       .from(bankStatements)
       .where(eq(bankStatements.bankAccountId, bankAccountId))
@@ -726,7 +752,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async updateBankStatement(id: number, data: Partial<InsertBankStatement>): Promise<BankStatement | undefined> {
-    const [updatedStatement] = await db
+    const database = getDb();
+    const [updatedStatement] = await database
       .update(bankStatements)
       .set(data)
       .where(eq(bankStatements.id, id))
@@ -743,7 +770,8 @@ export class CloudflareStorage implements IStorage {
       dataToStore = JSON.stringify(extractedData);
     }
     
-    const [updatedStatement] = await db
+    const database = getDb();
+    const [updatedStatement] = await database
       .update(bankStatements)
       .set({
         extractedData: dataToStore,
@@ -781,7 +809,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async updateTaxYear(id: number, data: Partial<InsertTaxYear>): Promise<TaxYear | undefined> {
-    const [updatedTaxYear] = await db
+    const database = getDb();
+    const [updatedTaxYear] = await database
       .update(taxYears)
       .set(data)
       .where(eq(taxYears.id, id))
@@ -796,7 +825,8 @@ export class CloudflareStorage implements IStorage {
     taxRate?: number, 
     estimatedTax?: number 
   }): Promise<TaxYear | undefined> {
-    const [updatedTaxYear] = await db
+    const database = getDb();
+    const [updatedTaxYear] = await database
       .update(taxYears)
       .set({
         ...data,
@@ -826,7 +856,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async updateBudget(id: number, data: Partial<InsertBudget>): Promise<Budget | undefined> {
-    const [updatedBudget] = await db
+    const database = getDb();
+    const [updatedBudget] = await database
       .update(budgets)
       .set(data)
       .where(eq(budgets.id, id))
@@ -920,7 +951,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async getMaintenanceRequestsByPropertyId(propertyId: number): Promise<MaintenanceRequest[]> {
-    return await db
+    const database = getDb();
+    return await database
       .select()
       .from(maintenanceRequests)
       .where(eq(maintenanceRequests.propertyId, propertyId))
@@ -928,7 +960,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async updateMaintenanceRequest(id: number, data: Partial<InsertMaintenanceRequest>): Promise<MaintenanceRequest | undefined> {
-    const [updatedRequest] = await db
+    const database = getDb();
+    const [updatedRequest] = await database
       .update(maintenanceRequests)
       .set(data)
       .where(eq(maintenanceRequests.id, id))
@@ -949,7 +982,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async getMaintenanceCommentsByRequestId(requestId: number): Promise<MaintenanceComment[]> {
-    return await db
+    const database = getDb();
+    return await database
       .select()
       .from(maintenanceComments)
       .where(eq(maintenanceComments.requestId, requestId))
@@ -974,7 +1008,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async updateServiceProvider(id: number, data: Partial<InsertServiceProvider>): Promise<ServiceProvider | undefined> {
-    const [updatedProvider] = await db
+    const database = getDb();
+    const [updatedProvider] = await database
       .update(serviceProviders)
       .set(data)
       .where(eq(serviceProviders.id, id))
@@ -1015,7 +1050,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async getTenantCredentialsByUserId(userId: number): Promise<TenantCredential[]> {
-    return await db
+    const database = getDb();
+    return await database
       .select()
       .from(tenantCredentials)
       .innerJoin(tenants, eq(tenantCredentials.tenantId, tenants.id))
@@ -1023,7 +1059,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async updateTenantCredential(id: number, data: Partial<InsertTenantCredential>): Promise<TenantCredential | undefined> {
-    const [updatedCredential] = await db
+    const database = getDb();
+    const [updatedCredential] = await database
       .update(tenantCredentials)
       .set(data)
       .where(eq(tenantCredentials.id, id))
@@ -1038,7 +1075,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async updateTenantCredentialLastLogin(id: number): Promise<TenantCredential> {
-    const [updatedCredential] = await db
+    const database = getDb();
+    const [updatedCredential] = await database
       .update(tenantCredentials)
       .set({ lastLogin: new Date() })
       .where(eq(tenantCredentials.id, id))
@@ -1064,7 +1102,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async getPublicDocumentsByUserId(userId: number): Promise<SharedDocument[]> {
-    return await db
+    const database = getDb();
+    return await database
       .select()
       .from(sharedDocuments)
       .where(and(
@@ -1074,7 +1113,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async updateSharedDocument(id: number, data: Partial<InsertSharedDocument>): Promise<SharedDocument | undefined> {
-    const [updatedDocument] = await db
+    const database = getDb();
+    const [updatedDocument] = await database
       .update(sharedDocuments)
       .set(data)
       .where(eq(sharedDocuments.id, id))
@@ -1111,7 +1151,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async updateTenantDocumentViewStatus(id: number, hasViewed: boolean): Promise<TenantDocument> {
-    const [updatedDocument] = await db
+    const database = getDb();
+    const [updatedDocument] = await database
       .update(tenantDocuments)
       .set({ 
         hasViewed,
@@ -1146,7 +1187,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async getTenantRatingsByUserId(userId: number): Promise<TenantRating[]> {
-    return await db
+    const database = getDb();
+    return await database
       .select()
       .from(tenantRatings)
       .innerJoin(tenants, eq(tenantRatings.tenantId, tenants.id))
@@ -1154,7 +1196,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async updateTenantRating(id: number, data: Partial<InsertTenantRating>): Promise<TenantRating | undefined> {
-    const [updatedRating] = await db
+    const database = getDb();
+    const [updatedRating] = await database
       .update(tenantRatings)
       .set(data)
       .where(eq(tenantRatings.id, id))
@@ -1172,7 +1215,8 @@ export class CloudflareStorage implements IStorage {
     const ratings = await this.getTenantRatingsByTenantId(tenantId);
     if (ratings.length === 0) return 0;
     
-    const sum = ratings.reduce((total, rating) => total + rating.rating, 0);
+    // Use the overallRating property instead of rating
+    const sum = ratings.reduce((total, rating) => total + rating.overallRating, 0);
     return sum / ratings.length;
   }
 }
