@@ -130,12 +130,14 @@ export class CloudflareStorage implements IStorage {
   }
   
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
+    const database = getDb();
+    const [user] = await database.select().from(users).where(eq(users.email, email));
     return user;
   }
   
   async createUser(user: InsertUser): Promise<User> {
-    const [newUser] = await db.insert(users).values(user).returning();
+    const database = getDb();
+    const [newUser] = await database.insert(users).values(user).returning();
     return newUser;
   }
   
@@ -179,24 +181,28 @@ export class CloudflareStorage implements IStorage {
   }
   
   async getUserCount(): Promise<number> {
-    const [result] = await db.select({ count: count() }).from(users);
+    const database = getDb();
+    const [result] = await database.select({ count: count() }).from(users);
     return result.count;
   }
   
   async getSurveyResponseCount(): Promise<number> {
-    const [result] = await db.select({ count: count() }).from(surveyResponses);
+    const database = getDb();
+    const [result] = await database.select({ count: count() }).from(surveyResponses);
     return result.count;
   }
   
   async getWaitingListCount(): Promise<number> {
-    const [result] = await db.select({ count: count() }).from(waitingList);
+    const database = getDb();
+    const [result] = await database.select({ count: count() }).from(waitingList);
     return result.count;
   }
   
   // ===== SURVEY RESPONSE METHODS =====
   
   async createSurveyResponse(response: InsertSurveyResponse): Promise<SurveyResponse> {
-    const [surveyResponse] = await db.insert(surveyResponses).values(response).returning();
+    const database = getDb();
+    const [surveyResponse] = await database.insert(surveyResponses).values(response).returning();
     return surveyResponse;
   }
   
@@ -254,48 +260,57 @@ export class CloudflareStorage implements IStorage {
   // ===== QUESTIONS METHODS =====
   
   async createQuestion(question: InsertQuestion): Promise<Question> {
-    const [newQuestion] = await db.insert(questions).values(question).returning();
+    const database = getDb();
+    const [newQuestion] = await database.insert(questions).values(question).returning();
     return newQuestion;
   }
   
   async getAllQuestions(): Promise<Question[]> {
-    return await db.select().from(questions);
+    const database = getDb();
+    return await database.select().from(questions);
   }
   
   async getActiveQuestions(): Promise<Question[]> {
-    return await db.select().from(questions).where(eq(questions.isActive, true));
+    const database = getDb();
+    return await database.select().from(questions).where(eq(questions.isActive, true));
   }
   
   // ===== WAITING LIST METHODS =====
   
   async addToWaitingList(entry: InsertWaitingList): Promise<WaitingList> {
-    const [waitingListEntry] = await db.insert(waitingList).values(entry).returning();
+    const database = getDb();
+    const [waitingListEntry] = await database.insert(waitingList).values(entry).returning();
     return waitingListEntry;
   }
   
   async isEmailInWaitingList(email: string): Promise<boolean> {
-    const [entry] = await db.select().from(waitingList).where(eq(waitingList.email, email));
+    const database = getDb();
+    const [entry] = await database.select().from(waitingList).where(eq(waitingList.email, email));
     return !!entry;
   }
   
   async getWaitingList(): Promise<WaitingList[]> {
-    return await db.select().from(waitingList).orderBy(desc(waitingList.joinedAt));
+    const database = getDb();
+    return await database.select().from(waitingList).orderBy(desc(waitingList.joinedAt));
   }
   
   // ===== PROPERTIES METHODS =====
   
   async createProperty(property: InsertProperty): Promise<Property> {
-    const [newProperty] = await db.insert(properties).values(property).returning();
+    const database = getDb();
+    const [newProperty] = await database.insert(properties).values(property).returning();
     return newProperty;
   }
   
   async getPropertyById(id: number): Promise<Property | undefined> {
-    const [property] = await db.select().from(properties).where(eq(properties.id, id));
+    const database = getDb();
+    const [property] = await database.select().from(properties).where(eq(properties.id, id));
     return property;
   }
   
   async getPropertiesByUserId(userId: number): Promise<Property[]> {
-    return await db.select().from(properties).where(eq(properties.userId, userId));
+    const database = getDb();
+    return await database.select().from(properties).where(eq(properties.userId, userId));
   }
   
   async updateProperty(id: number, property: Partial<InsertProperty>): Promise<Property | undefined> {
@@ -310,21 +325,25 @@ export class CloudflareStorage implements IStorage {
   // ===== TENANTS METHODS =====
   
   async createTenant(tenant: InsertTenant): Promise<Tenant> {
-    const [newTenant] = await db.insert(tenants).values(tenant).returning();
+    const database = getDb();
+    const [newTenant] = await database.insert(tenants).values(tenant).returning();
     return newTenant;
   }
   
   async getTenantById(id: number): Promise<Tenant | undefined> {
-    const [tenant] = await db.select().from(tenants).where(eq(tenants.id, id));
+    const database = getDb();
+    const [tenant] = await database.select().from(tenants).where(eq(tenants.id, id));
     return tenant;
   }
   
   async getTenantsByPropertyId(propertyId: number): Promise<Tenant[]> {
-    return await db.select().from(tenants).where(eq(tenants.propertyId, propertyId));
+    const database = getDb();
+    return await database.select().from(tenants).where(eq(tenants.propertyId, propertyId));
   }
   
   async getTenantsByUserId(userId: number): Promise<Tenant[]> {
-    return await db.select().from(tenants).where(eq(tenants.userId, userId));
+    const database = getDb();
+    return await database.select().from(tenants).where(eq(tenants.userId, userId));
   }
   
   async updateTenant(id: number, tenant: Partial<InsertTenant>): Promise<Tenant> {
@@ -339,7 +358,8 @@ export class CloudflareStorage implements IStorage {
   // ===== PAYMENTS METHODS =====
   
   async createPayment(payment: InsertPayment): Promise<Payment> {
-    const [newPayment] = await db.insert(payments).values(payment).returning();
+    const database = getDb();
+    const [newPayment] = await database.insert(payments).values(payment).returning();
     return newPayment;
   }
   
@@ -379,12 +399,14 @@ export class CloudflareStorage implements IStorage {
   // ===== FILES METHODS =====
   
   async uploadFile(file: InsertUploadedFile): Promise<UploadedFile> {
-    const [newFile] = await db.insert(uploadedFiles).values(file).returning();
+    const database = getDb();
+    const [newFile] = await database.insert(uploadedFiles).values(file).returning();
     return newFile;
   }
   
   async getFilesByUserId(userId: number): Promise<UploadedFile[]> {
-    return await db.select().from(uploadedFiles).where(eq(uploadedFiles.userId, userId));
+    const database = getDb();
+    return await database.select().from(uploadedFiles).where(eq(uploadedFiles.userId, userId));
   }
   
   async updateFileData(fileId: number, extractedData: any): Promise<UploadedFile> {
@@ -409,17 +431,20 @@ export class CloudflareStorage implements IStorage {
   // Example implementations for a few of the required methods:
   
   async createPayPalOrder(order: InsertPaypalOrder): Promise<PaypalOrder> {
-    const [newOrder] = await db.insert(paypalOrders).values(order).returning();
+    const database = getDb();
+    const [newOrder] = await database.insert(paypalOrders).values(order).returning();
     return newOrder;
   }
   
   async getPayPalOrderById(id: number): Promise<PaypalOrder | undefined> {
-    const [order] = await db.select().from(paypalOrders).where(eq(paypalOrders.id, id));
+    const database = getDb();
+    const [order] = await database.select().from(paypalOrders).where(eq(paypalOrders.id, id));
     return order;
   }
   
   async getPayPalOrdersByUserId(userId: number): Promise<PaypalOrder[]> {
-    return await db.select().from(paypalOrders).where(eq(paypalOrders.userId, userId));
+    const database = getDb();
+    return await database.select().from(paypalOrders).where(eq(paypalOrders.userId, userId));
   }
   
   async updatePayPalOrderStatus(id: number, status: string): Promise<PaypalOrder> {
@@ -441,7 +466,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async getUserPaymentGateway(userId: number): Promise<string | null> {
-    const [user] = await db.select({ preferredGateway: users.preferredPaymentGateway }).from(users).where(eq(users.id, userId));
+    const database = getDb();
+    const [user] = await database.select({ preferredGateway: users.preferredPaymentGateway }).from(users).where(eq(users.id, userId));
     return user?.preferredGateway || null;
   }
   
@@ -451,16 +477,19 @@ export class CloudflareStorage implements IStorage {
   // but in a real implementation you would need to implement all methods from the interface.
   
   async createTransactionCategory(category: InsertTransactionCategory): Promise<TransactionCategory> {
-    const [newCategory] = await db.insert(transactionCategories).values(category).returning();
+    const database = getDb();
+    const [newCategory] = await database.insert(transactionCategories).values(category).returning();
     return newCategory;
   }
   
   async getTransactionCategoriesByUserId(userId: number): Promise<TransactionCategory[]> {
-    return await db.select().from(transactionCategories).where(eq(transactionCategories.userId, userId));
+    const database = getDb();
+    return await database.select().from(transactionCategories).where(eq(transactionCategories.userId, userId));
   }
   
   async getTransactionCategoryById(id: number): Promise<TransactionCategory | undefined> {
-    const [category] = await db.select().from(transactionCategories).where(eq(transactionCategories.id, id));
+    const database = getDb();
+    const [category] = await database.select().from(transactionCategories).where(eq(transactionCategories.id, id));
     return category;
   }
   
@@ -474,7 +503,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async deleteTransactionCategory(id: number): Promise<boolean> {
-    const result = await db.delete(transactionCategories).where(eq(transactionCategories.id, id));
+    const database = getDb();
+    const result = await database.delete(transactionCategories).where(eq(transactionCategories.id, id));
     return !!result;
   }
   
@@ -502,7 +532,8 @@ export class CloudflareStorage implements IStorage {
   // For now, provide stub implementations for remaining required methods
   
   async createTransaction(transaction: InsertTransaction): Promise<Transaction> {
-    const [newTransaction] = await db.insert(transactions).values(transaction).returning();
+    const database = getDb();
+    const [newTransaction] = await database.insert(transactions).values(transaction).returning();
     return newTransaction;
   }
   
@@ -513,7 +544,8 @@ export class CloudflareStorage implements IStorage {
     propertyId?: number,
     type?: 'income' | 'expense' | 'all'
   }): Promise<Transaction[]> {
-    let query = db.select().from(transactions).where(eq(transactions.userId, userId));
+    const database = getDb();
+    let query = database.select().from(transactions).where(eq(transactions.userId, userId));
     
     if (params) {
       if (params.startDate) {
@@ -537,7 +569,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async getTransactionById(id: number): Promise<Transaction | undefined> {
-    const [transaction] = await db.select().from(transactions).where(eq(transactions.id, id));
+    const database = getDb();
+    const [transaction] = await database.select().from(transactions).where(eq(transactions.id, id));
     return transaction;
   }
   
@@ -551,7 +584,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async deleteTransaction(id: number): Promise<boolean> {
-    const result = await db.delete(transactions).where(eq(transactions.id, id));
+    const database = getDb();
+    const result = await database.delete(transactions).where(eq(transactions.id, id));
     return !!result;
   }
   
@@ -619,16 +653,19 @@ export class CloudflareStorage implements IStorage {
   
   // Remaining stub method implementations to meet interface requirements
   async createBankAccount(account: InsertBankAccount): Promise<BankAccount> {
-    const [newAccount] = await db.insert(bankAccounts).values(account).returning();
+    const database = getDb();
+    const [newAccount] = await database.insert(bankAccounts).values(account).returning();
     return newAccount;
   }
   
   async getBankAccountsByUserId(userId: number): Promise<BankAccount[]> {
-    return await db.select().from(bankAccounts).where(eq(bankAccounts.userId, userId));
+    const database = getDb();
+    return await database.select().from(bankAccounts).where(eq(bankAccounts.userId, userId));
   }
   
   async getBankAccountById(id: number): Promise<BankAccount | undefined> {
-    const [account] = await db.select().from(bankAccounts).where(eq(bankAccounts.id, id));
+    const database = getDb();
+    const [account] = await database.select().from(bankAccounts).where(eq(bankAccounts.id, id));
     return account;
   }
   
@@ -642,12 +679,14 @@ export class CloudflareStorage implements IStorage {
   }
   
   async deleteBankAccount(id: number): Promise<boolean> {
-    const result = await db.delete(bankAccounts).where(eq(bankAccounts.id, id));
+    const database = getDb();
+    const result = await database.delete(bankAccounts).where(eq(bankAccounts.id, id));
     return !!result;
   }
   
   async createBankStatement(statement: InsertBankStatement): Promise<BankStatement> {
-    const [newStatement] = await db.insert(bankStatements).values(statement).returning();
+    const database = getDb();
+    const [newStatement] = await database.insert(bankStatements).values(statement).returning();
     return newStatement;
   }
   
@@ -669,7 +708,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async getBankStatementById(id: number): Promise<BankStatement | undefined> {
-    const [statement] = await db.select().from(bankStatements).where(eq(bankStatements.id, id));
+    const database = getDb();
+    const [statement] = await database.select().from(bankStatements).where(eq(bankStatements.id, id));
     return statement;
   }
   
@@ -705,22 +745,26 @@ export class CloudflareStorage implements IStorage {
   }
   
   async deleteBankStatement(id: number): Promise<boolean> {
-    const result = await db.delete(bankStatements).where(eq(bankStatements.id, id));
+    const database = getDb();
+    const result = await database.delete(bankStatements).where(eq(bankStatements.id, id));
     return !!result;
   }
   
   // Additional stub implementations for tax years, budgets, etc.
   async createTaxYear(taxYear: InsertTaxYear): Promise<TaxYear> {
-    const [newTaxYear] = await db.insert(taxYears).values(taxYear).returning();
+    const database = getDb();
+    const [newTaxYear] = await database.insert(taxYears).values(taxYear).returning();
     return newTaxYear;
   }
   
   async getTaxYearsByUserId(userId: number): Promise<TaxYear[]> {
-    return await db.select().from(taxYears).where(eq(taxYears.userId, userId));
+    const database = getDb();
+    return await database.select().from(taxYears).where(eq(taxYears.userId, userId));
   }
   
   async getTaxYearById(id: number): Promise<TaxYear | undefined> {
-    const [taxYear] = await db.select().from(taxYears).where(eq(taxYears.id, id));
+    const database = getDb();
+    const [taxYear] = await database.select().from(taxYears).where(eq(taxYears.id, id));
     return taxYear;
   }
   
@@ -753,16 +797,19 @@ export class CloudflareStorage implements IStorage {
   }
   
   async createBudget(budget: InsertBudget): Promise<Budget> {
-    const [newBudget] = await db.insert(budgets).values(budget).returning();
+    const database = getDb();
+    const [newBudget] = await database.insert(budgets).values(budget).returning();
     return newBudget;
   }
   
   async getBudgetsByUserId(userId: number): Promise<Budget[]> {
-    return await db.select().from(budgets).where(eq(budgets.userId, userId));
+    const database = getDb();
+    return await database.select().from(budgets).where(eq(budgets.userId, userId));
   }
   
   async getBudgetById(id: number): Promise<Budget | undefined> {
-    const [budget] = await db.select().from(budgets).where(eq(budgets.id, id));
+    const database = getDb();
+    const [budget] = await database.select().from(budgets).where(eq(budgets.id, id));
     return budget;
   }
   
@@ -776,7 +823,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async deleteBudget(id: number): Promise<boolean> {
-    const result = await db.delete(budgets).where(eq(budgets.id, id));
+    const database = getDb();
+    const result = await database.delete(budgets).where(eq(budgets.id, id));
     return !!result;
   }
   
@@ -825,12 +873,14 @@ export class CloudflareStorage implements IStorage {
   
   // Maintenance request methods
   async createMaintenanceRequest(request: InsertMaintenanceRequest): Promise<MaintenanceRequest> {
-    const [newRequest] = await db.insert(maintenanceRequests).values(request).returning();
+    const database = getDb();
+    const [newRequest] = await database.insert(maintenanceRequests).values(request).returning();
     return newRequest;
   }
   
   async getMaintenanceRequestById(id: number): Promise<MaintenanceRequest | undefined> {
-    const [request] = await db.select().from(maintenanceRequests).where(eq(maintenanceRequests.id, id));
+    const database = getDb();
+    const [request] = await database.select().from(maintenanceRequests).where(eq(maintenanceRequests.id, id));
     return request;
   }
   
@@ -839,7 +889,8 @@ export class CloudflareStorage implements IStorage {
     propertyId?: number,
     priority?: string
   }): Promise<MaintenanceRequest[]> {
-    let query = db.select().from(maintenanceRequests).where(eq(maintenanceRequests.userId, userId));
+    const database = getDb();
+    let query = database.select().from(maintenanceRequests).where(eq(maintenanceRequests.userId, userId));
     
     if (filters) {
       if (filters.status) {
@@ -874,12 +925,14 @@ export class CloudflareStorage implements IStorage {
   }
   
   async deleteMaintenanceRequest(id: number): Promise<boolean> {
-    const result = await db.delete(maintenanceRequests).where(eq(maintenanceRequests.id, id));
+    const database = getDb();
+    const result = await database.delete(maintenanceRequests).where(eq(maintenanceRequests.id, id));
     return !!result;
   }
   
   async createMaintenanceComment(comment: InsertMaintenanceComment): Promise<MaintenanceComment> {
-    const [newComment] = await db.insert(maintenanceComments).values(comment).returning();
+    const database = getDb();
+    const [newComment] = await database.insert(maintenanceComments).values(comment).returning();
     return newComment;
   }
   
@@ -892,16 +945,19 @@ export class CloudflareStorage implements IStorage {
   }
   
   async createServiceProvider(provider: InsertServiceProvider): Promise<ServiceProvider> {
-    const [newProvider] = await db.insert(serviceProviders).values(provider).returning();
+    const database = getDb();
+    const [newProvider] = await database.insert(serviceProviders).values(provider).returning();
     return newProvider;
   }
   
   async getServiceProvidersByUserId(userId: number): Promise<ServiceProvider[]> {
-    return await db.select().from(serviceProviders).where(eq(serviceProviders.userId, userId));
+    const database = getDb();
+    return await database.select().from(serviceProviders).where(eq(serviceProviders.userId, userId));
   }
   
   async getServiceProviderById(id: number): Promise<ServiceProvider | undefined> {
-    const [provider] = await db.select().from(serviceProviders).where(eq(serviceProviders.id, id));
+    const database = getDb();
+    const [provider] = await database.select().from(serviceProviders).where(eq(serviceProviders.id, id));
     return provider;
   }
   
@@ -915,29 +971,34 @@ export class CloudflareStorage implements IStorage {
   }
   
   async deleteServiceProvider(id: number): Promise<boolean> {
-    const result = await db.delete(serviceProviders).where(eq(serviceProviders.id, id));
+    const database = getDb();
+    const result = await database.delete(serviceProviders).where(eq(serviceProviders.id, id));
     return !!result;
   }
   
   // Tenant Management Module stubs
   
   async createTenantCredential(credential: InsertTenantCredential): Promise<TenantCredential> {
-    const [newCredential] = await db.insert(tenantCredentials).values(credential).returning();
+    const database = getDb();
+    const [newCredential] = await database.insert(tenantCredentials).values(credential).returning();
     return newCredential;
   }
   
   async getTenantCredentialById(id: number): Promise<TenantCredential | undefined> {
-    const [credential] = await db.select().from(tenantCredentials).where(eq(tenantCredentials.id, id));
+    const database = getDb();
+    const [credential] = await database.select().from(tenantCredentials).where(eq(tenantCredentials.id, id));
     return credential;
   }
   
   async getTenantCredentialByUsername(username: string): Promise<TenantCredential | undefined> {
-    const [credential] = await db.select().from(tenantCredentials).where(eq(tenantCredentials.username, username));
+    const database = getDb();
+    const [credential] = await database.select().from(tenantCredentials).where(eq(tenantCredentials.username, username));
     return credential;
   }
   
   async getTenantCredentialByTenantId(tenantId: number): Promise<TenantCredential | undefined> {
-    const [credential] = await db.select().from(tenantCredentials).where(eq(tenantCredentials.tenantId, tenantId));
+    const database = getDb();
+    const [credential] = await database.select().from(tenantCredentials).where(eq(tenantCredentials.tenantId, tenantId));
     return credential;
   }
   
@@ -959,7 +1020,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async deleteTenantCredential(id: number): Promise<boolean> {
-    const result = await db.delete(tenantCredentials).where(eq(tenantCredentials.id, id));
+    const database = getDb();
+    const result = await database.delete(tenantCredentials).where(eq(tenantCredentials.id, id));
     return !!result;
   }
   
@@ -973,17 +1035,20 @@ export class CloudflareStorage implements IStorage {
   }
   
   async createSharedDocument(document: InsertSharedDocument): Promise<SharedDocument> {
-    const [newDocument] = await db.insert(sharedDocuments).values(document).returning();
+    const database = getDb();
+    const [newDocument] = await database.insert(sharedDocuments).values(document).returning();
     return newDocument;
   }
   
   async getSharedDocumentById(id: number): Promise<SharedDocument | undefined> {
-    const [document] = await db.select().from(sharedDocuments).where(eq(sharedDocuments.id, id));
+    const database = getDb();
+    const [document] = await database.select().from(sharedDocuments).where(eq(sharedDocuments.id, id));
     return document;
   }
   
   async getSharedDocumentsByUserId(userId: number): Promise<SharedDocument[]> {
-    return await db.select().from(sharedDocuments).where(eq(sharedDocuments.userId, userId));
+    const database = getDb();
+    return await database.select().from(sharedDocuments).where(eq(sharedDocuments.userId, userId));
   }
   
   async getPublicDocumentsByUserId(userId: number): Promise<SharedDocument[]> {
@@ -1006,26 +1071,31 @@ export class CloudflareStorage implements IStorage {
   }
   
   async deleteSharedDocument(id: number): Promise<boolean> {
-    const result = await db.delete(sharedDocuments).where(eq(sharedDocuments.id, id));
+    const database = getDb();
+    const result = await database.delete(sharedDocuments).where(eq(sharedDocuments.id, id));
     return !!result;
   }
   
   async createTenantDocument(document: InsertTenantDocument): Promise<TenantDocument> {
-    const [newDocument] = await db.insert(tenantDocuments).values(document).returning();
+    const database = getDb();
+    const [newDocument] = await database.insert(tenantDocuments).values(document).returning();
     return newDocument;
   }
   
   async getTenantDocumentById(id: number): Promise<TenantDocument | undefined> {
-    const [document] = await db.select().from(tenantDocuments).where(eq(tenantDocuments.id, id));
+    const database = getDb();
+    const [document] = await database.select().from(tenantDocuments).where(eq(tenantDocuments.id, id));
     return document;
   }
   
   async getTenantDocumentsByTenantId(tenantId: number): Promise<TenantDocument[]> {
-    return await db.select().from(tenantDocuments).where(eq(tenantDocuments.tenantId, tenantId));
+    const database = getDb();
+    return await database.select().from(tenantDocuments).where(eq(tenantDocuments.tenantId, tenantId));
   }
   
   async getTenantDocumentsByDocumentId(documentId: number): Promise<TenantDocument[]> {
-    return await db.select().from(tenantDocuments).where(eq(tenantDocuments.documentId, documentId));
+    const database = getDb();
+    return await database.select().from(tenantDocuments).where(eq(tenantDocuments.documentId, documentId));
   }
   
   async updateTenantDocumentViewStatus(id: number, hasViewed: boolean): Promise<TenantDocument> {
@@ -1041,22 +1111,26 @@ export class CloudflareStorage implements IStorage {
   }
   
   async deleteTenantDocument(id: number): Promise<boolean> {
-    const result = await db.delete(tenantDocuments).where(eq(tenantDocuments.id, id));
+    const database = getDb();
+    const result = await database.delete(tenantDocuments).where(eq(tenantDocuments.id, id));
     return !!result;
   }
   
   async createTenantRating(rating: InsertTenantRating): Promise<TenantRating> {
-    const [newRating] = await db.insert(tenantRatings).values(rating).returning();
+    const database = getDb();
+    const [newRating] = await database.insert(tenantRatings).values(rating).returning();
     return newRating;
   }
   
   async getTenantRatingById(id: number): Promise<TenantRating | undefined> {
-    const [rating] = await db.select().from(tenantRatings).where(eq(tenantRatings.id, id));
+    const database = getDb();
+    const [rating] = await database.select().from(tenantRatings).where(eq(tenantRatings.id, id));
     return rating;
   }
   
   async getTenantRatingsByTenantId(tenantId: number): Promise<TenantRating[]> {
-    return await db.select().from(tenantRatings).where(eq(tenantRatings.tenantId, tenantId));
+    const database = getDb();
+    return await database.select().from(tenantRatings).where(eq(tenantRatings.tenantId, tenantId));
   }
   
   async getTenantRatingsByUserId(userId: number): Promise<TenantRating[]> {
@@ -1077,7 +1151,8 @@ export class CloudflareStorage implements IStorage {
   }
   
   async deleteTenantRating(id: number): Promise<boolean> {
-    const result = await db.delete(tenantRatings).where(eq(tenantRatings.id, id));
+    const database = getDb();
+    const result = await database.delete(tenantRatings).where(eq(tenantRatings.id, id));
     return !!result;
   }
   
