@@ -2,6 +2,7 @@ import { Env } from "./types";
 import { ExecutionContext } from "@cloudflare/workers-types";
 import * as schema from "../shared/schema";
 import { drizzle } from "drizzle-orm/d1";
+import { initStorage } from './storage-init';
 
 // SPA-compatible Worker that inlines critical CSS and avoids external assets
 export default {
@@ -19,6 +20,9 @@ export default {
         // Set DB instance in a global variable for access in other modules
         // @ts-ignore - making the DB available to our adapters
         globalThis.__D1_DB = db;
+        
+        // Initialize storage with CloudflareStorage implementation
+        initStorage();
         
         console.log('SPA Worker: D1 database binding initialized successfully');
       } catch (error) {

@@ -3,6 +3,7 @@ import * as schema from "../shared/schema";
 import { drizzle } from "drizzle-orm/d1";
 import { ExecutionContext } from "@cloudflare/workers-types";
 import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
+import { initStorage } from './storage-init';
 
 // Helper function to determine content type
 function getContentType(path: string): string {
@@ -41,6 +42,9 @@ export default {
         // Set DB instance in a global variable for access in other modules
         // @ts-ignore - making the DB available to our adapters
         globalThis.__D1_DB = db;
+        
+        // Initialize storage with CloudflareStorage implementation
+        initStorage();
         
         console.log('Worker D1 database binding initialized successfully');
       } catch (error) {

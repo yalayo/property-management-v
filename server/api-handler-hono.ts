@@ -2,6 +2,7 @@ import { Env } from './types';
 import { app } from './hono-api';
 import type { ExecutionContext } from '@cloudflare/workers-types';
 import { getDatabase } from './db-cf';
+import { initStorage } from './storage-init';
 
 /**
  * Handle API requests by passing them through our Hono app
@@ -17,6 +18,9 @@ export async function handleApiRequest(
     try {
       // Attempt to access the database to verify it's initialized
       getDatabase();
+      
+      // Initialize storage for API requests
+      initStorage();
     } catch (dbError) {
       console.error('API request received, but D1 database not initialized:', dbError);
       return new Response(JSON.stringify({
