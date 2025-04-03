@@ -5,9 +5,11 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import * as schema from '@shared/schema';
 import { User } from '@shared/schema';
-import { storage } from './storage';
 import { db } from './db-cf';
 import { eq } from 'drizzle-orm';
+import { getStorage } from './storage-init';
+import { IStorage } from './storage';
+
 // Session handling will be done via cookies and tokens rather than hono-session
 // Implement crypto functions using Web Crypto API
 
@@ -78,6 +80,7 @@ const authMiddleware = async (c: Context<{ Bindings: Env; Variables: Variables }
       throw new Error('Invalid token');
     }
     
+    const storage = getStorage();
     const user = await storage.getUser(userId);
     if (!user) {
       return c.json({ message: 'User not found' }, 401);
@@ -99,6 +102,7 @@ app.post('/api/register', zValidator('json', z.object({
   fullName: z.string().optional(),
 })), async (c) => {
   const body = c.req.valid('json');
+  const storage = getStorage();
   
   try {
     const existingUser = await storage.getUserByUsername(body.username);
@@ -131,6 +135,7 @@ app.post('/api/login', zValidator('json', z.object({
   password: z.string(),
 })), async (c) => {
   const { username, password } = c.req.valid('json');
+  const storage = getStorage();
   
   try {
     const user = await storage.getUserByUsername(username);
@@ -162,6 +167,7 @@ app.get('/api/user', authMiddleware, async (c) => {
 
 // Survey routes
 app.get('/api/questions', async (c) => {
+  const storage = getStorage();
   try {
     const questions = await storage.getActiveQuestions();
     return c.json(questions);
@@ -179,6 +185,7 @@ app.post('/api/survey', zValidator('json', z.object({
   email: z.string().email().optional(),
 })), async (c) => {
   const body = c.req.valid('json');
+  const storage = getStorage();
   
   try {
     const surveyResponse = await storage.createSurveyResponse(body);
@@ -195,6 +202,7 @@ app.post('/api/waiting-list', zValidator('json', z.object({
   fullName: z.string().optional(),
 })), async (c) => {
   const body = c.req.valid('json');
+  const storage = getStorage();
   
   try {
     const isInList = await storage.isEmailInWaitingList(body.email);
@@ -213,6 +221,7 @@ app.post('/api/waiting-list', zValidator('json', z.object({
 // Admin routes
 app.get('/api/admin/survey-analytics', authMiddleware, async (c) => {
   const user = c.get('user');
+  const storage = getStorage();
   
   if (!user.isAdmin) {
     return c.json({ message: 'Unauthorized' }, 403);
@@ -229,6 +238,7 @@ app.get('/api/admin/survey-analytics', authMiddleware, async (c) => {
 
 app.get('/api/admin/waiting-list', authMiddleware, async (c) => {
   const user = c.get('user');
+  const storage = getStorage();
   
   if (!user.isAdmin) {
     return c.json({ message: 'Unauthorized' }, 403);
@@ -245,6 +255,7 @@ app.get('/api/admin/waiting-list', authMiddleware, async (c) => {
 
 app.get('/api/admin/stats', authMiddleware, async (c) => {
   const user = c.get('user');
+  const storage = getStorage();
   
   if (!user.isAdmin) {
     return c.json({ message: 'Unauthorized' }, 403);
@@ -315,6 +326,7 @@ app.post('/api/properties', authMiddleware, zValidator('json', z.object({
 })), async (c) => {
   const body = c.req.valid('json');
   const user = c.get('user');
+  const storage = getStorage();
   
   try {
     // Convert string date to Date object if provided
@@ -335,6 +347,7 @@ app.post('/api/properties', authMiddleware, zValidator('json', z.object({
 
 app.get('/api/properties', authMiddleware, async (c) => {
   const user = c.get('user');
+  const storage = getStorage();
   
   try {
     const properties = await storage.getPropertiesByUserId(user.id);
@@ -348,6 +361,7 @@ app.get('/api/properties', authMiddleware, async (c) => {
 app.get('/api/properties/:id', authMiddleware, async (c) => {
   const id = parseInt(c.req.param('id'), 10);
   const user = c.get('user');
+  const storage = getStorage();
   
   try {
     const property = await storage.getPropertyById(id);
@@ -377,6 +391,7 @@ app.post('/api/tenants', authMiddleware, zValidator('json', z.object({
 })), async (c) => {
   const body = c.req.valid('json');
   const user = c.get('user');
+  const storage = getStorage();
   
   try {
     // Validate property belongs to user if propertyId is provided
@@ -401,6 +416,7 @@ app.post('/api/tenants', authMiddleware, zValidator('json', z.object({
 
 app.get('/api/tenants', authMiddleware, async (c) => {
   const user = c.get('user');
+  const storage = getStorage();
   
   try {
     const tenants = await storage.getTenantsByUserId(user.id);
@@ -414,6 +430,7 @@ app.get('/api/tenants', authMiddleware, async (c) => {
 app.get('/api/tenants/:id', authMiddleware, async (c) => {
   const id = parseInt(c.req.param('id'), 10);
   const user = c.get('user');
+  const storage = getStorage();
   
   try {
     const tenant = await storage.getTenantById(id);
@@ -436,6 +453,7 @@ app.get('/api/tenants/:id', authMiddleware, async (c) => {
 // Late payers route
 app.get('/api/late-payers', authMiddleware, async (c) => {
   const user = c.get('user');
+  const storage = getStorage();
   
   try {
     const latePayers = await storage.getLatePayers(user.id);

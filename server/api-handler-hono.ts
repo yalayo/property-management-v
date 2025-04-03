@@ -3,6 +3,8 @@ import { app } from './hono-api';
 import type { ExecutionContext } from '@cloudflare/workers-types';
 import { getDatabase } from './db-cf';
 import { initStorage } from './storage-init';
+import { drizzle } from 'drizzle-orm/d1';
+import * as schema from '../shared/schema';
 
 /**
  * Handle API requests by passing them through our Hono app
@@ -14,19 +16,43 @@ export async function handleApiRequest(
   ctx: ExecutionContext
 ): Promise<Response> {
   try {
-    // Make sure db is properly available - should have been initialized in worker.ts
+    // Mark the environment as a Cloudflare Worker
+    globalThis.__IS_CLOUDFLARE_WORKER = true;
+    
+    // Check if we need to initialize D1 database (only needed in Cloudflare Workers)
+    if (env.DB && !globalThis.__D1_DB) {
+      try {
+        // Create Drizzle instance with schema and D1 database
+        const db = drizzle(env.DB, { schema });
+        
+        // Store the database instance globally for access across the application
+        globalThis.__D1_DB = db;
+        
+        console.log('Hono API: D1 database binding initialized successfully');
+      } catch (dbInitError) {
+        console.error('Failed to initialize D1 database for Hono API:', dbInitError);
+        return new Response(JSON.stringify({
+          error: 'Failed to initialize database',
+          success: false
+        }), { 
+          status: 503,
+          headers: { 'Content-Type': 'application/json' } 
+        });
+      }
+    }
+    
+    // Verify db access and initialize storage
     try {
-      // Attempt to access the database to verify it's initialized
-      getDatabase();
-      
-      // Store environment information to detect Cloudflare Worker environment
-      // This allows us to avoid using setInterval in Cloudflare Workers
-      globalThis.__IS_CLOUDFLARE_WORKER = true;
+      // This will throw an error if the database is not properly initialized
+      const db = getDatabase();
+      if (!db) {
+        throw new Error('Database not initialized');
+      }
       
       // Initialize storage for API requests
       initStorage();
     } catch (dbError) {
-      console.error('API request received, but D1 database not initialized:', dbError);
+      console.error('API request received, but database not properly initialized:', dbError);
       return new Response(JSON.stringify({
         error: 'Database connection not available',
         success: false
