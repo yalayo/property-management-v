@@ -60,6 +60,8 @@ export class CloudflareStorage implements IStorage {
       typeof globalThis.__IS_CLOUDFLARE_WORKER !== 'undefined' ||
       (typeof globalThis.__D1_DB !== 'undefined' && typeof process === 'undefined');
     
+    // IMPORTANT: Always use the minimal session store in Cloudflare Workers
+    // to avoid the setInterval.unref() issue which causes worker errors
     if (isCloudflareWorker) {
       // In Cloudflare Workers environment, create a minimal session store that doesn't use setInterval
       this.sessionStore = {
@@ -74,12 +76,42 @@ export class CloudflareStorage implements IStorage {
       
       console.log('Using Cloudflare Workers compatible session store (without setInterval)');
     } else {
-      // In Node.js environment, use the regular MemoryStore
-      const MemoryStore = createMemoryStore(session);
-      this.sessionStore = new MemoryStore({
-        checkPeriod: 86400000, // 1 day in milliseconds
-      });
-      console.log('Using MemoryStore session store for Node.js environment');
+      try {
+        // In Node.js environment, patch the MemoryStore to handle the unref issue safely
+        // Monkey patch the global setInterval function to handle unref safely when it doesn't exist
+        const originalSetInterval = globalThis.setInterval;
+        globalThis.setInterval = function(...args: any[]) {
+          const intervalId = originalSetInterval(...args);
+          // Add a no-op unref method if it doesn't exist
+          if (typeof intervalId.unref !== 'function') {
+            intervalId.unref = () => intervalId; // No-op function that returns the interval id
+          }
+          return intervalId;
+        };
+        
+        // Now create the memory store which will use our patched setInterval
+        const MemoryStore = createMemoryStore(session);
+        this.sessionStore = new MemoryStore({
+          checkPeriod: 86400000, // 1 day in milliseconds
+        });
+        
+        // Restore the original setInterval 
+        globalThis.setInterval = originalSetInterval;
+        
+        console.log('Using patched MemoryStore session store for Node.js environment');
+      } catch (error) {
+        console.error('Error creating MemoryStore, falling back to minimal store:', error);
+        // Fallback to minimal store on error
+        this.sessionStore = {
+          all: (callback: (err: any, sessions: Record<string, any> | null) => void) => callback(null, {}),
+          destroy: (sid: string, callback: (err: any) => void) => callback(null),
+          clear: (callback: (err: any) => void) => callback(null),
+          length: (callback: (err: any, length: number) => void) => callback(null, 0),
+          get: (sid: string, callback: (err: any, session: any) => void) => callback(null, null),
+          set: (sid: string, session: any, callback: (err: any) => void) => callback(null),
+          touch: (sid: string, session: any, callback: (err: any) => void) => callback(null),
+        } as any;
+      }
     }
   }
   
