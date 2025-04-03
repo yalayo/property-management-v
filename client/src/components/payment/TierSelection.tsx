@@ -57,11 +57,17 @@ export function TierSelection() {
   const handleUpdateTier = async () => {
     if (!selectedTier) return;
     
-    if (selectedTier === 'doneForYou') {
-      // For monthly subscription, redirect to payment page
-      setLocation('/payment/done_for_you');
+    if (selectedTier === 'done_for_you') {
+      // For monthly subscription, redirect to subscription page
+      setLocation('/subscribe');
+    } else if (selectedTier === 'done_by_you') {
+      // For 'Done By You' one-time payment
+      setLocation('/checkout?tier=done_by_you&amount=950');
+    } else if (selectedTier === 'done_with_you') {
+      // For 'Done With You' one-time payment
+      setLocation('/checkout?tier=done_with_you&amount=2700');
     } else {
-      // For one-time payments or free tier updates
+      // For other tier updates that don't require payment
       updateTierMutation.mutate(selectedTier);
     }
   };
@@ -69,7 +75,7 @@ export function TierSelection() {
   // Subscription tiers data
   const tiers: SubscriptionTier[] = [
     {
-      id: 'doneByYou',
+      id: 'done_by_you',
       name: 'Done By You',
       description: 'Self-service option with basic features and setup guide',
       price: 950,
@@ -84,7 +90,7 @@ export function TierSelection() {
       ],
     },
     {
-      id: 'doneWithYou',
+      id: 'done_with_you',
       name: 'Done With You',
       description: 'Guided implementation with training and advanced features',
       price: 2700,
@@ -101,7 +107,7 @@ export function TierSelection() {
       popular: true,
     },
     {
-      id: 'doneForYou',
+      id: 'done_for_you',
       name: 'Done For You',
       description: 'Full-service monthly subscription with premium support',
       price: 35,

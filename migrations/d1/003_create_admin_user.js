@@ -20,13 +20,13 @@ module.exports = async function(db) {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       'admin',
-      '8f3dd3d3fe1ce8f02ff5bd03f62cfea7e7a0bd680f41b1d723c1a1617e91635a',
+      '68eb2e12b5f73503e2f9d364738c415508643e378ae7e79eda99bac8d80e0f8a',
       'admin@landlordpro.app',
       'System Administrator',
       1,
       1,
       1,
-      '2078271e22e031f48eb448f471b85064',
+      '0277a0781f77a1b818270f49fa9bda81',
       1
     ).run();
     

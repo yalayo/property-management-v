@@ -7,6 +7,10 @@ import Home from "@/pages/home";
 import Dashboard from "@/pages/dashboard";
 import WaitingList from "@/pages/waiting-list";
 import Payment from "@/pages/payment";
+import Checkout from "@/pages/checkout";
+import Subscribe from "@/pages/subscribe";
+import PaymentSuccess from "@/pages/payment-success";
+import SubscriptionSuccess from "@/pages/subscription-success";
 import SurveyResults from "@/pages/survey-results";
 import Onboarding from "@/pages/onboarding";
 import FeaturesPricing from "@/pages/features-pricing";
@@ -33,6 +37,10 @@ function Router() {
       <Route path="/register" component={Register} />
       <Route path="/waiting-list" component={WaitingList} />
       <Route path="/payment/:tier" component={Payment} />
+      <Route path="/checkout" component={Checkout} />
+      <Route path="/subscribe" component={Subscribe} />
+      <Route path="/payment-success" component={PaymentSuccess} />
+      <Route path="/subscription-success" component={SubscriptionSuccess} />
       <Route path="/survey-results" component={SurveyResults} />
       <Route path="/features-pricing" component={FeaturesPricing} />
       
@@ -65,6 +73,10 @@ function App() {
                       !location.startsWith("/register") && 
                       !location.startsWith("/waiting-list") && 
                       !location.startsWith("/payment") &&
+                      !location.startsWith("/checkout") &&
+                      !location.startsWith("/subscribe") &&
+                      !location.startsWith("/payment-success") &&
+                      !location.startsWith("/subscription-success") &&
                       !location.startsWith("/survey-results") &&
                       !location.startsWith("/features-pricing") &&
                       !location.startsWith("/admin-login") &&

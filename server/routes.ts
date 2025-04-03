@@ -1250,6 +1250,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
   
+  // Get or create subscription for the subscription page
+  app.post("/api/get-or-create-subscription", handleErrors(async (req, res) => {
+    try {
+      const { tierName, amount } = req.body;
+      
+      // Initialize user data
+      let customerId = null;
+      let userId = null;
+      let userEmail = null;
+      let userName = null;
+      
+      // Check if user is authenticated
+      if (req.isAuthenticated() && req.user) {
+        userId = req.user.id;
+        userEmail = req.user.email;
+        userName = req.user.fullName || req.user.username;
+        
+        // Check if user already has a customer ID
+        if (req.user.stripeCustomerId) {
+          customerId = req.user.stripeCustomerId;
+        }
+      } else if (req.session && req.session.user) {
+        // Alternative authentication via session
+        userId = req.session.user.id;
+        userEmail = req.session.user.email;
+        userName = req.session.user.fullName || req.session.user.username;
+        
+        // Get the full user record to check for stripeCustomerId
+        const user = await storage.getUser(userId);
+        if (user && user.stripeCustomerId) {
+          customerId = user.stripeCustomerId;
+        }
+      }
+      
+      // Create a new customer if needed and the user is authenticated
+      if (!customerId && userId && userEmail) {
+        const customer = await stripe.customers.create({
+          email: userEmail,
+          name: userName || 'Customer',
+        });
+        customerId = customer.id;
+        
+        // Update user with the new customer ID
+        if (userId) {
+          await storage.updateStripeCustomerId(userId, customer.id);
+        }
+      }
+      
+      // Create a payment intent for the subscription
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(amount * 100), // Convert to cents
+        currency: "eur",
+        setup_future_usage: 'off_session', // Allow reusing this payment method for future subscription payments
+        metadata: {
+          tier: tierName,
+          isSubscription: true
+        },
+        ...(customerId ? { customer: customerId } : {}) // Add customer if available
+      });
+      
+      res.json({ 
+        clientSecret: paymentIntent.client_secret,
+        isSubscription: true
+      });
+    } catch (error: any) {
+      console.error("Subscription setup error:", error);
+      res.status(500).json({ message: "Error setting up subscription: " + error.message });
+    }
+  }));
+  
   // User analytics endpoint
   app.get("/api/user/analytics", handleErrors(async (req, res) => {
     if (!req.session || !req.session.user) {
@@ -1321,6 +1391,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Registration error:", error);
       res.status(500).json({ message: "Error during registration: " + error.message });
+    }
+  }));
+  
+  // Update user tier after successful payment
+  app.post("/api/update-user-tier", handleErrors(async (req, res) => {
+    try {
+      const { tier } = req.body;
+      
+      if (!tier) {
+        return res.status(400).json({ message: "Tier is required" });
+      }
+      
+      // Check if user is authenticated
+      let userId = null;
+      
+      if (req.isAuthenticated() && req.user) {
+        // Get ID from authenticated user
+        userId = req.user.id;
+      } else if (req.session && req.session.user) {
+        // Alternative authentication via session
+        userId = req.session.user.id;
+      }
+      
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+      
+      // Update the user's tier
+      const updatedUser = await storage.updateUserTier(userId, tier);
+      
+      // Update the session user data if available
+      if (req.session && req.session.user) {
+        req.session.user = {
+          ...req.session.user,
+          tier: updatedUser.tier,
+          isActive: updatedUser.isActive
+        };
+      }
+      
+      res.status(200).json({ 
+        success: true, 
+        message: "User tier updated successfully"
+      });
+    } catch (error: any) {
+      console.error("Error updating user tier:", error);
+      res.status(500).json({ message: "Error updating user tier: " + error.message });
     }
   }));
 
