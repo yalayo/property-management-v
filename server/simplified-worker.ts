@@ -38,16 +38,55 @@ export default {
     // Check both possible bindings: __STATIC_CONTENT (KV namespace) or ASSETS (site binding)
     const staticBinding = env.__STATIC_CONTENT || env.ASSETS;
     
-    // Map specific known asset paths to their hashed versions
-    const specificAssets: Record<string, string> = {
-      '/index.js': 'index.050e646218.js',
-      '/assets/index.css': 'public/assets/index.440fa24244.css',
-      '/assets/index.js': 'public/assets/index.d47fb2a45d.js',
-      '/index.html': 'public/index.7831ed9bd0.html'
-    };
+    // Define regex patterns for our main asset types
+    const assetPatterns = [
+      { pattern: /^\/index\.html$/, regexSearch: /public\/index\.[a-f0-9]+\.html$/ },
+      { pattern: /^\/index\.js$/, regexSearch: /^index\.[a-f0-9]+\.js$/ },
+      { pattern: /^\/assets\/index\.css$/, regexSearch: /public\/assets\/index\.[a-f0-9]+\.css$/ },
+      { pattern: /^\/assets\/index\.js$/, regexSearch: /public\/assets\/index\.[a-f0-9]+\.js$/ }
+    ];
     
-    // Check if the current URL path matches any of our known assets
-    const hashedAssetPath = Object.prototype.hasOwnProperty.call(specificAssets, url.pathname) ? specificAssets[url.pathname] : undefined;
+    // Function to find matching hashed asset using regex
+    async function findHashedAsset(requestPath: string): Promise<string | null> {
+      // First check if this is a standard pattern we recognize
+      const matchingPattern = assetPatterns.find(p => p.pattern.test(requestPath));
+      
+      if (!matchingPattern) return null;
+      
+      // If we have the list function available, use it to search
+      if (staticBinding && typeof staticBinding.list === 'function') {
+        try {
+          console.log(`Searching for assets matching ${matchingPattern.regexSearch}`);
+          const listResult = await staticBinding.list();
+          if (listResult && listResult.keys) {
+            // Find first matching key
+            const matchingKey = listResult.keys.find(key => 
+              matchingPattern.regexSearch.test(key.name)
+            );
+            
+            if (matchingKey) {
+              console.log(`Found matching hashed asset: ${matchingKey.name}`);
+              return matchingKey.name;
+            }
+          }
+        } catch (error) {
+          console.error('Error listing assets:', error);
+        }
+      }
+      
+      // Fallback to our last known hashed paths if list isn't available
+      const fallbackPaths: Record<string, string> = {
+        '/index.js': 'index.050e646218.js',
+        '/assets/index.css': 'public/assets/index.440fa24244.css',
+        '/assets/index.js': 'public/assets/index.d47fb2a45d.js',
+        '/index.html': 'public/index.7831ed9bd0.html'
+      };
+      
+      return fallbackPaths[requestPath] || null;
+    }
+    
+    // Try to find and serve the asset with regex matching
+    const hashedAssetPath = await findHashedAsset(url.pathname);
     if (staticBinding && hashedAssetPath) {
       try {
         console.log(`Mapped request for ${url.pathname} to hashed asset: ${hashedAssetPath}`);
@@ -78,7 +117,15 @@ export default {
       }
       
       // If asset not found by direct path, check if it's a non-hashed version of a hashed file
-      for (const [standardPath, hashedPath] of Object.entries(specificAssets)) {
+      // Use the fallback paths from our findHashedAsset function
+      const fallbackPaths: Record<string, string> = {
+        '/index.js': 'index.050e646218.js',
+        '/assets/index.css': 'public/assets/index.440fa24244.css',
+        '/assets/index.js': 'public/assets/index.d47fb2a45d.js',
+        '/index.html': 'public/index.7831ed9bd0.html'
+      };
+      
+      for (const [standardPath, hashedPath] of Object.entries(fallbackPaths)) {
         if (url.pathname.endsWith(standardPath.split('/').pop() || '')) {
           try {
             console.log(`Trying hashed version ${hashedPath} for requested file ${url.pathname}`);
