@@ -208,8 +208,23 @@ export class CloudflareStorage implements IStorage {
   
   async createSurveyResponse(response: InsertSurveyResponse): Promise<SurveyResponse> {
     const database = getDb();
-    const [surveyResponse] = await database.insert(surveyResponses).values(response).returning();
-    return surveyResponse;
+    
+    // For SQLite, we need to ensure the responses field is a JSON string
+    const valueToInsert = {
+      ...response,
+      // If responses is already a string, use it as is; otherwise, stringify it
+      responses: typeof response.responses === 'string' 
+        ? response.responses 
+        : JSON.stringify(response.responses)
+    };
+    
+    try {
+      const [surveyResponse] = await database.insert(surveyResponses).values(valueToInsert).returning();
+      return surveyResponse;
+    } catch (error) {
+      console.error('Error creating survey response:', error);
+      throw error;
+    }
   }
   
   async getSurveyResponses(): Promise<SurveyResponse[]> {

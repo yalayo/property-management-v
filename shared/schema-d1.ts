@@ -76,10 +76,9 @@ export const questions = sqliteTable('questions', {
  */
 export const surveyResponses = sqliteTable('survey_responses', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  questionId: integer('question_id').notNull(),
-  response: text('response').notNull(),
-  ipAddress: text('ip_address'),
-  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  email: text('email'),
+  responses: text('responses').notNull(), // SQLite doesn't have JSONB, so we use TEXT
+  submittedAt: integer('submitted_at', { mode: 'timestamp_ms' }).default(sql`CURRENT_TIMESTAMP`),
 });
 
 /**
