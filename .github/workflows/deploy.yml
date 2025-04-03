@@ -28,6 +28,12 @@ jobs:
         run: |
           sed -i "s/\${DATABASE_ID}/${{ secrets.DATABASE_ID }}/g" wrangler.toml
       
+      # Generate D1 migrations from Drizzle schema
+      - name: Generate D1 Migrations
+        run: |
+          chmod +x ./generate-d1-migrations.sh
+          ./generate-d1-migrations.sh
+          
       # Apply migrations to D1 database
       - name: Apply D1 Migrations
         uses: cloudflare/wrangler-action@v3
