@@ -27,7 +27,7 @@ import {
   tenantDocuments, type TenantDocument, type InsertTenantDocument,
   // Tenant rating system imports
   tenantRatings, type TenantRating, type InsertTenantRating
-} from "@shared/schema";
+} from "@shared/schema-d1";
 import { db } from "./db-cf";
 
 // Helper function to get the database or throw an error if not available
