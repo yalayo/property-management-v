@@ -5,7 +5,14 @@ compatibility_flags = ["nodejs_compat"]
 
 # For local development, use existing DB config
 [env.development]
-# keep using local database
+vars = { NODE_ENV = "development" }
+# Add D1 database for local development testing
+[[env.development.d1_databases]]
+binding = "DB" # available in development as env.DB
+database_name = "landlord-db"
+database_id = "local" # local development ID
+migrations_dir = "migrations/d1" # Directory where the migration SQL files are stored
+migrations_table = "drizzle_migrations" # Table to track migrations
 
 # Production with D1 database
 [env.production]
