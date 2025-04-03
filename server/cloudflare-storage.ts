@@ -272,7 +272,15 @@ export class CloudflareStorage implements IStorage {
   
   async getActiveQuestions(): Promise<Question[]> {
     const database = getDb();
-    return await database.select().from(questions).where(eq(questions.isActive, true));
+    
+    // Use the correct property name 'active' (not 'isActive')
+    // Cloudflare D1 handles booleans differently than PostgreSQL
+    // Use either 1 for true or direct SQL for compatibility
+    return await database.select().from(questions).where(eq(questions.active, 1));
+    
+    // Alternative approach if numeric comparison doesn't work:
+    // return await database.select().from(questions)
+    //   .where(sql`${questions.active} = 1`);
   }
   
   // ===== WAITING LIST METHODS =====
