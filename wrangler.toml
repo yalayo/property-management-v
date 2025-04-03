@@ -29,12 +29,12 @@ command = "npm run build"
 watch_dir = ["server", "shared"]
 
 # Mark Node.js-specific modules as external to avoid bundling issues
-[build.upload]
-format = "modules"
+#[build.upload]
+#ormat = "modules"
 
 # Explicitly mark problematic modules as external to exclude from bundling
-[build.external]
-external = ["postgres", "pg", "pg-native", "crypto", "url", "path", "util", "fs", "@neondatabase/serverless", "ws", "drizzle-orm/postgres-js", "express-session", "connect-pg-simple", "memorystore"]
+#[build.external]
+#external = ["postgres", "pg", "pg-native", "crypto", "url", "path", "util", "fs", "@neondatabase/serverless", "ws", "drizzle-orm/postgres-js", "express-session", "connect-pg-simple", "memorystore"]
 
 [observability.logs]
 enabled = true
