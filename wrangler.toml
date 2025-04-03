@@ -34,6 +34,9 @@ format = "modules"
 [build.external]
 external = ["postgres", "pg", "pg-native", "crypto", "url", "path", "util", "fs", "@neondatabase/serverless", "ws", "drizzle-orm/postgres-js", "express-session", "connect-pg-simple", "memorystore"]
 
+[observability.logs]
+enabled = true
+
 # Configure static asset handling
 [site]
 bucket = "./dist" # Where your built client assets are located
