@@ -6,11 +6,14 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  passwordSalt: text("password_salt"), // Store the salt separately for flexibility
   email: text("email").notNull().unique(),
   fullName: text("full_name"),
   isAdmin: boolean("is_admin").default(false),
   isActive: boolean("is_active").default(true),
   onboardingCompleted: boolean("onboarding_completed").default(false),
+  passwordChangeRequired: boolean("password_change_required").default(false), // Indicates if user must change password
+  lastLogin: timestamp("last_login"), // Track last login timestamp
   tier: text("tier"),
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),

@@ -22,11 +22,14 @@ export const users = sqliteTable("users", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  passwordSalt: text("password_salt"), // Store the salt separately for flexibility
   email: text("email").notNull().unique(),
   fullName: text("full_name"),
   isAdmin: integer("is_admin", { mode: "boolean" }).default(sql`0`),
   isActive: integer("is_active", { mode: "boolean" }).default(sql`1`),
   onboardingCompleted: integer("onboarding_completed", { mode: "boolean" }).default(sql`0`),
+  passwordChangeRequired: integer("password_change_required", { mode: "boolean" }).default(sql`0`), // Indicates if user must change password
+  lastLogin: integer("last_login"), // SQLite timestamp as INTEGER
   tier: text("tier"),
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),

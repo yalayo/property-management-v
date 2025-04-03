@@ -165,10 +165,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Get user by username
     const user = await storage.getUserByUsername(username);
     
-    // Check if user exists and password matches
-    if (!user || user.password !== password) {
+    // Check if user exists
+    if (!user) {
       return res.status(401).json({ message: "Invalid username or password" });
     }
+    
+    // Check if account is active
+    if (!user.isActive) {
+      return res.status(403).json({ message: "Account is inactive. Please contact support." });
+    }
+    
+    // Legacy password check (plain text) or new password verification
+    let passwordValid = false;
+    
+    if (user.passwordSalt) {
+      // New secure password method
+      const { verifyPassword } = await import("./utils/password");
+      passwordValid = await verifyPassword(password, user.password, user.passwordSalt);
+    } else {
+      // Legacy password check (plain text)
+      passwordValid = user.password === password;
+    }
+    
+    if (!passwordValid) {
+      return res.status(401).json({ message: "Invalid username or password" });
+    }
+    
+    // Update last login timestamp
+    await storage.updateLastLogin(user.id);
+    
+    // Check if this is first login (null last login date before the update)
+    const isFirstLogin = !user.lastLogin;
     
     // In a real application, we would set up a session with an encrypted cookie
     // For simplicity in this demo, we'll use a simple session
@@ -186,7 +213,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       isAdmin: user.isAdmin || false,
       onboardingCompleted: user.onboardingCompleted || false,
       tier: user.tier || undefined,
-      isActive: user.isActive || false
+      isActive: user.isActive || false,
+      passwordChangeRequired: user.passwordChangeRequired || false
     };
     
     // Return user data (without password)
@@ -198,7 +226,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       isAdmin: user.isAdmin,
       onboardingCompleted: user.onboardingCompleted,
       tier: user.tier,
-      isActive: user.isActive
+      isActive: user.isActive,
+      isFirstLogin,
+      passwordChangeRequired: user.passwordChangeRequired || false
     });
   }));
   

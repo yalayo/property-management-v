@@ -46,10 +46,15 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  createUserWithPassword(user: Omit<InsertUser, 'password'>, password: string): Promise<User>;
   updateStripeCustomerId(userId: number, customerId: string): Promise<User>;
   updateUserStripeInfo(userId: number, info: { customerId: string, subscriptionId: string }): Promise<User>;
   updateUserTier(userId: number, tier: string): Promise<User>;
   updateUserOnboardingStatus(userId: number, hasCompleted: boolean): Promise<User>;
+  verifyUserPassword(userId: number, password: string): Promise<boolean>;
+  updateUserPassword(userId: number, newPassword: string): Promise<User>;
+  updateLastLogin(userId: number): Promise<User>;
+  setPasswordChangeRequired(userId: number, required: boolean): Promise<User>;
   getUserCount(): Promise<number>;
   getSurveyResponseCount(): Promise<number>;
   getWaitingListCount(): Promise<number>;
@@ -439,16 +444,101 @@ export class MemStorage implements IStorage {
     const user: User = { 
       ...insertUser, 
       id, 
-      isAdmin: false, 
-      onboardingCompleted: false,
-      tier: null, 
-      isActive: false, 
-      stripeCustomerId: null, 
-      stripeSubscriptionId: null,
+      isAdmin: insertUser.isAdmin || false, 
+      onboardingCompleted: insertUser.onboardingCompleted || false,
+      passwordSalt: insertUser.passwordSalt || null,
+      passwordChangeRequired: insertUser.passwordChangeRequired || false,
+      lastLogin: insertUser.lastLogin || null,
+      tier: insertUser.tier || null, 
+      isActive: insertUser.isActive || false, 
+      stripeCustomerId: insertUser.stripeCustomerId || null, 
+      stripeSubscriptionId: insertUser.stripeSubscriptionId || null,
+      stripePaymentIntentId: insertUser.stripePaymentIntentId || null,
       fullName: insertUser.fullName || null
     };
     this.users.set(id, user);
     return user;
+  }
+  
+  async createUserWithPassword(user: Omit<InsertUser, 'password'>, password: string): Promise<User> {
+    // Import password utilities
+    const { hashPassword } = await import("./utils/password");
+    
+    // Hash the password
+    const { hash, salt } = await hashPassword(password);
+    
+    // Create the user with the hashed password and salt
+    return this.createUser({
+      ...user as any, // Type casting to satisfy TypeScript
+      password: hash,
+      passwordSalt: salt
+    });
+  }
+
+  async verifyUserPassword(userId: number, password: string): Promise<boolean> {
+    const user = await this.getUser(userId);
+    if (!user) return false;
+    
+    if (!user.passwordSalt) {
+      // Legacy password check (plain text)
+      return user.password === password;
+    }
+    
+    // Import password utilities
+    const { verifyPassword } = await import("./utils/password");
+    
+    // Verify the password using the stored hash and salt
+    return verifyPassword(password, user.password, user.passwordSalt);
+  }
+  
+  async updateUserPassword(userId: number, newPassword: string): Promise<User> {
+    const user = await this.getUser(userId);
+    if (!user) throw new Error("User not found");
+    
+    // Import password utilities
+    const { hashPassword } = await import("./utils/password");
+    
+    // Hash the new password
+    const { hash, salt } = await hashPassword(newPassword);
+    
+    // Update the user with the new password, salt, and reset password change flag
+    const updatedUser: User = {
+      ...user,
+      password: hash,
+      passwordSalt: salt,
+      passwordChangeRequired: false,
+      updatedAt: new Date()
+    };
+    
+    this.users.set(userId, updatedUser);
+    return updatedUser;
+  }
+  
+  async updateLastLogin(userId: number): Promise<User> {
+    const user = await this.getUser(userId);
+    if (!user) throw new Error("User not found");
+    
+    const updatedUser: User = {
+      ...user,
+      lastLogin: new Date()
+    };
+    
+    this.users.set(userId, updatedUser);
+    return updatedUser;
+  }
+  
+  async setPasswordChangeRequired(userId: number, required: boolean): Promise<User> {
+    const user = await this.getUser(userId);
+    if (!user) throw new Error("User not found");
+    
+    const updatedUser: User = {
+      ...user,
+      passwordChangeRequired: required,
+      updatedAt: new Date()
+    };
+    
+    this.users.set(userId, updatedUser);
+    return updatedUser;
   }
   
   async updateStripeCustomerId(userId: number, customerId: string): Promise<User> {
@@ -1766,6 +1856,9 @@ export class DatabaseStorage implements IStorage {
       isAdmin: insertUser.isAdmin !== undefined ? insertUser.isAdmin : false,
       isActive: insertUser.isActive !== undefined ? insertUser.isActive : true,
       onboardingCompleted: insertUser.onboardingCompleted !== undefined ? insertUser.onboardingCompleted : false,
+      passwordSalt: insertUser.passwordSalt || null,
+      passwordChangeRequired: insertUser.passwordChangeRequired !== undefined ? insertUser.passwordChangeRequired : false,
+      lastLogin: insertUser.lastLogin || null,
       tier: insertUser.tier || null,
       stripeCustomerId: insertUser.stripeCustomerId || null,
       stripeSubscriptionId: insertUser.stripeSubscriptionId || null,
@@ -1773,6 +1866,93 @@ export class DatabaseStorage implements IStorage {
       createdAt: insertUser.createdAt || new Date(),
       updatedAt: insertUser.updatedAt || new Date()
     }).returning();
+    return result[0];
+  }
+  
+  async createUserWithPassword(user: Omit<InsertUser, 'password'>, password: string): Promise<User> {
+    // Import password utilities
+    const { hashPassword } = await import("./utils/password");
+    
+    // Hash the password
+    const { hash, salt } = await hashPassword(password);
+    
+    // Create the user with the hashed password and salt
+    return this.createUser({
+      ...user as any, // Type casting to satisfy TypeScript
+      password: hash,
+      passwordSalt: salt
+    });
+  }
+  
+  async verifyUserPassword(userId: number, password: string): Promise<boolean> {
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    if (!user) return false;
+    
+    if (!user.passwordSalt) {
+      // Legacy password check (plain text)
+      return user.password === password;
+    }
+    
+    // Import password utilities
+    const { verifyPassword } = await import("./utils/password");
+    
+    // Verify the password using the stored hash and salt
+    return verifyPassword(password, user.password, user.passwordSalt);
+  }
+  
+  async updateUserPassword(userId: number, newPassword: string): Promise<User> {
+    // Import password utilities
+    const { hashPassword } = await import("./utils/password");
+    
+    // Hash the new password
+    const { hash, salt } = await hashPassword(newPassword);
+    
+    // Update the user record
+    const result = await db.update(users)
+      .set({
+        password: hash,
+        passwordSalt: salt,
+        passwordChangeRequired: false,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    if (result.length === 0) {
+      throw new Error(`User with ID ${userId} not found`);
+    }
+    
+    return result[0];
+  }
+  
+  async updateLastLogin(userId: number): Promise<User> {
+    const result = await db.update(users)
+      .set({ 
+        lastLogin: new Date()
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    if (result.length === 0) {
+      throw new Error(`User with ID ${userId} not found`);
+    }
+    
+    return result[0];
+  }
+  
+  async setPasswordChangeRequired(userId: number, required: boolean): Promise<User> {
+    const result = await db.update(users)
+      .set({ 
+        passwordChangeRequired: required,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    if (result.length === 0) {
+      throw new Error(`User with ID ${userId} not found`);
+    }
+    
     return result[0];
   }
 
