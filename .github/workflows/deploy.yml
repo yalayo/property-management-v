@@ -33,6 +33,7 @@ jobs:
         run: |
           chmod +x ./generate-d1-migrations.sh
           ./generate-d1-migrations.sh
+          ls -la migrations/
           
       # Apply migrations to D1 database
       - name: Apply D1 Migrations
