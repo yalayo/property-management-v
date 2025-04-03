@@ -1,6 +1,7 @@
 import { Env } from './types';
 import { app } from './hono-api';
 import type { ExecutionContext } from '@cloudflare/workers-types';
+import { getDatabase } from './db-cf';
 
 /**
  * Handle API requests by passing them through our Hono app
@@ -13,8 +14,11 @@ export async function handleApiRequest(
 ): Promise<Response> {
   try {
     // Make sure db is properly available - should have been initialized in worker.ts
-    if (!globalThis.__D1_DB) {
-      console.error('API request received, but D1 database not initialized');
+    try {
+      // Attempt to access the database to verify it's initialized
+      getDatabase();
+    } catch (dbError) {
+      console.error('API request received, but D1 database not initialized:', dbError);
       return new Response(JSON.stringify({
         error: 'Database connection not available',
         success: false

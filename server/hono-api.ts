@@ -6,7 +6,7 @@ import { z } from 'zod';
 import * as schema from '@shared/schema';
 import { User } from '@shared/schema';
 import { storage } from './storage';
-import { drizzle } from 'drizzle-orm/neon-http';
+import { db } from './db-cf';
 import { eq } from 'drizzle-orm';
 // Session handling will be done via cookies and tokens rather than hono-session
 // Implement crypto functions using Web Crypto API
