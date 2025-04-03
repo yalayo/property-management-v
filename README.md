@@ -70,6 +70,28 @@ The application uses the environment variable `NODE_ENV` to determine which data
 - Development environment: Uses PostgreSQL connection from `DATABASE_URL`
 - Production environment: Uses Cloudflare D1
 
+## Database Structure
+
+This application uses a dual schema approach to support both PostgreSQL in development and Cloudflare D1 (SQLite) in production:
+
+### Schema Files
+
+- `shared/schema.ts` - PostgreSQL schema definition used for local development
+- `shared/schema-d1.ts` - SQLite-compatible schema used for Cloudflare D1 deployment
+
+### Database Connection Logic
+
+The application automatically switches between PostgreSQL and D1 based on the environment:
+
+- In local development: Uses the PostgreSQL connection from `DATABASE_URL`
+- In Cloudflare Workers: Uses D1 binding from wrangler.toml
+
+The database connection is managed by:
+
+- `server/db.ts` - PostgreSQL connection for development
+- `server/db-cf.ts` - D1 connection for Cloudflare Workers
+- `server/storage-init.ts` - Environment detection and connection management
+
 ## Troubleshooting
 
 ### D1 Migration Issues
@@ -101,3 +123,65 @@ If you encounter issues with D1 migrations during deployment:
    ```
    ./generate-d1-migrations.sh
    ```
+
+6. To test D1 migrations locally without applying them:
+   ```
+   ./test-d1-migrations.sh
+   ```
+   This will:
+   - Generate the migrations
+   - Verify the directory structure
+   - Show the command format that would be used
+
+### SQLite vs. PostgreSQL Differences
+
+When developing features that will be deployed to Cloudflare D1, be aware of these differences:
+
+1. **Data Types:**
+   - PostgreSQL has more data types than SQLite
+   - SQLite has dynamic typing with fewer native types (TEXT, INTEGER, REAL, BLOB, NULL)
+   - Boolean values in SQLite are stored as 0 and 1
+
+2. **JSON Handling:**
+   - PostgreSQL has native JSON types (jsonb)
+   - SQLite stores JSON as TEXT and lacks native JSON functions
+   - Our application handles JSON serialization/deserialization in application code
+
+3. **Date/Time Handling:**
+   - PostgreSQL has dedicated timestamp types with timezone support
+   - SQLite stores dates as TEXT, ISO strings, or Unix timestamps
+   - We use ISO string format in SQLite for consistency
+
+4. **Enums:**
+   - PostgreSQL supports custom enum types
+   - SQLite uses TEXT with application-enforced constraints
+   - We define allowed values as constants (e.g., `PAYMENT_STATUS`) for validation
+
+5. **Migrations:**
+   - Always test migrations locally with the D1 migration tool
+   - Use `generate-d1-migrations.sh` to ensure SQLite compatibility
+
+## Utility Scripts
+
+The project includes several utility scripts to help with development and deployment:
+
+1. **generate-d1-migrations.sh**
+   - Generates SQLite-compatible migrations for Cloudflare D1
+   - Creates the migration file in `migrations/d1/001_initial_schema.sql`
+   - Uses the SQLite-specific schema from `shared/schema-d1.ts`
+
+2. **test-d1-migrations.sh**
+   - Tests the D1 migration process without applying changes
+   - Verifies directory structure and command format
+
+3. **deploy.sh**
+   - Builds and deploys the application to Cloudflare Workers
+   - Includes environment variable setup for Cloudflare Workers
+
+4. **deploy-simple.sh**
+   - Deploys a simplified version using `simplified-worker.ts`
+   - Useful for testing basic functionality
+
+5. **deploy-spa.sh**
+   - Deploys just the SPA (Single Page Application) frontend
+   - Uses `spa-worker.ts` which focuses on serving static assets

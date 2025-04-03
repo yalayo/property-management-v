@@ -8,8 +8,9 @@ mkdir -p migrations
 
 # Create D1 migrations directory
 mkdir -p migrations/d1
+mkdir -p migrations/d1-drizzle
 
-# Try generating native SQLite migrations first
+# Always generate native SQLite migrations from our D1 schema
 echo "Generating D1-compatible migrations with SQLite dialect..."
 npx drizzle-kit generate --config=./drizzle.d1.config.ts
 
@@ -19,32 +20,33 @@ SQLITE_MIGRATION=$(ls -t migrations/d1-drizzle/*.sql 2>/dev/null | head -1)
 if [ -n "$SQLITE_MIGRATION" ]; then
   echo "Using native SQLite migration: $SQLITE_MIGRATION"
   
-  # Copy the SQLite migration to our D1 directory
+  # Copy the SQLite migration to our D1 directory with a consistent name
   cp "$SQLITE_MIGRATION" migrations/d1/001_initial_schema.sql
   echo "Copied SQLite migration to migrations/d1/001_initial_schema.sql"
 else
-  echo "No SQLite migrations found, falling back to PostgreSQL conversion..."
+  echo "Failed to generate SQLite migrations! This is unexpected with schema-d1.ts"
   
-  # Generate PostgreSQL migrations as fallback
-  echo "Generating PostgreSQL migrations..."
+  # Generate PostgreSQL migrations as fallback (should not happen with schema-d1.ts)
+  echo "Generating PostgreSQL migrations as fallback (not recommended)..."
   npx drizzle-kit generate
   
   # Get PostgreSQL migration file
   PG_MIGRATION=$(ls -t migrations/*.sql | grep -v "d1_migration.sql" | head -1)
   
   if [ -z "$PG_MIGRATION" ]; then
-    echo "Error: No PostgreSQL migration file found"
+    echo "Error: No migration files found"
     exit 1
   fi
   
-  echo "Using PostgreSQL migration file: $PG_MIGRATION"
+  echo "Using PostgreSQL migration file as fallback: $PG_MIGRATION"
   
-  echo "Adapting PostgreSQL migration to SQLite for D1 compatibility..."
+  echo "WARNING: Adapting PostgreSQL migration to SQLite for D1 compatibility. This is not ideal!"
   
   # Create a new file with SQLite-compatible SQL
   cat > migrations/d1/001_initial_schema.sql << EOL
 -- Migration adapted for Cloudflare D1 (SQLite)
--- This file was automatically generated from PostgreSQL schema
+-- WARNING: This file was automatically generated from PostgreSQL schema by conversion
+-- It's recommended to use schema-d1.ts directly instead of this conversion approach
 
 EOL
   
