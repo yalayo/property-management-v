@@ -29,11 +29,12 @@ export interface D1Database {
   exec: (query: string) => Promise<any>;
 }
 
-// SQLite doesn't support enum types natively
+// SQLite doesn't support enum types natively - define constants for enum values
 const userTierEnum = ['free', 'basic', 'pro', 'enterprise'] as const;
 const paymentStatusEnum = ['received', 'pending', 'late', 'overdue', 'partially_paid', 'waived'] as const;
 const maintenanceStatusEnum = ['pending', 'in_progress', 'completed', 'declined', 'deferred'] as const;
 const priorityEnum = ['low', 'medium', 'high', 'emergency'] as const;
+const transactionTypeEnum = ['income', 'expense'] as const;
 
 /**
  * User table
@@ -231,6 +232,230 @@ export const paypalOrders = sqliteTable('paypal_orders', {
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+/**
+ * Transaction Categories table
+ */
+export const transactionCategories = sqliteTable('transaction_categories', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull(),
+  name: text('name').notNull(),
+  type: text('type').notNull(), // 'income' or 'expense'
+  color: text('color'), // For UI display
+  isDefault: integer('is_default', { mode: 'boolean' }).default(false),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+/**
+ * Bank Accounts table
+ */
+export const bankAccounts = sqliteTable('bank_accounts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull(),
+  bankName: text('bank_name').notNull(),
+  accountName: text('account_name').notNull(),
+  accountNumber: text('account_number'), // Encrypted or masked
+  isDefault: integer('is_default', { mode: 'boolean' }).default(false),
+  currentBalance: integer('current_balance').default(0),
+  currency: text('currency').default('EUR'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+/**
+ * Transactions table
+ */
+export const transactions = sqliteTable('transactions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull(),
+  propertyId: integer('property_id'),
+  categoryId: integer('category_id').notNull(),
+  bankAccountId: integer('bank_account_id'),
+  amount: integer('amount').notNull(), // Store as cents or smallest currency unit
+  date: text('date').notNull(), // ISO date string
+  description: text('description').notNull(),
+  type: text('type').notNull(), // 'income' or 'expense'
+  paymentMethod: text('payment_method'), // cash, bank transfer, etc.
+  reference: text('reference'), // invoice or receipt number
+  notes: text('notes'),
+  recurring: integer('recurring', { mode: 'boolean' }).default(false),
+  recurringInterval: text('recurring_interval'), // monthly, quarterly, annually
+  attachmentId: integer('attachment_id'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+/**
+ * Bank Statements table
+ */
+export const bankStatements = sqliteTable('bank_statements', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull(),
+  fileId: integer('file_id').notNull(), // References uploadedFiles
+  bankAccountId: integer('bank_account_id'),
+  statementDate: text('statement_date').notNull(), // ISO date string
+  startDate: text('start_date').notNull(), // ISO date string
+  endDate: text('end_date').notNull(), // ISO date string
+  startingBalance: integer('starting_balance').notNull(), // Store as cents
+  endingBalance: integer('ending_balance').notNull(), // Store as cents
+  totalDeposits: integer('total_deposits').default(0), // Store as cents
+  totalWithdrawals: integer('total_withdrawals').default(0), // Store as cents
+  transactionCount: integer('transaction_count').default(0),
+  currency: text('currency').default('EUR'),
+  notes: text('notes'),
+  processed: integer('processed', { mode: 'boolean' }).default(false),
+  reconciled: integer('reconciled', { mode: 'boolean' }).default(false),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+/**
+ * Tax Years table
+ */
+export const taxYears = sqliteTable('tax_years', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull(),
+  year: integer('year').notNull(),
+  startDate: text('start_date').notNull(), // ISO date string
+  endDate: text('end_date').notNull(), // ISO date string
+  status: text('status').default('open'), // open, in_progress, completed, filed
+  totalIncome: integer('total_income').default(0), // Store as cents
+  totalExpenses: integer('total_expenses').default(0), // Store as cents
+  netProfit: integer('net_profit').default(0), // Store as cents
+  taxRate: integer('tax_rate'), // Store as percentage * 100 (e.g., 19.5% = 1950)
+  estimatedTaxAmount: integer('estimated_tax_amount').default(0), // Store as cents
+  currency: text('currency').default('EUR'),
+  notes: text('notes'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+/**
+ * Budgets table
+ */
+export const budgets = sqliteTable('budgets', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull(),
+  name: text('name').notNull(),
+  amount: integer('amount').notNull(), // Store as cents
+  propertyId: integer('property_id'),
+  categoryId: integer('category_id'),
+  startDate: text('start_date').notNull(), // ISO date string
+  endDate: text('end_date'), // ISO date string
+  period: text('period').notNull(), // monthly, quarterly, annual
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+/**
+ * Maintenance Requests table
+ */
+export const maintenanceRequests = sqliteTable('maintenance_requests', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull(),
+  propertyId: integer('property_id').notNull(),
+  tenantId: integer('tenant_id'),
+  requestDate: text('request_date').notNull(), // ISO date string
+  description: text('description').notNull(),
+  notes: text('notes'),
+  status: text('status').default('pending'), // pending, in_progress, completed, declined, deferred
+  priority: text('priority').default('medium'), // low, medium, high, emergency
+  category: text('category'), // plumbing, electrical, etc.
+  estimatedCost: integer('estimated_cost'), // Store as cents
+  actualCost: integer('actual_cost'), // Store as cents
+  assignedTo: integer('assigned_to'), // References service provider ID
+  scheduledDate: text('scheduled_date'), // ISO date string
+  completionDate: text('completion_date'), // ISO date string
+  attachmentIds: text('attachment_ids'), // Comma-separated IDs or JSON string
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+/**
+ * Maintenance Comments table
+ */
+export const maintenanceComments = sqliteTable('maintenance_comments', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  maintenanceRequestId: integer('maintenance_request_id').notNull(),
+  userId: integer('user_id').notNull(),
+  comment: text('comment').notNull(),
+  attachmentId: integer('attachment_id'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+/**
+ * Service Providers table
+ */
+export const serviceProviders = sqliteTable('service_providers', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull(),
+  name: text('name').notNull(),
+  email: text('email'),
+  phone: text('phone'),
+  address: text('address'),
+  specialty: text('specialty'), // plumbing, electrical, etc.
+  hourlyRate: integer('hourly_rate'), // Store as cents
+  isPreferred: integer('is_preferred', { mode: 'boolean' }).default(false),
+  notes: text('notes'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+/**
+ * Tenant Credentials table
+ */
+export const tenantCredentials = sqliteTable('tenant_credentials', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  tenantId: integer('tenant_id').notNull(),
+  username: text('username').notNull(),
+  password: text('password').notNull(),
+  isActive: integer('is_active', { mode: 'boolean' }).default(true),
+  lastLogin: integer('last_login', { mode: 'timestamp_ms' }),
+  expiryDate: integer('expiry_date', { mode: 'timestamp_ms' }),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+/**
+ * Shared Documents table
+ */
+export const sharedDocuments = sqliteTable('shared_documents', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull(),
+  fileId: integer('file_id').notNull(), // References uploadedFiles
+  documentName: text('document_name').notNull(),
+  documentType: text('document_type').notNull(), // lease, rules, notice, etc.
+  description: text('description'),
+  isPublic: integer('is_public', { mode: 'boolean' }).default(false),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+/**
+ * Tenant Documents table - documents assigned to tenants
+ */
+export const tenantDocuments = sqliteTable('tenant_documents', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  tenantId: integer('tenant_id').notNull(),
+  documentId: integer('document_id').notNull(), // References sharedDocuments
+  expiryDate: integer('expiry_date', { mode: 'timestamp_ms' }),
+  hasViewed: integer('has_viewed', { mode: 'boolean' }).default(false),
+  lastViewed: integer('last_viewed', { mode: 'timestamp_ms' }),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+/**
+ * Tenant Ratings table - ratings given by landlords
+ */
+export const tenantRatings = sqliteTable('tenant_ratings', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  tenantId: integer('tenant_id').notNull(),
+  userId: integer('user_id').notNull(), // Landlord who created rating
+  paymentRating: integer('payment_rating').notNull(), // 1-5 scale
+  propertyRating: integer('property_rating').notNull(), // 1-5 scale
+  communicationRating: integer('communication_rating').notNull(), // 1-5 scale
+  overallRating: integer('overall_rating').notNull(), // 1-5 scale
+  notes: text('notes'),
+  ratingDate: integer('rating_date', { mode: 'timestamp_ms' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 // Zod schemas for form validation
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertQuestionSchema = createInsertSchema(questions).omit({ id: true });
@@ -242,7 +467,26 @@ export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true 
 export const insertUploadedFileSchema = createInsertSchema(uploadedFiles).omit({ id: true });
 export const insertPaypalOrderSchema = createInsertSchema(paypalOrders).omit({ id: true });
 
-// Types
+// Insert schemas for accounting module
+export const insertTransactionCategorySchema = createInsertSchema(transactionCategories).omit({ id: true });
+export const insertTransactionSchema = createInsertSchema(transactions).omit({ id: true });
+export const insertBankAccountSchema = createInsertSchema(bankAccounts).omit({ id: true });
+export const insertBankStatementSchema = createInsertSchema(bankStatements).omit({ id: true });
+export const insertTaxYearSchema = createInsertSchema(taxYears).omit({ id: true });
+export const insertBudgetSchema = createInsertSchema(budgets).omit({ id: true });
+
+// Insert schemas for maintenance module
+export const insertMaintenanceRequestSchema = createInsertSchema(maintenanceRequests).omit({ id: true });
+export const insertMaintenanceCommentSchema = createInsertSchema(maintenanceComments).omit({ id: true });
+export const insertServiceProviderSchema = createInsertSchema(serviceProviders).omit({ id: true });
+
+// Insert schemas for tenant portal
+export const insertTenantCredentialSchema = createInsertSchema(tenantCredentials).omit({ id: true });
+export const insertSharedDocumentSchema = createInsertSchema(sharedDocuments).omit({ id: true });
+export const insertTenantDocumentSchema = createInsertSchema(tenantDocuments).omit({ id: true });
+export const insertTenantRatingSchema = createInsertSchema(tenantRatings).omit({ id: true });
+
+// Types for user and survey modules
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
@@ -255,6 +499,7 @@ export type InsertSurveyResponse = z.infer<typeof insertSurveyResponseSchema>;
 export type WaitingList = typeof waitingList.$inferSelect;
 export type InsertWaitingList = z.infer<typeof insertWaitingListSchema>;
 
+// Types for property and tenant management
 export type Property = typeof properties.$inferSelect;
 export type InsertProperty = z.infer<typeof insertPropertySchema>;
 
@@ -264,11 +509,55 @@ export type InsertTenant = z.infer<typeof insertTenantSchema>;
 export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 
+// Types for file handling
 export type UploadedFile = typeof uploadedFiles.$inferSelect;
 export type InsertUploadedFile = z.infer<typeof insertUploadedFileSchema>;
 
+// Types for payment processing
 export type PaypalOrder = typeof paypalOrders.$inferSelect;
 export type InsertPaypalOrder = z.infer<typeof insertPaypalOrderSchema>;
+
+// Types for accounting module
+export type TransactionCategory = typeof transactionCategories.$inferSelect;
+export type InsertTransactionCategory = z.infer<typeof insertTransactionCategorySchema>;
+
+export type Transaction = typeof transactions.$inferSelect;
+export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
+
+export type BankAccount = typeof bankAccounts.$inferSelect;
+export type InsertBankAccount = z.infer<typeof insertBankAccountSchema>;
+
+export type BankStatement = typeof bankStatements.$inferSelect;
+export type InsertBankStatement = z.infer<typeof insertBankStatementSchema>;
+
+export type TaxYear = typeof taxYears.$inferSelect;
+export type InsertTaxYear = z.infer<typeof insertTaxYearSchema>;
+
+export type Budget = typeof budgets.$inferSelect;
+export type InsertBudget = z.infer<typeof insertBudgetSchema>;
+
+// Types for maintenance module
+export type MaintenanceRequest = typeof maintenanceRequests.$inferSelect;
+export type InsertMaintenanceRequest = z.infer<typeof insertMaintenanceRequestSchema>;
+
+export type MaintenanceComment = typeof maintenanceComments.$inferSelect;
+export type InsertMaintenanceComment = z.infer<typeof insertMaintenanceCommentSchema>;
+
+export type ServiceProvider = typeof serviceProviders.$inferSelect;
+export type InsertServiceProvider = z.infer<typeof insertServiceProviderSchema>;
+
+// Types for tenant portal
+export type TenantCredential = typeof tenantCredentials.$inferSelect;
+export type InsertTenantCredential = z.infer<typeof insertTenantCredentialSchema>;
+
+export type SharedDocument = typeof sharedDocuments.$inferSelect;
+export type InsertSharedDocument = z.infer<typeof insertSharedDocumentSchema>;
+
+export type TenantDocument = typeof tenantDocuments.$inferSelect;
+export type InsertTenantDocument = z.infer<typeof insertTenantDocumentSchema>;
+
+export type TenantRating = typeof tenantRatings.$inferSelect;
+export type InsertTenantRating = z.infer<typeof insertTenantRatingSchema>;
 
 export function createDbClient(d1: D1Database) {
   return drizzle(d1);
@@ -284,4 +573,20 @@ export type D1Schema = {
   payments: typeof payments;
   uploadedFiles: typeof uploadedFiles;
   paypalOrders: typeof paypalOrders;
+  // New accounting tables
+  transactionCategories: typeof transactionCategories;
+  transactions: typeof transactions;
+  bankAccounts: typeof bankAccounts;
+  bankStatements: typeof bankStatements;
+  taxYears: typeof taxYears;
+  budgets: typeof budgets;
+  // New maintenance tables
+  maintenanceRequests: typeof maintenanceRequests;
+  maintenanceComments: typeof maintenanceComments;
+  serviceProviders: typeof serviceProviders;
+  // New tenant portal tables
+  tenantCredentials: typeof tenantCredentials;
+  sharedDocuments: typeof sharedDocuments;
+  tenantDocuments: typeof tenantDocuments;
+  tenantRatings: typeof tenantRatings;
 };

@@ -1,0 +1,89 @@
+✘ [ERROR] No matching export in "shared/schema-d1.ts" for import "transactionCategories"
+    
+        server/cloudflare-storage.ts:11:2:
+          11 │   transactionCategories, type TransactionCategory, type InsertTran...
+             ╵   ~~~~~~~~~~~~~~~~~~~~~
+    
+    
+    ✘ [ERROR] No matching export in "shared/schema-d1.ts" for import "transactions"
+    
+        server/cloudflare-storage.ts:12:2:
+          12 │   transactions, type Transaction, type InsertTransaction,
+             ╵   ~~~~~~~~~~~~
+    
+    
+    ✘ [ERROR] No matching export in "shared/schema-d1.ts" for import "bankAccounts"
+    
+        server/cloudflare-storage.ts:13:2:
+          13 │   bankAccounts, type BankAccount, type InsertBankAccount,
+             ╵   ~~~~~~~~~~~~
+    
+    
+    ✘ [ERROR] No matching export in "shared/schema-d1.ts" for import "bankStatements"
+    
+        server/cloudflare-storage.ts:14:2:
+          14 │   bankStatements, type BankStatement, type InsertBankStatement,
+             ╵   ~~~~~~~~~~~~~~
+    
+    
+    ✘ [ERROR] No matching export in "shared/schema-d1.ts" for import "taxYears"
+    
+        server/cloudflare-storage.ts:15:2:
+          15 │   taxYears, type TaxYear, type InsertTaxYear,
+             ╵   ~~~~~~~~
+    
+    
+    ✘ [ERROR] No matching export in "shared/schema-d1.ts" for import "budgets"
+    
+        server/cloudflare-storage.ts:16:2:
+          16 │   budgets, type Budget, type InsertBudget,
+             ╵   ~~~~~~~
+    
+    
+    ✘ [ERROR] No matching export in "shared/schema-d1.ts" for import "maintenanceRequests"
+    
+        server/cloudflare-storage.ts:18:2:
+          18 │   maintenanceRequests, type MaintenanceRequest, type InsertMainten...
+             ╵   ~~~~~~~~~~~~~~~~~~~
+    
+    
+    ✘ [ERROR] No matching export in "shared/schema-d1.ts" for import "maintenanceComments"
+    
+        server/cloudflare-storage.ts:19:2:
+          19 │   maintenanceComments, type MaintenanceComment, type InsertMainten...
+             ╵   ~~~~~~~~~~~~~~~~~~~
+    
+    
+    ✘ [ERROR] No matching export in "shared/schema-d1.ts" for import "serviceProviders"
+    
+        server/cloudflare-storage.ts:20:2:
+          20 │   serviceProviders, type ServiceProvider, type InsertServiceProvider,
+             ╵   ~~~~~~~~~~~~~~~~
+    
+    
+    ✘ [ERROR] No matching export in "shared/schema-d1.ts" for import "tenantCredentials"
+    
+        server/cloudflare-storage.ts:24:2:
+          24 │   tenantCredentials, type TenantCredential, type InsertTenantCrede...
+             ╵   ~~~~~~~~~~~~~~~~~
+    
+    
+    ✘ [ERROR] No matching export in "shared/schema-d1.ts" for import "sharedDocuments"
+    
+        server/cloudflare-storage.ts:26:2:
+          26 │   sharedDocuments, type SharedDocument, type InsertSharedDocument,
+             ╵   ~~~~~~~~~~~~~~~
+    
+    
+    ✘ [ERROR] No matching export in "shared/schema-d1.ts" for import "tenantDocuments"
+    
+        server/cloudflare-storage.ts:27:2:
+          27 │   tenantDocuments, type TenantDocument, type InsertTenantDocument,
+             ╵   ~~~~~~~~~~~~~~~
+    
+    
+    ✘ [ERROR] No matching export in "shared/schema-d1.ts" for import "tenantRatings"
+    
+        server/cloudflare-storage.ts:29:2:
+          29 │   tenantRatings, type TenantRating, type InsertTenantRating
+             ╵   ~~~~~~~~~~~~~
