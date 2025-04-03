@@ -1,0 +1,2 @@
+-- Migration adapted for Cloudflare D1 (SQLite)
+-- Migration adapted for Cloudflare D1 (SQLite)
