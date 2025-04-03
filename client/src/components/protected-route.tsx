@@ -28,6 +28,12 @@ export function ProtectedRoute({
       return <Redirect to="/login" />;
     }
     
+    // If the user's password change is required, redirect to the change-password page
+    // But allow access to the change-password page itself to avoid redirect loops
+    if (user.passwordChangeRequired && path !== "/change-password") {
+      return <Redirect to="/change-password" />;
+    }
+    
     return <Component {...props} />;
   };
 

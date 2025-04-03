@@ -14,6 +14,7 @@ import {
   users
 } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { verifyPassword, hashPassword, generateSalt, checkPasswordStrength } from "./utils/password";
 import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
@@ -243,10 +244,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Get user by username
     const user = await storage.getUserByUsername(username);
     
-    // Check if user exists, password matches, and user is an admin
-    if (!user || user.password !== password || !user.isAdmin) {
+    // Check if user exists and is an admin
+    if (!user || !user.isAdmin) {
       return res.status(401).json({ message: "Invalid admin credentials" });
     }
+    
+    // Check if account is active
+    if (!user.isActive) {
+      return res.status(403).json({ message: "Account is inactive. Please contact support." });
+    }
+    
+    // Legacy password check (plain text) or new password verification
+    let passwordValid = false;
+    
+    if (user.passwordSalt) {
+      // New secure password method
+      const { verifyPassword } = await import("./utils/password");
+      passwordValid = await verifyPassword(password, user.password, user.passwordSalt);
+    } else {
+      // Legacy password check (plain text)
+      passwordValid = user.password === password;
+    }
+    
+    if (!passwordValid) {
+      return res.status(401).json({ message: "Invalid admin credentials" });
+    }
+    
+    // Update last login timestamp
+    await storage.updateLastLogin(user.id);
+    
+    // Check if this is first login (null last login date before the update)
+    const isFirstLogin = !user.lastLogin;
     
     // In a real application, we would set up a session with an encrypted cookie
     // For simplicity in this demo, we'll use a simple session
@@ -261,7 +289,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       username: user.username,
       email: user.email,
       fullName: user.fullName || undefined,
-      isAdmin: user.isAdmin
+      isAdmin: user.isAdmin,
+      passwordChangeRequired: user.passwordChangeRequired || false
     };
     
     // Return user data (without password)
@@ -270,7 +299,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       username: user.username,
       email: user.email,
       fullName: user.fullName,
-      isAdmin: user.isAdmin
+      isAdmin: user.isAdmin,
+      isFirstLogin,
+      passwordChangeRequired: user.passwordChangeRequired || false
     });
   }));
   
@@ -285,6 +316,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } else {
       res.json({ success: true, message: "No active session" });
+    }
+  }));
+  
+  // Password change endpoint (this version is used for both regular user authentication and session-based authentication)
+  app.post("/api/change-password", handleErrors(async (req, res) => {
+    // Check if user is authenticated via passport or session
+    if (!req.isAuthenticated() && (!req.session || !req.session.user)) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    // Get user ID from either passport or session
+    const userId = req.isAuthenticated() ? req.user.id : req.session!.user!.id;
+    const { currentPassword, newPassword } = req.body;
+    
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: "Current password and new password are required" });
+    }
+    
+    try {
+      // Get the user with their current password hash and salt
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Verify current password
+      const isPasswordValid = await verifyPassword(currentPassword, user.password, user.passwordSalt);
+      
+      if (!isPasswordValid) {
+        return res.status(400).json({ message: "Current password is incorrect" });
+      }
+      
+      // Check new password strength
+      const passwordStrength = checkPasswordStrength(newPassword);
+      
+      if (!passwordStrength.valid) {
+        return res.status(400).json({ message: passwordStrength.reason });
+      }
+      
+      // Hash the new password
+      const salt = await generateSalt();
+      const hashedPassword = await hashPassword(newPassword, salt);
+      
+      // Update the user's password and clear the password change required flag
+      const updatedUser = await db.update(users)
+        .set({
+          password: hashedPassword,
+          passwordSalt: salt,
+          passwordChangeRequired: false,
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, userId))
+        .returning();
+      
+      // Update session if it exists
+      if (req.session && req.session.user) {
+        req.session.user = {
+          ...req.session.user,
+          passwordChangeRequired: false
+        };
+      }
+      
+      // Return success response
+      return res.json({ success: true, message: "Password updated successfully" });
+    } catch (error) {
+      console.error("Password change error:", error);
+      return res.status(500).json({ message: "Failed to change password. Please try again." });
     }
   }));
   
@@ -326,6 +425,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Unauthorized if not logged in
     return res.status(401).json({ message: "Not authenticated" });
   }));
+  
+  // Password change endpoint
+  // Alias for /api/change-password to maintain compatibility with existing clients
+  app.post("/api/user/change-password", (req, res) => {
+    // Forward the request to the main password change endpoint
+    req.url = "/api/change-password";
+    app._router.handle(req, res);
+  });
   
 
   
@@ -941,6 +1048,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }));
 
+  // Password change endpoint
+  // This is a duplicate of the /api/change-password endpoint at line ~323
+  // To avoid routing conflicts, we'll use the comment below as a reminder but not add a second handler
+  /* 
+   * Password change endpoint handled by the implementation above
+   * See the complete implementation at the top of the file
+   */
+  
   // Onboarding wizard endpoint
   app.post("/api/onboarding", handleErrors(async (req, res) => {
     if (!req.isAuthenticated()) {

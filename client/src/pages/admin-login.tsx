@@ -59,8 +59,13 @@ export default function AdminLoginPage() {
         description: `Welcome back, ${user.fullName || user.username}`,
       });
       
-      // Redirect to admin dashboard
-      navigate("/admin/dashboard");
+      // If password change is required, redirect to change password page
+      if (user.passwordChangeRequired) {
+        navigate("/change-password");
+      } else {
+        // Otherwise redirect to admin dashboard
+        navigate("/admin/dashboard");
+      }
     } catch (error) {
       toast({
         title: "Login failed",

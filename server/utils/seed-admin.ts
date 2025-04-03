@@ -1,88 +1,108 @@
 import { storage } from "../storage";
-import { generateRandomPassword } from "./password";
+import { generateSalt, hashPassword, generateSecurePassword } from "./password";
 
 /**
- * Seeds an admin user if none exists
- * @returns Promise<{username: string, password: string, isFirstAdmin: boolean}> The admin credentials and whether this is the first admin
+ * Seed an admin user if none exists in the database
+ * @returns The admin user credentials
  */
-export async function seedAdminUser(): Promise<{username: string, password: string, isFirstAdmin: boolean}> {
-  // Default admin credentials
-  const adminUsername = 'admin';
-  const adminEmail = 'admin@example.com';
-  
-  // Check if admin user already exists
-  const existingUser = await storage.getUserByUsername(adminUsername);
-  
-  if (existingUser) {
-    // Admin exists, check if password change is required
-    const needsPasswordChange = existingUser.passwordChangeRequired === true;
-    
-    // For existing admins with plain text passwords, we don't want to expose the password
-    // but we do want to indicate that a password change is needed
-    return {
-      username: adminUsername,
-      password: '••••••••', // Masked password
-      isFirstAdmin: false,
-    };
-  }
-  
-  // Create a new admin user with a random password that must be changed
-  const initialPassword = generateRandomPassword(12);
-  
+export async function seedAdminUser(): Promise<{
+  username: string;
+  password: string;
+  isFirstAdmin: boolean;
+}> {
   try {
-    await storage.createUserWithPassword({
-      username: adminUsername,
-      email: adminEmail,
+    // Check if the standard admin user exists
+    const existingAdmin = await storage.getUserByUsername('admin');
+    
+    if (existingAdmin) {
+      // Admin already exists, return without creating a new one
+      return {
+        username: existingAdmin.username,
+        password: '********', // Password not returned for security
+        isFirstAdmin: false
+      };
+    }
+    
+    // Generate credentials for the new admin
+    const username = 'admin';
+    const password = generateSecurePassword();
+    const salt = await generateSalt();
+    const hashedPassword = await hashPassword(password, salt);
+    
+    // Create the admin user
+    const adminUser = await storage.createUser({
+      username,
+      password: hashedPassword,
+      email: 'admin@landlordpro.app',
+      passwordSalt: salt,
       fullName: 'System Administrator',
       isAdmin: true,
       isActive: true,
-      passwordChangeRequired: true
-    }, initialPassword);
-    
-    console.log('Created initial admin user');
+      onboardingCompleted: true,
+      passwordChangeRequired: true,  // Force password change on first login
+    });
     
     return {
-      username: adminUsername,
-      password: initialPassword,
-      isFirstAdmin: true,
+      username,
+      password, // Only return plain text password for initial setup
+      isFirstAdmin: true
     };
   } catch (error) {
-    console.error('Failed to create admin user:', error);
-    throw error;
+    console.error('Failed to seed admin user:', error);
+    throw new Error('Failed to seed admin user');
   }
 }
 
 /**
- * Creates a test admin user if in development mode
- * @returns Promise<void>
+ * Create a test admin user for development environments
+ * @returns The test admin credentials
  */
-export async function seedTestAdmin(): Promise<void> {
-  // Only create test admin in development mode
+export async function seedTestAdmin(): Promise<{
+  username: string;
+  password: string;
+}> {
+  // Only create this user in development environments
   if (process.env.NODE_ENV !== 'development') {
-    return;
-  }
-  
-  const testAdminUsername = 'testadmin';
-  
-  // Check if test admin already exists
-  const existingUser = await storage.getUserByUsername(testAdminUsername);
-  
-  if (existingUser) {
-    return; // Test admin already exists
+    throw new Error('Test admin can only be created in development environments');
   }
   
   try {
-    await storage.createUserWithPassword({
-      username: testAdminUsername,
-      email: 'testadmin@example.com',
+    // Check if test admin already exists
+    const existingTestAdmin = await storage.getUserByUsername('testadmin');
+    
+    if (existingTestAdmin) {
+      // Test admin already exists, return without creating a new one
+      return {
+        username: 'testadmin',
+        password: 'admin123'
+      };
+    }
+    
+    // Create test admin with a known password for development
+    const username = 'testadmin';
+    const password = 'admin123';
+    const salt = await generateSalt();
+    const hashedPassword = await hashPassword(password, salt);
+    
+    // Create the test admin user
+    await storage.createUser({
+      username,
+      password: hashedPassword,
+      email: 'testadmin@landlordpro.app',
+      passwordSalt: salt,
       fullName: 'Test Administrator',
       isAdmin: true,
       isActive: true,
-      passwordChangeRequired: false
-    }, 'admin123');
+      onboardingCompleted: true,
+      passwordChangeRequired: false,  // No need to change password for test user
+    });
     
-    console.log('Created test admin user for development');
+    return {
+      username,
+      password
+    };
   } catch (error) {
-    console.error('Failed to create test admin user:', error);
+    console.error('Failed to seed test admin user:', error);
+    throw new Error('Failed to seed test admin user');
   }
 }

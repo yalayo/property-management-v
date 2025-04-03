@@ -19,6 +19,8 @@ type User = {
   isActive: boolean | null;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
+  passwordChangeRequired: boolean | null;
+  lastLogin: Date | null;
 };
 
 type LoginData = {

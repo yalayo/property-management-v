@@ -20,8 +20,13 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function Login() {
   const { user, loginMutation } = useAuth();
   
-  // Redirect to dashboard if already logged in
+  // Handle redirects for logged in users
   if (user) {
+    // If password change is required, redirect to change password page
+    if (user.passwordChangeRequired) {
+      return <Redirect to="/change-password" />;
+    }
+    // Otherwise redirect to dashboard
     return <Redirect to="/dashboard" />;
   }
 
