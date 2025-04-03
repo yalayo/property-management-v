@@ -43,6 +43,10 @@ export default {
         // @ts-ignore - making the DB available to our adapters
         globalThis.__D1_DB = db;
         
+        // Store environment information to detect Cloudflare Worker environment
+        // This allows us to avoid using setInterval in Cloudflare Workers
+        globalThis.__IS_CLOUDFLARE_WORKER = true;
+        
         // Initialize storage with CloudflareStorage implementation
         initStorage();
         

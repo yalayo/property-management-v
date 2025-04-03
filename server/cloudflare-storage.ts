@@ -42,9 +42,8 @@ import type { IStorage } from './storage';
 import session from "express-session";
 import createMemoryStore from "memorystore";
 
-// Initialize memory store for Cloudflare Workers sessions
-// Note: In a production environment, you would use a KV-based or D1-based session store
-const MemoryStore = createMemoryStore(session);
+// Cloudflare Workers have a different runtime environment
+// We'll handle session storage differently
 
 /**
  * CloudflareStorage implements the IStorage interface for Cloudflare Workers
@@ -54,9 +53,34 @@ export class CloudflareStorage implements IStorage {
   public sessionStore: session.Store;
   
   constructor() {
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000, // 1 day in milliseconds
-    });
+    // Check if we're in a Cloudflare Worker environment
+    // First check for the explicit flag we set in our worker entry points
+    // If that's not set, fall back to the older detection method (this ensures backward compatibility)
+    const isCloudflareWorker = 
+      typeof globalThis.__IS_CLOUDFLARE_WORKER !== 'undefined' ||
+      (typeof globalThis.__D1_DB !== 'undefined' && typeof process === 'undefined');
+    
+    if (isCloudflareWorker) {
+      // In Cloudflare Workers environment, create a minimal session store that doesn't use setInterval
+      this.sessionStore = {
+        all: (callback: (err: any, sessions: Record<string, any> | null) => void) => callback(null, {}),
+        destroy: (sid: string, callback: (err: any) => void) => callback(null),
+        clear: (callback: (err: any) => void) => callback(null),
+        length: (callback: (err: any, length: number) => void) => callback(null, 0),
+        get: (sid: string, callback: (err: any, session: any) => void) => callback(null, null),
+        set: (sid: string, session: any, callback: (err: any) => void) => callback(null),
+        touch: (sid: string, session: any, callback: (err: any) => void) => callback(null),
+      } as any;
+      
+      console.log('Using Cloudflare Workers compatible session store (without setInterval)');
+    } else {
+      // In Node.js environment, use the regular MemoryStore
+      const MemoryStore = createMemoryStore(session);
+      this.sessionStore = new MemoryStore({
+        checkPeriod: 86400000, // 1 day in milliseconds
+      });
+      console.log('Using MemoryStore session store for Node.js environment');
+    }
   }
   
   // ===== USER METHODS =====

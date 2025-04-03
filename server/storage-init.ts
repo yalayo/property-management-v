@@ -1,9 +1,14 @@
 import { IStorage } from './storage';
 import { CloudflareStorage } from './cloudflare-storage';
 
-// Define a global variable to hold our storage instance
+// Define global variables for our application
 declare global {
+  // Storage instance
   var __STORAGE_INSTANCE: IStorage | undefined;
+  // D1 database connection
+  var __D1_DB: any;
+  // Flag to indicate Cloudflare Worker environment
+  var __IS_CLOUDFLARE_WORKER: boolean | undefined;
 }
 
 /**
@@ -17,9 +22,11 @@ export function initStorage(): IStorage {
   }
 
   // Detect Cloudflare Workers environment
-  // Check for both __D1_DB and the absence of 'process' to confirm it's a Cloudflare Worker
-  const isCloudflareWorker = typeof globalThis.__D1_DB !== 'undefined' && 
-    typeof process === 'undefined';
+  // First check for the explicit flag we set in our worker entry points
+  // If that's not set, fall back to the older detection method
+  const isCloudflareWorker = 
+    typeof globalThis.__IS_CLOUDFLARE_WORKER !== 'undefined' ||
+    (typeof globalThis.__D1_DB !== 'undefined' && typeof process === 'undefined');
 
   // Initialize appropriate storage implementation
   let storageInstance: IStorage;

@@ -19,6 +19,10 @@ export async function handleApiRequest(
       // Attempt to access the database to verify it's initialized
       getDatabase();
       
+      // Store environment information to detect Cloudflare Worker environment
+      // This allows us to avoid using setInterval in Cloudflare Workers
+      globalThis.__IS_CLOUDFLARE_WORKER = true;
+      
       // Initialize storage for API requests
       initStorage();
     } catch (dbError) {

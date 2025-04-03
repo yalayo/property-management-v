@@ -35,4 +35,6 @@ export interface Env {
 // This is a workaround to adapt the existing code to Cloudflare Workers
 declare global {
   var __D1_DB: any;
+  var __STORAGE_INSTANCE: any;
+  var __IS_CLOUDFLARE_WORKER: boolean;
 }
