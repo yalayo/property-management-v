@@ -29,14 +29,14 @@ jobs:
           sed -i "s/\${DATABASE_ID}/${{ secrets.DATABASE_ID }}/g" wrangler.toml
       
       # Generate D1 migrations from Drizzle schema
-      - name: Generate D1 Migrations
-        run: |
-          chmod +x ./generate-d1-migrations.sh
-          ./generate-d1-migrations.sh
-          echo "Generated migrations directory structure:"
-          ls -la ./migrations
-          echo "D1 migrations directory:"
-          ls -la ./migrations/d1 || echo "D1 directory not found!"
+      #- name: Generate D1 Migrations
+      #  run: |
+      #    chmod +x ./generate-d1-migrations.sh
+      #    ./generate-d1-migrations.sh
+      #    echo "Generated migrations directory structure:"
+      #    ls -la ./migrations
+      #    echo "D1 migrations directory:"
+      #    ls -la ./migrations/d1 || echo "D1 directory not found!"
           
       # Apply migrations to D1 database
       - name: Apply D1 Migrations
