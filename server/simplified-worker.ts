@@ -38,10 +38,34 @@ export default {
     // Check both possible bindings: __STATIC_CONTENT (KV namespace) or ASSETS (site binding)
     const staticBinding = env.__STATIC_CONTENT || env.ASSETS;
     
-    // Check if requesting static assets from KV store
+    // Map specific known asset paths to their hashed versions
+    const specificAssets: Record<string, string> = {
+      '/index.js': 'index.050e646218.js',
+      '/assets/index.css': 'public/assets/index.440fa24244.css',
+      '/assets/index.js': 'public/assets/index.d47fb2a45d.js',
+      '/index.html': 'public/index.7831ed9bd0.html'
+    };
+    
+    // Check if the current URL path matches any of our known assets
+    const hashedAssetPath = Object.prototype.hasOwnProperty.call(specificAssets, url.pathname) ? specificAssets[url.pathname] : undefined;
+    if (staticBinding && hashedAssetPath) {
+      try {
+        console.log(`Mapped request for ${url.pathname} to hashed asset: ${hashedAssetPath}`);
+        if (typeof staticBinding.fetch === 'function') {
+          const response = await staticBinding.fetch(new Request(hashedAssetPath));
+          if (response.ok) {
+            console.log(`Successfully served hashed asset: ${hashedAssetPath}`);
+            return response;
+          }
+        }
+      } catch (err) {
+        console.error(`Error fetching hashed asset ${hashedAssetPath}:`, err);
+      }
+    }
+    
+    // Check if requesting other static assets from KV store
     if (staticBinding && url.pathname !== "/" && url.pathname !== "") {
       try {
-        // For static assets, try to serve directly from KV
         if (typeof staticBinding.fetch === 'function') {
           console.log(`Trying to fetch asset ${url.pathname} using binding: ${env.__STATIC_CONTENT ? '__STATIC_CONTENT' : 'ASSETS'}`);
           const assetResponse = await staticBinding.fetch(request);
@@ -52,18 +76,48 @@ export default {
       } catch (err) {
         console.error(`Error fetching asset ${url.pathname}:`, err);
       }
+      
+      // If asset not found by direct path, check if it's a non-hashed version of a hashed file
+      for (const [standardPath, hashedPath] of Object.entries(specificAssets)) {
+        if (url.pathname.endsWith(standardPath.split('/').pop() || '')) {
+          try {
+            console.log(`Trying hashed version ${hashedPath} for requested file ${url.pathname}`);
+            if (typeof staticBinding.fetch === 'function') {
+              const response = await staticBinding.fetch(new Request(hashedPath));
+              if (response.ok) {
+                console.log(`Found and serving hashed version: ${hashedPath}`);
+                return response;
+              }
+            }
+          } catch (err) {
+            console.warn(`Error serving hashed version ${hashedPath}:`, err);
+          }
+        }
+      }
     }
     
     // For root path or if asset not found, serve the SPA HTML
     if (staticBinding && (url.pathname === "/" || url.pathname === "" || !url.pathname.includes("."))) {
+      // Always try the known index HTML first
       try {
-        // Try common index.html paths with various possible hashes
+        if (typeof staticBinding.fetch === 'function') {
+          console.log(`Trying known index.html: public/index.7831ed9bd0.html`);
+          const indexResponse = await staticBinding.fetch(new Request('public/index.7831ed9bd0.html'));
+          if (indexResponse.ok) {
+            console.log(`Found and serving known index.html`);
+            return indexResponse;
+          }
+        }
+      } catch (err) {
+        console.warn(`Error trying known index.html:`, err);
+      }
+      
+      // Fallback to other index paths
+      try {
+        // Try common index.html paths
         const possibleIndexPaths = [
           "index.html",
           "public/index.html",
-          // Previous known hash
-          "public/index.7831ed9bd0.html",
-          // Other possible paths
           "index", 
           "public/index"
         ];

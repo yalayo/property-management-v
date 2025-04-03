@@ -4,6 +4,27 @@ import { drizzle } from "drizzle-orm/d1";
 import { ExecutionContext } from "@cloudflare/workers-types";
 import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
 
+// Helper function to determine content type
+function getContentType(path: string): string {
+  const ext = path.split('.').pop()?.toLowerCase();
+  const contentTypes: Record<string, string> = {
+    'html': 'text/html',
+    'css': 'text/css',
+    'js': 'application/javascript',
+    'json': 'application/json',
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'gif': 'image/gif',
+    'svg': 'image/svg+xml',
+    'ico': 'image/x-icon',
+    'txt': 'text/plain',
+    'pdf': 'application/pdf',
+  };
+  
+  return contentTypes[ext || ''] || 'application/octet-stream';
+}
+
 // Cloudflare Workers entry point
 export default {
   async fetch(
@@ -35,91 +56,95 @@ export default {
 
     const url = new URL(request.url);
     
-    try {
-      // For API requests, use the Hono API handler
-      if (url.pathname.startsWith("/api/")) {
-        // Import dynamically to avoid initialization issues
-        const { handleApiRequest } = await import("./api-handler-hono");
-        return await handleApiRequest(request, env, ctx);
-      }
+    let path = url.pathname;
 
-      // If request is for the root page or any client route, load index.html from KV
-      if (url.pathname === "/" || url.pathname === "" || url.pathname.endsWith("/index.html") || !url.pathname.startsWith("/api")) {
-        try {
-          // Check both possible bindings: __STATIC_CONTENT (KV namespace) or ASSETS (site binding)
-          const staticBinding = env.__STATIC_CONTENT || env.ASSETS;
-          
-          if (staticBinding) {
-            // Try common index.html paths with various possible hashes
-            let indexHtmlKey = null;
-            
-            // Try predefined list of common paths for index.html
-            const possibleIndexPaths = [
-              "index.html",
-              "public/index.html",
-              // Add common hashed patterns
-              "public/index.7831ed9bd0.html", // Previous known hash
-              "public/index.*.html", // Won't work directly but shows intent
-              "index", 
-              "public/index"
-            ];
-            
-            // Try each possible path
-            for (const path of possibleIndexPaths) {
-              try {
-                console.log(`Trying to fetch index at: ${path} using binding: ${env.__STATIC_CONTENT ? '__STATIC_CONTENT' : 'ASSETS'}`);
-                
-                if (typeof staticBinding.fetch === 'function') {
-                  const response = await staticBinding.fetch(new Request(path));
-                  if (response.ok) {
-                    indexHtmlKey = path;
-                    const bodyContent = await response.text();
-                    console.log(`Found and serving index.html from: ${path}`);
-                    return new Response(bodyContent, {
-                      headers: { "Content-Type": "text/html" }
-                    });
-                  }
-                }
-              } catch (err) {
-                console.warn(`Error trying path ${path}:`, err);
-                // Continue trying other paths
-              }
-            }
-            
-            // If specific paths didn't work, try to serve the default SPA index
-            // This is a catch-all approach for client-side routing
-            try {
-              if (typeof staticBinding.fetch === 'function') {
-                console.log('Trying to fetch root path /');
-                const response = await staticBinding.fetch(new Request('/'));
-                if (response.ok) {
-                  const bodyContent = await response.text();
-                  console.log('Successfully fetched root path, serving as index');
-                  return new Response(bodyContent, {
-                    headers: { "Content-Type": "text/html" }
-                  });
-                }
-              }
-            } catch (err) {
-              console.error("Could not serve SPA index:", err);
-            }
-            
-            console.warn("Could not find index.html in assets");
-          } else {
-            console.warn("No static content binding found: neither __STATIC_CONTENT nor ASSETS is available");
+    // For API requests, use the Hono API handler
+    if (path.startsWith("/api/")) {
+      // Import dynamically to avoid initialization issues
+      const { handleApiRequest } = await import("./api-handler-hono");
+      return await handleApiRequest(request, env, ctx);
+    }
+
+    // Check both possible bindings: __STATIC_CONTENT (KV namespace) or ASSETS (site binding)
+    const staticBinding = env.__STATIC_CONTENT || env.ASSETS;
+    
+    // Map specific known asset paths to their hashed versions
+    const specificAssets: Record<string, string> = {
+      '/index.js': 'index.050e646218.js',
+      '/assets/index.css': 'public/assets/index.440fa24244.css',
+      '/assets/index.js': 'public/assets/index.d47fb2a45d.js',
+      '/index.html': 'public/index.7831ed9bd0.html'
+    };
+    
+    // If the path is root, serve index.html
+    if (path === "/") {
+      path = "/index.html";
+    }
+    
+    // Check if the current URL path matches any of our known assets
+    const hashedAssetPath = Object.prototype.hasOwnProperty.call(specificAssets, path) ? specificAssets[path] : undefined;
+    if (staticBinding && hashedAssetPath) {
+      try {
+        console.log(`Mapped request for ${path} to hashed asset: ${hashedAssetPath}`);
+        if (typeof staticBinding.get === 'function') {
+          const asset = await staticBinding.get(hashedAssetPath);
+          if (asset) {
+            console.log(`Successfully serving hashed asset: ${hashedAssetPath}`);
+            return new Response(asset, {
+              headers: { "Content-Type": getContentType(hashedAssetPath) }
+            });
           }
-        } catch (e) {
-          console.error("Error fetching index.html from assets:", e);
+        } else if (typeof staticBinding.fetch === 'function') {
+          const response = await staticBinding.fetch(new Request(hashedAssetPath));
+          if (response.ok) {
+            console.log(`Successfully serving hashed asset via fetch: ${hashedAssetPath}`);
+            return response;
+          }
+        }
+      } catch (err) {
+        console.error(`Error fetching hashed asset ${hashedAssetPath}:`, err);
+      }
+    }
+    
+    // Try to get the asset directly
+    try {
+      if (staticBinding) {
+        if (typeof staticBinding.get === 'function') {
+          const asset = await staticBinding.get(path);
+          if (asset) {
+            return new Response(asset, {
+              headers: { "Content-Type": getContentType(path) }
+            });
+          }
+        } else if (typeof staticBinding.fetch === 'function') {
+          const response = await staticBinding.fetch(request);
+          if (response.ok) {
+            return response;
+          }
         }
       }
-
-      // If no asset or index page is found, return a 404 response
+      
+      // Fallback to the known index.html for client-side routing
+      if (!path.includes('.') || path === '/index.html') {
+        if (typeof staticBinding?.get === 'function') {
+          const indexHtml = await staticBinding.get('public/index.7831ed9bd0.html');
+          if (indexHtml) {
+            return new Response(indexHtml, {
+              headers: { "Content-Type": "text/html" }
+            });
+          }
+        } else if (typeof staticBinding?.fetch === 'function') {
+          const indexResponse = await staticBinding.fetch(new Request('public/index.7831ed9bd0.html'));
+          if (indexResponse.ok) {
+            return indexResponse;
+          }
+        }
+      }
+      
       return new Response("Not Found", { status: 404 });
-    } catch (error: unknown) {
-      console.error("Worker error:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error occurred";
-      return new Response(`Error: ${errorMessage}`, { status: 500 });
+    } catch (error) {
+      console.error('Error serving asset:', error);
+      return new Response("Error serving content", { status: 500 });
     }
   },
 };
