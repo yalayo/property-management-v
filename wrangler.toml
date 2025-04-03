@@ -15,7 +15,7 @@ vars = { NODE_ENV = "production" }
 binding = "DB" # available in production as env.DB
 database_name = "landlord-db"
 database_id = "${DATABASE_ID}" # will be filled via GitHub Actions
-migrations_dir = "migrations" # Directory where the migration SQL files are stored
+migrations_dir = "migrations/d1" # Directory where the migration SQL files are stored
 migrations_table = "drizzle_migrations" # Table to track migrations
 
 # Secrets that will be set via GitHub Actions or wrangler

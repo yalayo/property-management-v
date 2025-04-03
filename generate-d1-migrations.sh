@@ -74,4 +74,8 @@ EOL
 fi
 
 echo "D1-compatible SQL migration generated in migrations/d1/001_initial_schema.sql"
-echo "You can use this file with 'wrangler d1 migrations apply'"
+echo "You can use this file with 'wrangler d1 migrations apply --directory=./migrations/d1'"
+
+# Debug information
+echo "D1 migrations directory contents:"
+ls -la migrations/d1

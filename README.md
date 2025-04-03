@@ -69,3 +69,35 @@ For local development, the application will continue to use PostgreSQL as the da
 The application uses the environment variable `NODE_ENV` to determine which database connection to use:
 - Development environment: Uses PostgreSQL connection from `DATABASE_URL`
 - Production environment: Uses Cloudflare D1
+
+## Troubleshooting
+
+### D1 Migration Issues
+
+If you encounter issues with D1 migrations during deployment:
+
+1. Make sure migrations are in the correct directory:
+   ```
+   ./migrations/d1/001_initial_schema.sql
+   ```
+
+2. Always use the `--directory` parameter with wrangler D1 commands:
+   ```
+   wrangler d1 migrations apply landlord-db --directory=./migrations/d1
+   ```
+
+3. Check migration formats:
+   - SQL syntax should be SQLite compatible (not PostgreSQL)
+   - Tables should use `INTEGER PRIMARY KEY AUTOINCREMENT` instead of `serial PRIMARY KEY`
+   - Boolean values should be `0` and `1` instead of `false` and `true`
+   - `now()` should be replaced with `CURRENT_TIMESTAMP`
+
+4. Verify your database exists and is properly linked in wrangler.toml
+   ```
+   wrangler d1 list
+   ```
+
+5. If you need to regenerate migrations:
+   ```
+   ./generate-d1-migrations.sh
+   ```

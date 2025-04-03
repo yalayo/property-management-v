@@ -43,11 +43,11 @@ echo "Generating schema migrations for D1..."
 
 # Apply migrations to D1 database
 echo "Applying D1 migrations..."
-wrangler d1 migrations apply landlord-db --local
+wrangler d1 migrations apply landlord-db --local --directory=./migrations/d1
 
 # Publish migrations to production
 echo "Publishing migrations to production..."
-wrangler d1 migrations apply landlord-db
+wrangler d1 migrations apply landlord-db --directory=./migrations/d1
 
 # Deploy to Cloudflare Workers
 echo "Deploying to Cloudflare Workers..."
@@ -83,3 +83,8 @@ echo "   wrangler kv:key list --namespace-id <YOUR_NAMESPACE_ID>"
 echo ""
 echo "5. Check that your database migrations have been applied correctly with:"
 echo "   wrangler d1 execute landlord-db --command=\"SELECT name FROM sqlite_master WHERE type='table';\""
+echo ""
+echo "6. If you experience D1 migration issues:"
+echo "   - Ensure migrations are in the correct directory: ./migrations/d1/"
+echo "   - Always use the --directory parameter with D1 migrations: wrangler d1 migrations apply landlord-db --directory=./migrations/d1"
+echo "   - Check that the migration files are properly formatted for SQLite (not PostgreSQL)"

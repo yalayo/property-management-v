@@ -33,7 +33,12 @@ jobs:
         run: |
           chmod +x ./generate-d1-migrations.sh
           ./generate-d1-migrations.sh
+          echo "Generated migrations directory structure:"
           ls -la ./migrations
+          echo "D1 migrations directory:"
+          ls -la ./migrations/d1 || echo "D1 directory not found!"
+          echo "Content of first migration file:"
+          head -20 ./migrations/d1/001_initial_schema.sql || echo "Migration file not found!"
           
       # Apply migrations to D1 database
       - name: Apply D1 Migrations
