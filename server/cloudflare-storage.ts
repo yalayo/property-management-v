@@ -29,6 +29,14 @@ import {
   tenantRatings, type TenantRating, type InsertTenantRating
 } from "@shared/schema";
 import { db } from "./db-cf";
+
+// Helper function to get the database or throw an error if not available
+function getDb() {
+  if (!db.current) {
+    throw new Error('Database not initialized. Try again when database is ready.');
+  }
+  return db.current;
+}
 import { eq, desc, count, and, like, sql } from "drizzle-orm";
 import type { IStorage } from './storage';
 import session from "express-session";
@@ -54,12 +62,14 @@ export class CloudflareStorage implements IStorage {
   // ===== USER METHODS =====
   
   async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
+    const database = getDb();
+    const [user] = await database.select().from(users).where(eq(users.id, id));
     return user;
   }
   
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
+    const database = getDb();
+    const [user] = await database.select().from(users).where(eq(users.username, username));
     return user;
   }
   
@@ -135,7 +145,13 @@ export class CloudflareStorage implements IStorage {
   }
   
   async getSurveyResponses(): Promise<SurveyResponse[]> {
-    return await db.select().from(surveyResponses);
+    const database = getDb();
+    return await database.select().from(surveyResponses);
+  }
+  
+  async getAllSurveyResponses(): Promise<SurveyResponse[]> {
+    const database = getDb();
+    return await database.select().from(surveyResponses);
   }
   
   async getSurveyAnalytics(): Promise<{ questionId: number; yesCount: number; noCount: number; }[]> {
