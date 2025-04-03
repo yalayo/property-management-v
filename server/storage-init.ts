@@ -17,7 +17,9 @@ export function initStorage(): IStorage {
   }
 
   // Detect Cloudflare Workers environment
-  const isCloudflareWorker = typeof globalThis.__D1_DB !== 'undefined';
+  // Check for both __D1_DB and the absence of 'process' to confirm it's a Cloudflare Worker
+  const isCloudflareWorker = typeof globalThis.__D1_DB !== 'undefined' && 
+    typeof process === 'undefined';
 
   // Initialize appropriate storage implementation
   let storageInstance: IStorage;
