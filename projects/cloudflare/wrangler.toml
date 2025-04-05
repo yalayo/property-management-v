@@ -28,7 +28,7 @@ enabled = true
 
 # Asset configuration
 [env.production.site]
-bucket = "./dist"
+bucket = "./out"
 include = ["**/*"]  # Include all files from the bucket
 
 # Static content binding via KV namespace (__STATIC_CONTENT is a special binding name)
