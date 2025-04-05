@@ -28,9 +28,6 @@ database_id = "${DATABASE_ID}"
 migrations_dir = "migrations/d1"
 migrations_table = "drizzle_migrations"
 
-[observability.logs]
-enabled = true
-
 # Static asset handling (Pages style)
 [env.production.site]
 bucket = "./out/public"
