@@ -2,3 +2,7 @@ node_modules
 out
 .wrangler/
 .shadow-cljs/
+
+# Frontend code
+public/js/cljs-runtime/
+public/js/app.js
