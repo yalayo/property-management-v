@@ -1,9 +1,7 @@
 (ns app.worker.core
   (:require [reitit.core :as r]
             [app.worker.async :refer [js-await]]
-            [app.worker.cf :as cf :refer [defclass]]
-            [app.html.index :as index]
-            [app.html.core :as html]))
+            [app.worker.cf :as cf :refer [defclass]]))
 
 (def router
   (r/router
@@ -25,7 +23,7 @@
               (cf/response-edn results {:status 200})
               (cf/response-error))))
 
-(defmethod handle-route [::index :GET] [route request env ctx]
+#_(defmethod handle-route [::index :GET] [route request env ctx]
   (js-await [html (html/respond (index/index-page) "LKR Construction")]
             (cf/response-html html {:status 200})))
 
