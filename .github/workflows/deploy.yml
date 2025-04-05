@@ -63,9 +63,8 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           wranglerVersion: "4.7.0"
-          command: |
-            cd ./projects/cloudflare/
-            deploy --env production
+          workingDirectory: "./projects/cloudflare"
+          command: deploy --env production
         env:
           WRANGLER_EXTERNAL: crypto,postgres,pg,pg-native,url,path,util,fs,@neondatabase/serverless,ws,events,drizzle-orm/postgres-js
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
