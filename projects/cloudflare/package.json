@@ -86,7 +86,6 @@
       "tailwindcss-animate": "^1.0.7",
       "vaul": "^1.1.0",
       "wouter": "^3.3.5",
-      "wrangler": "^4.6.0",
       "ws": "^8.18.0",
       "zod": "^3.23.8",
       "zod-validation-error": "^3.4.0"
@@ -113,7 +112,8 @@
       "tsx": "^4.19.1",
       "typescript": "5.6.3",
       "vite": "^5.4.14",
-      "shadow-cljs": "2.28.19"
+      "shadow-cljs": "2.28.19",
+      "wrangler": "^4.6.0"
     },
     "optionalDependencies": {
       "bufferutil": "^4.0.8"
