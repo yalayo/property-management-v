@@ -6,7 +6,6 @@
 (def router
   (r/router
    [["/todos" ::todos]
-    ["/" ::index]
     #_["/favicon.ico" ::favicon]]))
 
 ;; args:
@@ -16,6 +15,9 @@
 ;;  ctx: The Context API provides methods to manage the lifecycle of your Worker https://developers.cloudflare.com/workers/runtime-apis/context/
 (defmulti handle-route (fn [route request env ctx]
                          [(-> route :data :name) (keyword (.-method ^js request))]))
+
+(defmethod handle-route [::default :GET] [route request env ctx]
+  nil)
 
 (defmethod handle-route [::todos :GET] [route request env ctx]
   (js-await [{:keys [success results]} {:success true :results {:hello :world}}]
