@@ -5,6 +5,7 @@
     "license": "MIT",
     "scripts": {
         "dev": "shadow-cljs watch server app -A:dev",
+        "release": "shadow-cljs release server app",
         "build": "echo 'no build needed'",
         "start": "NODE_ENV=production node dist/index.js",
         "check": "tsc",
