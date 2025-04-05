@@ -5,8 +5,7 @@
 
 (def router
   (r/router
-   [["/todos" ::todos]
-    #_["/favicon.ico" ::favicon]]))
+   [["/api/todos" ::todos]]))
 
 ;; args:
 ;;  route: Reitit route data
@@ -24,13 +23,6 @@
             (if success
               (cf/response-edn results {:status 200})
               (cf/response-error))))
-
-#_(defmethod handle-route [::index :GET] [route request env ctx]
-  (js-await [html (html/respond (index/index-page) "LKR Construction")]
-            (cf/response-html html {:status 200})))
-
-#_(defmethod handle-route [::favicon :GET] [route request env ctx]
-    (cf/serve-favicon))
 
 ;; entry point
 (def handler
