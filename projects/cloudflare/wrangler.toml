@@ -16,4 +16,4 @@ migrations_table = "drizzle_migrations"
 
 [[env.production.routes]]
 pattern = "immo.busqandote.com/api*"
-custom_domain = true
+zone_id = "${ZONE_ID}"
