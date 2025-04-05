@@ -31,7 +31,7 @@ pattern = "immo.busqandote.com/*"
 custom_domain = true
 
 # Define routes specifically for your Worker logic (API endpoints, etc.)
-[[env.production.routes]]
+[[routes]]
 pattern = "immo.busqandote.com/api/*" # Example API route prefix
 custom_domain = true
 type = "javascript" # Explicitly define this route as handled by your Worker
