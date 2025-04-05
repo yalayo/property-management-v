@@ -4,23 +4,12 @@ main = "out/main.js"
 compatibility_date = "2025-02-04"
 compatibility_flags = ["nodejs_compat"]
 
-# Hybrid Pages/Worker: Define default site config for static assets
-[site]
-bucket = "./out/public"
-include = ["**/*"]  # Include all files from the bucket
+compatibility_date = "2025-02-04"
+compatibility_flags = ["nodejs_compat"]
 
-[observability.logs]
-enabled = true
-
-# -------- ENV: DEVELOPMENT --------
-[env.development]
-vars = { NODE_ENV = "development" }
-
-# -------- ENV: PRODUCTION --------
 [env.production]
 vars = { NODE_ENV = "production" }
 
-# D1 binding
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "landlord-db"
@@ -28,17 +17,6 @@ database_id = "${DATABASE_ID}"
 migrations_dir = "migrations/d1"
 migrations_table = "drizzle_migrations"
 
-# Static asset handling (Pages style)
-[env.production.site]
-bucket = "./out/public"
-include = ["**/*"]
-
-# Bind static content (ASSETS alias)
-[[env.production.bindings]]
-name = "ASSETS"
-type = "site"
-
-# Route for production (Cloudflare Pages-style custom domain)
 [[env.production.routes]]
-pattern = "immo.busqandote.com"
+pattern = "immo.busqandote.com/api*"
 custom_domain = true
