@@ -2,7 +2,6 @@ name = "pmanagement"
 main = "out/main.js"
 compatibility_date = "2025-02-04"
 compatibility_flags = ["nodejs_compat"]
-#assets = { directory = "./public", binding = "ASSETS" }
 
 # For local development, use existing DB config
 [env.development]
@@ -22,26 +21,17 @@ migrations_table = "drizzle_migrations" # Table to track migrations
 [observability.logs]
 enabled = true
 
-# Configure static asset handling
-#[site]
-#bucket = "./public"
+# Configure static asset handling for Pages
+[site]
+bucket = "./out/public" # Assuming your static assets are built into a 'public' directory
 
-# Asset configuration
-[env.production.site]
-bucket = "./out"
-include = ["**/*"]  # Include all files from the bucket
-
-# Static content binding via KV namespace (__STATIC_CONTENT is a special binding name)
-# In Cloudflare, this maps to the KV namespace: __STATIC_CONTENT
-# This is managed automatically by Cloudflare Workers
-
-# For backward compatibility, also define the ASSETS binding
-# This allows our code to work with both binding types
-[[env.production.bindings]]
-name = "ASSETS"
-type = "site"
-
-# Define routes for the SPA
+# Define routes for the SPA and potentially API endpoints
 [[env.production.routes]]
-pattern = "immo.busqandote.com"
+pattern = "immo.busqandote.com/*"
 custom_domain = true
+
+# Define routes specifically for your Worker logic (API endpoints, etc.)
+[[env.production.routes]]
+pattern = "immo.busqandote.com/api/*" # Example API route prefix
+custom_domain = true
+type = "javascript" # Explicitly define this route as handled by your Worker
