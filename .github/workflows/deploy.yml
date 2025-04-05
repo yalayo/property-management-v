@@ -27,7 +27,7 @@ jobs:
           npx babel ../../client/src/components/poc --out-dir ../../bases/frontend/js --extensions ".ts,.tsx,.jsx" --ignore "node_modules"
           npm run release
           cp public/index.html out/public
-          ls -la out/
+          ls -la out/public
         
       # Update wrangler.toml with the database ID
       - name: Update wrangler.toml with Database ID
