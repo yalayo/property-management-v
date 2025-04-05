@@ -21,11 +21,15 @@ jobs:
         run: npm install
       
       - name: Build the application
-        run: npm run build && ls -la dist/
+        run: |
+          cd ./projects/cloudflare/
+          npm install
+          npm run release
         
       # Update wrangler.toml with the database ID
       - name: Update wrangler.toml with Database ID
         run: |
+          cd ./projects/cloudflare/
           sed -i "s/\${DATABASE_ID}/${{ secrets.DATABASE_ID }}/g" wrangler.toml
       
       # Generate D1 migrations from Drizzle schema
@@ -45,6 +49,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           wranglerVersion: "4.7.0"
           command: |
+            cd ./projects/cloudflare/
             d1 migrations list landlord-db --env production
             d1 migrations apply landlord-db --env production --remote
         env:
@@ -56,7 +61,9 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           wranglerVersion: "4.7.0"
-          command: deploy --env production
+          command: |
+            cd ./projects/cloudflare/
+            deploy --env production
         env:
           WRANGLER_EXTERNAL: crypto,postgres,pg,pg-native,url,path,util,fs,@neondatabase/serverless,ws,events,drizzle-orm/postgres-js
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
