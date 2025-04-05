@@ -4,9 +4,6 @@ main = "out/main.js"
 compatibility_date = "2025-02-04"
 compatibility_flags = ["nodejs_compat"]
 
-compatibility_date = "2025-02-04"
-compatibility_flags = ["nodejs_compat"]
-
 [env.production]
 vars = { NODE_ENV = "production" }
 
