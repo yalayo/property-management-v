@@ -1,37 +1,47 @@
 name = "pmanagement"
+
 main = "out/main.js"
 compatibility_date = "2025-02-04"
 compatibility_flags = ["nodejs_compat"]
 
-# For local development, use existing DB config
-[env.development]
-vars = { NODE_ENV = "development" }
-
-# Production with D1 database
-[env.production]
-vars = { NODE_ENV = "production" }
-# Bind the D1 database to the Worker
-[[env.production.d1_databases]]
-binding = "DB" # available in production as env.DB
-database_name = "landlord-db"
-database_id = "${DATABASE_ID}" # will be filled via GitHub Actions
-migrations_dir = "migrations/d1" # Directory where the migration SQL files are stored
-migrations_table = "drizzle_migrations" # Table to track migrations
+# Hybrid Pages/Worker: Define default site config for static assets
+[site]
+bucket = "./out/public"
+include = ["**/*"]  # Include all files from the bucket
 
 [observability.logs]
 enabled = true
 
-# Configure static asset handling for Pages
-[site]
-bucket = "./out/public" # Assuming your static assets are built into a 'public' directory
+# -------- ENV: DEVELOPMENT --------
+[env.development]
+vars = { NODE_ENV = "development" }
 
-# Define routes for the SPA and potentially API endpoints
+# -------- ENV: PRODUCTION --------
+[env.production]
+vars = { NODE_ENV = "production" }
+
+# D1 binding
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "landlord-db"
+database_id = "${DATABASE_ID}"
+migrations_dir = "migrations/d1"
+migrations_table = "drizzle_migrations"
+
+[observability.logs]
+enabled = true
+
+# Static asset handling (Pages style)
+[env.production.site]
+bucket = "./out/public"
+include = ["**/*"]
+
+# Bind static content (ASSETS alias)
+[[env.production.bindings]]
+name = "ASSETS"
+type = "site"
+
+# Route for production (Cloudflare Pages-style custom domain)
 [[env.production.routes]]
-pattern = "immo.busqandote.com/*"
+pattern = "immo.busqandote.com"
 custom_domain = true
-
-# Define routes specifically for your Worker logic (API endpoints, etc.)
-[[routes]]
-pattern = "immo.busqandote.com/api/*" # Example API route prefix
-custom_domain = true
-type = "javascript" # Explicitly define this route as handled by your Worker
