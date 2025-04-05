@@ -30,10 +30,11 @@ jobs:
           ls -la out/public/js
         
       # Update wrangler.toml with the database ID
-      - name: Update wrangler.toml with Database ID
+      - name: Update wrangler.toml
         run: |
           cd ./projects/cloudflare/
           sed -i "s/\${DATABASE_ID}/${{ secrets.DATABASE_ID }}/g" wrangler.toml
+          sed -i "s/\${ZONE_ID}/${{ secrets.ZONE_ID }}/g" wrangler.toml
       
       # Generate D1 migrations from Drizzle schema
       #- name: Generate D1 Migrations
