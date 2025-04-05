@@ -5,4 +5,5 @@ out
 
 # Frontend code
 public/js/cljs-runtime/
+public/js/manifest.edn
 public/js/app.js
