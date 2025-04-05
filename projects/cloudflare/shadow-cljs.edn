@@ -1,5 +1,18 @@
 {:deps true
- :builds {:server
+ :builds {:app
+          {:target :browser
+           :output-dir "public/js"
+           :asset-path "/js"
+           :modules {:app {:init-fn app.frontend.main/init}}
+           :devtools {:preloads [day8.re-frame-10x.preload] :watch-dir "public"}
+           :dev {:compiler-options {:closure-defines {re-frame.trace.trace-enabled? true
+                                                      day8.re-frame.tracing.trace-enabled? true
+                                                      "re_frame.trace.trace_enabled_QMARK_" true
+                                                      "day8.re_frame.tracing.trace_enabled_QMARK_"  true}}}
+           :release {:compiler-options {:optimizations :simple}
+                     :output-dir "public/js"}
+           :optimizations :none}
+          :server
           {:target :esm
            :output-dir "out"
            :modules {:main {:exports {default app.worker.core/handler}}}
