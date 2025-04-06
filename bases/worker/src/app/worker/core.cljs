@@ -1,11 +1,13 @@
 (ns app.worker.core
   (:require [reitit.core :as r]
             [app.worker.async :refer [js-await]]
-            [app.worker.cf :as cf :refer [defclass]]))
+            [app.worker.cf :as cf :refer [defclass]]
+            [app.worker.db :as db]))
 
 (def router
   (r/router
-   [["/api/todos" ::todos]]))
+   ["/api"
+    ["/questions" ::questions]]))
 
 ;; args:
 ;;  route: Reitit route data
@@ -22,6 +24,16 @@
   (js-await [{:keys [success results]} {:success true :results {:hello :world}}]
             (if success
               (cf/response-edn results {:status 200})
+              (cf/response-error))))
+
+(defmulti handle-route (fn [route request env ctx]
+                         [(-> route :data :name) (keyword (.-method ^js request))]))
+
+(defmethod handle-route [::questions :GET] [route request env ctx]
+  (js-await [{:keys [success results]} (db/query+ {:select [:*]
+                                                   :from   [:questions]})]
+            (if success
+              (cf/response-edn {:result results} {:status 200})
               (cf/response-error))))
 
 ;; entry point
