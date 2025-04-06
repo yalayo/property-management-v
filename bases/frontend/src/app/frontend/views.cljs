@@ -3,10 +3,10 @@
             [re-frame.core :as re-frame]
             [app.frontend.events :as events]
             [app.frontend.subs :as subs]
-            ["/SignIn" :as signin]))
+            ["/components/landing/Survey" :as survey]))
 
-(def signin-component (r/adapt-react-class (.-SignIn signin)))
+(def survey-component (r/adapt-react-class (.-Survey survey)))
 
 (defn app []
   [:<>
-   [signin-component]])
+   [survey-component]])
