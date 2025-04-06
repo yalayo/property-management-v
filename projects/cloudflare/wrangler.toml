@@ -14,7 +14,7 @@ vars = { NODE_ENV = "production" }
 binding = "DB"
 database_name = "landlord-db"
 database_id = "${DATABASE_ID}"
-migrations_dir = "migrations/d1"
+migrations_dir = "migrations"
 migrations_table = "drizzle_migrations"
 
 [[env.production.routes]]
