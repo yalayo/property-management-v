@@ -1,3 +1,4 @@
+import React from "react";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -41,8 +42,10 @@ export default function Survey(props) {
   const [isLastQuestion, setIsLastQuestion] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
 
-  // Fetch questions from API
+  // Defining all needed/used variables here
   const questions = props.questions;
+  const isLoading = props.isLoading;
+  const error = props.error;
 
   // Handle email form
   const {
