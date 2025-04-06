@@ -1,6 +1,6 @@
 import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "../ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
 import { CheckCircle2, Star, Gift, Calendar, Shield, Wrench, Book, Headphones } from "lucide-react";
 
 interface PricingProps {

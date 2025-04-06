@@ -12,8 +12,8 @@ import {
   Briefcase,
   CreditCard
 } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
-import { Button } from "@/components/ui/button";
+import { useAuth } from "../../hooks/use-auth";
+import { Button } from "../ui/button";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;

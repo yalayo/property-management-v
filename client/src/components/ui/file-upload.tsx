@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Check, FileIcon, Loader2, UploadCloud, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { Button } from '../ui/button';
+import { cn } from '../../lib/utils';
 
 interface FileUploadProps {
   id: string;

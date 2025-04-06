@@ -1,11 +1,11 @@
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
+import { Button } from "../ui/button";
 import { ArrowLeft } from "lucide-react";
-import SurveyAnalytics from "@/components/dashboard/SurveyAnalytics";
-import { DataTable } from "@/components/ui/data-table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import SurveyAnalytics from "../dashboard/SurveyAnalytics";
+import { DataTable } from "../ui/data-table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
 export default function SurveyResults() {
   // Fetch waiting list data

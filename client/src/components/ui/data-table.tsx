@@ -6,9 +6,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+} from "../ui/table";
+import { Input } from "../ui/input";
+import { Button } from "../ui/button";
 import { ChevronDown, ChevronUp, ChevronsUpDown, Search } from "lucide-react";
 
 interface DataTableProps<TData> {

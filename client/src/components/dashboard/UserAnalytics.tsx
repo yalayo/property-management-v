@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { 
   BarChart,
   Bar,
@@ -15,7 +15,7 @@ import {
   LineChart,
   Line
 } from "recharts";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "../ui/skeleton";
 
 export default function UserAnalytics() {
   // Fetch analytics data for the user

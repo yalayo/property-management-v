@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
-import { TierSelection } from "@/components/payment/TierSelection";
-import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { TierSelection } from "../payment/TierSelection";
+import DashboardLayout from "../layouts/DashboardLayout";
 
 function SubscriptionTiers() {
   const { data: user, isLoading, isError } = useQuery({ 

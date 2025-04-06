@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'wouter';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
-import { Separator } from '@/components/ui/separator';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
+import { Button } from '../ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { useToast } from '../../hooks/use-toast';
+import { Separator } from '../ui/separator';
 import { format, parseISO, startOfMonth, subMonths } from 'date-fns';
-import { IncomeChart } from '@/components/accounting/IncomeChart';
-import { ExpensesByCategory } from '@/components/accounting/ExpensesByCategory';
-import { PropertyFinancialSummary } from '@/components/accounting/PropertyFinancialSummary';
-import { TransactionsTable } from '@/components/accounting/TransactionsTable';
+import { IncomeChart } from '../accounting/IncomeChart';
+import { ExpensesByCategory } from '../accounting/ExpensesByCategory';
+import { PropertyFinancialSummary } from '../accounting/PropertyFinancialSummary';
+import { TransactionsTable } from '../accounting/TransactionsTable';
 import { 
   AreaChart, 
   BadgeDollarSign, 

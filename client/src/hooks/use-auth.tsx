@@ -4,8 +4,8 @@ import {
   useMutation,
   UseMutationResult,
 } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "../../hooks/use-toast";
+import { queryClient, apiRequest } from "../../lib/queryClient";
 
 // Define types based on the user structure from the backend
 type User = {

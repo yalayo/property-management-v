@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Transaction } from '@shared/schema';
-import { Card } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card } from '../ui/card';
+import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 import { format, subMonths, parseISO, isAfter } from 'date-fns';
 
 interface ExpensesByCategoryProps {

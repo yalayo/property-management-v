@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
-import Features from "@/components/landing/Features";
-import Pricing from "@/components/landing/Pricing";
-import Footer from "@/components/landing/Footer";
-import { Button } from "@/components/ui/button";
+import Features from "../landing/Features";
+import Pricing from "../landing/Pricing";
+import Footer from "../landing/Footer";
+import { Button } from "../ui/button";
 import { Home } from "lucide-react";
 
 export default function FeaturesPricing() {

@@ -2,16 +2,16 @@ import { useEffect, useState } from "react";
 import { Link, useParams, useLocation } from "wouter";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
-import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "../../hooks/use-toast";
+import { Button } from "../ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
 import { AlertCircle, ArrowLeft, CheckCircle, Loader2 } from "lucide-react";
 import { PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
-import { apiRequest } from "@/lib/queryClient";
-import PostPaymentRegistration from "@/components/payment/PostPaymentRegistration";
+import { apiRequest } from "../../lib/queryClient";
+import PostPaymentRegistration from "../payment/PostPaymentRegistration";
 
 // Initialize Stripe with the public key, not the secret key
-import { getStripe } from "@/lib/stripe";
+import { getStripe } from "../../lib/stripe";
 const stripePromise = getStripe();
 
 // Payment tiers configuration

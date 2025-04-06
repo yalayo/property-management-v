@@ -1,7 +1,7 @@
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "../ui/toaster";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Dashboard from "@/pages/dashboard";
@@ -24,9 +24,9 @@ import BankAccounts from "@/pages/bank-accounts";
 import SubscriptionTiers from "@/pages/subscription-tiers";
 import TenantOnboarding from "@/pages/tenant-onboarding";
 import ChangePassword from "@/pages/change-password";
-import { AuthProvider } from "@/hooks/use-auth";
-import { ProtectedRoute } from "@/components/protected-route";
-import { ChatbotWidget } from "@/components/chatbot/ChatbotWidget";
+import { AuthProvider } from "../../hooks/use-auth";
+import { ProtectedRoute } from "../protected-route";
+import { ChatbotWidget } from "../chatbot/ChatbotWidget";
 
 function Router() {
   return (

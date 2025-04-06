@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "../../hooks/use-toast";
 import { useLocation } from "wouter";
 import {
   Card,
@@ -8,7 +8,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "../ui/card";
 import {
   Table,
   TableBody,
@@ -16,8 +16,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
+} from "../ui/table";
+import { Button } from "../ui/button";
 import {
   BarChart3,
   ChevronLeft,
@@ -29,8 +29,8 @@ import {
   ShieldAlert,
   User,
 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
-import { Input } from "@/components/ui/input";
+import { apiRequest } from "../../lib/queryClient";
+import { Input } from "../ui/input";
 
 // Admin Layout (same as dashboard)
 function AdminLayout({ children }: { children: React.ReactNode }) {

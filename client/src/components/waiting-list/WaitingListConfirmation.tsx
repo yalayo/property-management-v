@@ -1,8 +1,8 @@
 import { CheckCircle, Clock } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 
 import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
+import { Button } from "../ui/button";
 import { Gift, ArrowRight } from "lucide-react";
 
 interface WaitingListConfirmationProps {

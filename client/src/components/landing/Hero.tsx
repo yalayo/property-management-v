@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
+import { Button } from "../ui/button";
 import { ArrowRight, CheckCircle, Star, BarChart, Home, Clock, Zap } from "lucide-react";
 
 export default function Hero() {

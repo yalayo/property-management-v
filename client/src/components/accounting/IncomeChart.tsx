@@ -13,8 +13,8 @@ import {
 } from 'recharts';
 import { format, parseISO, startOfMonth, endOfMonth, subMonths, isWithinInterval } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Card } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card } from '../ui/card';
+import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 import { Transaction } from '@shared/schema';
 
 interface IncomeChartProps {

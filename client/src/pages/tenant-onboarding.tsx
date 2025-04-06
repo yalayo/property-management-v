@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { useEffect } from 'react';
-import { useAuth } from '@/hooks/use-auth';
-import { useToast } from '@/hooks/use-toast';
-import { OnboardingWizard } from '@/components/tenant/OnboardingWizard';
+import { useAuth } from '../../hooks/use-auth';
+import { useToast } from '../../hooks/use-toast';
+import { OnboardingWizard } from '../tenant/OnboardingWizard';
 import { Loader2 } from 'lucide-react';
 
 export default function TenantOnboardingPage() {

@@ -2,15 +2,14 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
-import { apiRequest } from "@/lib/queryClient";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "../ui/card";
+import { useToast } from "../../hooks/use-toast";
+import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
+import { Label } from "../ui/label";
+import { Progress } from "../ui/progress";
+import { apiRequest } from "../../lib/queryClient";
 import { useLocation } from "wouter";
 import { ClipboardCheck, ChevronLeft, ChevronRight, CheckCircle } from "lucide-react";
 
@@ -35,7 +34,7 @@ interface SurveyProps {
   onCompleted?: (email: string) => void;
 }
 
-export default function Survey({ onCompleted }: SurveyProps) {
+export default function Survey(props) {
   const [location, navigate] = useLocation();
   const { toast } = useToast();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -44,10 +43,7 @@ export default function Survey({ onCompleted }: SurveyProps) {
   const [showEmailForm, setShowEmailForm] = useState(false);
 
   // Fetch questions from API
-  const { data: questions, isLoading, error } = useQuery({
-    queryKey: ['/api/questions'],
-    queryFn: () => fetch('/api/questions').then(res => res.json())
-  });
+  const questions = props.questions;
 
   // Handle email form
   const {

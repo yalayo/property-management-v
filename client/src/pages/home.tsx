@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import Survey from "@/components/landing/Survey";
-import Footer from "@/components/landing/Footer";
-import { useToast } from "@/hooks/use-toast";
+import Survey from "../landing/Survey";
+import Footer from "../landing/Footer";
+import { useToast } from "../../hooks/use-toast";
 
 export default function Home() {
   const [location, navigate] = useLocation();

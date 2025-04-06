@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
+import { useToast } from "../../hooks/use-toast";
+import { Button } from "../ui/button";
 import { Home, ArrowRight, CreditCard } from "lucide-react";
-import WaitingListConfirmation from "@/components/waiting-list/WaitingListConfirmation";
+import WaitingListConfirmation from "../waiting-list/WaitingListConfirmation";
 
 export default function WaitingList() {
   const [location, navigate] = useLocation();

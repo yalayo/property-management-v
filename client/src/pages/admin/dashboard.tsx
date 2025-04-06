@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "../../hooks/use-toast";
 import { useLocation } from "wouter";
 
 import {
@@ -9,14 +9,14 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "../ui/card";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
+} from "../ui/tabs";
+import { Button } from "../ui/button";
 import {
   BarChart3,
   Database,
@@ -26,7 +26,7 @@ import {
   ShieldAlert,
   UsersIcon,
 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest } from "../../lib/queryClient";
 
 // Admin dashboard layout
 function AdminLayout({ children }: { children: React.ReactNode }) {

@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { MessageCircle, Send, RefreshCw, MinimizeIcon, MaximizeIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useChatbot, ChatMessage } from "@/hooks/use-chatbot";
-import { cn } from "@/lib/utils";
+import { Button } from "../ui/button";
+import { Textarea } from "../ui/textarea";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../ui/card";
+import { ScrollArea } from "../ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+import { useChatbot, ChatMessage } from "../../hooks/use-chatbot";
+import { cn } from "../../lib/utils";
 
 type ChatbotWidgetProps = {
   className?: string;

@@ -4,12 +4,12 @@ import { Link } from 'wouter';
 import { format } from 'date-fns';
 import { ArrowLeft, Download, Calendar, Filter, FileText, BarChart, PieChart, TrendingUp, Clock } from 'lucide-react';
 
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '../ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Property, Transaction, TaxYear } from '@shared/schema';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '../../hooks/use-toast';
 import { 
   Table, 
   TableBody, 
@@ -17,7 +17,7 @@ import {
   TableHead, 
   TableHeader, 
   TableRow 
-} from '@/components/ui/table';
+} from '../ui/table';
 
 export default function ReportsPage() {
   const [selectedProperty, setSelectedProperty] = useState<number | "all">("all");

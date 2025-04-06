@@ -8,14 +8,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from '../ui/table';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
   DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
-import { Button } from '@/components/ui/button';
+} from '../ui/dropdown-menu';
+import { Button } from '../ui/button';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -25,12 +25,12 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Calendar } from '@/components/ui/calendar';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+} from '../ui/alert-dialog';
+import { Badge } from '../ui/badge';
+import { Input } from '../ui/input';
+import { Calendar } from '../ui/calendar';
+import { Checkbox } from '../ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Transaction } from '@shared/schema';
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay, subDays } from 'date-fns';
 import { 
@@ -42,8 +42,8 @@ import {
   Search, 
   Trash2 
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '../../hooks/use-toast';
+import { apiRequest } from '../../lib/queryClient';
 
 interface TransactionsTableProps {
   transactions: Transaction[];
