@@ -2,6 +2,7 @@ node_modules
 out
 .wrangler/
 .shadow-cljs/
+.nrepl-port
 
 # Frontend code
 public/js/cljs-runtime/
