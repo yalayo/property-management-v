@@ -1,38 +1,15 @@
+import React from "react";
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import Survey from "../landing/Survey";
-import Footer from "../landing/Footer";
-import { useToast } from "../../hooks/use-toast";
+import Footer from "../components/landing/Footer";
+import { useToast } from "../hooks/use-toast";
 
-export default function Home() {
+export default function Home(props) {
   const [location, navigate] = useLocation();
   const { toast } = useToast();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  
-  // Check if the user is logged in
-  const { data: user } = useQuery({
-    queryKey: ['/api/me'],
-    queryFn: () => 
-      fetch('/api/me')
-        .then(res => {
-          if (res.ok) return res.json();
-          return null;
-        })
-        .catch(() => null),
-    retry: false
-  });
 
-  useEffect(() => {
-    if (user) {
-      setIsLoggedIn(true);
-      
-      // If user is logged in, redirect to dashboard
-      navigate("/dashboard");
-    } else {
-      setIsLoggedIn(false);
-    }
-  }, [user, navigate]);
+  const isLoggedIn = props.isLoggedIn;
+  const user = props.user;
   
   // This handler will be called when the survey is completed
   const onSurveyCompleted = (email: string) => {
@@ -65,7 +42,7 @@ export default function Home() {
           </div>
         </div>
         
-        <Survey onCompleted={onSurveyCompleted} />
+        {props.children}
       </main>
       
       <Footer />
