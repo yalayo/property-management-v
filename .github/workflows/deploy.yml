@@ -24,7 +24,8 @@ jobs:
         run: |
           cd ./projects/cloudflare/
           npm install
-          npx babel ../../client/src/components/poc --out-dir ../../bases/frontend/js --extensions ".ts,.tsx,.jsx" --ignore "node_modules"
+          npx babel ../../client/src --out-dir ../../bases/frontend/js --extensions ".ts,.extensions ".ts,.tsx,.jsx" --ignore "node_modules"
+          npx tailwindcss -i ../../client/src/index.css -o ./public/css/index.css
           npm run release
           cp -R public/ out/
         
