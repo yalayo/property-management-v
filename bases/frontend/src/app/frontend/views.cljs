@@ -3,7 +3,7 @@
             [re-frame.core :as re-frame]
             [app.frontend.events :as events]
             [app.frontend.subs :as subs]
-            ["/pages/Home$default" :as home]
+            ["/pages/home$default" :as home]
             ["/components/landing/Survey$default" :as survey]))
 
 (js/console.log survey)
