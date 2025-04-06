@@ -9,7 +9,6 @@ import { useToast } from "../../hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 import { Label } from "../ui/label";
 import { Progress } from "../ui/progress";
-import { apiRequest } from "../../lib/queryClient";
 import { useLocation } from "wouter";
 import { ClipboardCheck, ChevronLeft, ChevronRight, CheckCircle } from "lucide-react";
 
@@ -55,31 +54,7 @@ export default function Survey(props) {
   });
 
   // Submit survey responses
-  const submitSurveyMutation = useMutation({
-    mutationFn: (data: { email?: string; responses: typeof responses }) => 
-      apiRequest('POST', '/api/survey', data),
-    onSuccess: (_, variables) => {
-      toast({
-        title: "Survey submitted",
-        description: "Thank you for completing our survey!",
-      });
-      
-      // If onCompleted callback was provided, pass the email
-      if (onCompleted && variables.email) {
-        onCompleted(variables.email);
-      } else {
-        // Otherwise navigate to waiting list
-        navigate("/waiting-list");
-      }
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: `Failed to submit survey: ${error.message}`,
-        variant: "destructive",
-      });
-    }
-  });
+  const submitSurveyMutation = null;
 
   // Effect to check if we're on the last question
   useEffect(() => {
