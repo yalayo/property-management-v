@@ -2,7 +2,9 @@
   (:require [re-frame.core :as re-frame :refer [after]]
             [cljs.reader]
             [app.frontend.db :as db]
-            [day8.re-frame.tracing :refer-macros [fn-traced]]))
+            [day8.re-frame.tracing :refer-macros [fn-traced]]
+            [day8.re-frame.http-fx]
+            [ajax.core :as ajax]))
 
 ;; Interceptors
 (def ->local-store (after db/db->local-store))
@@ -23,10 +25,26 @@
 (re-frame/reg-event-fx
  ::initialize-db
  [(re-frame/inject-cofx :local-store-db)]
- (fn-traced [{:keys [db local-store-db]} _]
-            (if (nil? local-store-db)
-              {:db db/default-db}
+ (fn-traced [{:keys [local-store-db]} _]
+            (if (empty? local-store-db)
+              {:http-xhrio {:method          :get
+                            :uri             "/api/questions" ; <- replace with your actual endpoint
+                            :timeout         8000
+                            :response-format (ajax/json-response-format {:keywords? true})
+                            :on-success      [::set-initial-db]
+                            :on-failure      [::handle-init-db-error]}}
               {:db local-store-db})))
+
+(re-frame/reg-event-db
+ ::set-initial-db
+ (fn-traced [_ [_ response]]
+            (assoc db/default-db :questions response)))
+
+(re-frame/reg-event-fx
+ ::handle-init-db-error
+ (fn-traced [{:keys [_]} [_ error]]
+            (js/console.error "Failed to initialize DB from API:" error)
+            {})) ;; you could also dispatch a notification or fallback logic here
 
 (re-frame/reg-event-db
  ::signin

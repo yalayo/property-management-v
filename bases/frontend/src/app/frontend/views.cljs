@@ -3,6 +3,7 @@
             [re-frame.core :as re-frame]
             [app.frontend.events :as events]
             [app.frontend.subs :as subs]
+            [app.frontend.survey.subs :as surver-subs]
             ["/pages/home$default" :as home]
             ["/components/landing/Survey$default" :as survey]))
 
@@ -14,4 +15,4 @@
 (defn app []
   [:<>
    [home-component {:isLoggedIn false :user {}}
-    [survey-component {:isLoading false}]]])
+    [survey-component {:isLoading false :questions @(re-frame/subscribe [::surver-subs/questions])}]]])

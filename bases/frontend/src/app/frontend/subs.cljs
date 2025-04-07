@@ -1,6 +1,11 @@
 (ns app.frontend.subs
   (:require [re-frame.core :as re-frame]))
 
+(re-frame.core/reg-sub
+ :initialised?
+ (fn  [db _]
+   (:initialised? db)))
+
 (re-frame/reg-sub
  ::logged-in
  (fn [db [_ _]]

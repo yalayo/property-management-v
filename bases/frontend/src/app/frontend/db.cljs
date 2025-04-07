@@ -1,6 +1,6 @@
 (ns app.frontend.db)
 
-(def default-db {:user-loged-in? false :show-form false :addresses []})
+(def default-db {:user-loged-in? false :initialised? false})
 
 ;; To be used to persist the state in the browser's local storage
 (def ls-key "ams-state")                         ;; localstore key
