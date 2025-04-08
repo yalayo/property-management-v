@@ -12,6 +12,13 @@
 ;; Interceptor Chain
 (def interceptors [->local-store])
 
+(defn edn-response-format []
+  {:read (fn [^goog.net.XhrIo xhrio]
+           (let [raw (.getResponseText xhrio)] 
+             (cljs.reader/read-string raw)))
+   :description  "EDN"
+   :content-type ["application/edn"]})
+
 ;; To restore db from the browser's local storage
 (re-frame/reg-cofx
  :local-store-db
@@ -30,7 +37,7 @@
               {:http-xhrio {:method          :get
                             :uri             "/api/questions" ; <- replace with your actual endpoint
                             :timeout         8000
-                            :response-format (ajax/json-response-format {:keywords? true})
+                            :response-format (edn-response-format)
                             :on-success      [::set-initial-db]
                             :on-failure      [::handle-init-db-error]}}
               {:db local-store-db})))
@@ -38,7 +45,10 @@
 (re-frame/reg-event-db
  ::set-initial-db
  (fn-traced [_ [_ response]]
-            (assoc db/default-db :questions response)))
+            (-> db/default-db
+                (assoc-in [:survey :questions] (:result response))
+                (assoc-in [:survey :current-question-index] 0)
+                (assoc-in [:survey :show-email-form] false))))
 
 (re-frame/reg-event-fx
  ::handle-init-db-error
