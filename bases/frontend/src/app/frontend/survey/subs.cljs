@@ -12,6 +12,6 @@
    (get-in db [:survey :current-question-index])))
 
 (re-frame/reg-sub
- ::current-question-index
+ ::show-email-form
  (fn [db]
    (get-in db [:survey :show-email-form])))
