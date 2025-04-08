@@ -37,13 +37,13 @@ interface SurveyProps {
 export default function Survey(props) {
   const [location, navigate] = useLocation();
   const { toast } = useToast();
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [responses, setResponses] = useState<Array<{ questionId: number; answer: boolean }>>([]);
   const [isLastQuestion, setIsLastQuestion] = useState(false);
-  const [showEmailForm, setShowEmailForm] = useState(false);
 
   // Defining all needed/used variables here
   const questions = props.questions;
+  const currentQuestionIndex = props.currentQuestionIndex;
+  const showEmailForm = props.showEmailForm;
   const isLoading = props.isLoading;
   const error = props.error;
 
@@ -67,7 +67,8 @@ export default function Survey(props) {
   }, [currentQuestionIndex, questions]);
 
   // Handle answer selection - only store the answer, don't navigate
-  const handleAnswerSelection = (answer: boolean) => {
+  const handleAnswerSelection = props.handleAnswerSelection;
+  /*const handleAnswerSelection = (answer: boolean) => {
     if (!questions) return;
 
     const question = questions[currentQuestionIndex];
@@ -82,15 +83,16 @@ export default function Survey(props) {
       // Add new response
       setResponses([...responses, { questionId: question.id, answer }]);
     }
-  };
+  };*/
 
-  const handlePrevious = () => {
+  const handlePrevious = props.handlePrevious;
+  /*const handlePrevious = () => {
     if (showEmailForm) {
       setShowEmailForm(false);
     } else if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(currentQuestionIndex - 1);
     }
-  };
+  };*/
 
   const onEmailSubmit = (data: { email: string }) => {
     submitSurveyMutation.mutate({ 

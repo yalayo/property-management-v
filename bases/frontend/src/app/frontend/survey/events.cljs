@@ -1,0 +1,19 @@
+(ns app.frontend.survey.events
+  (:require [re-frame.core :as re-frame :refer [after]]
+            [cljs.reader]
+            [app.frontend.db :as db]
+            [day8.re-frame.tracing :refer-macros [fn-traced]]
+            [day8.re-frame.http-fx]))
+
+(re-frame/reg-event-db
+ ::next-question
+ (fn [db]
+   (let [index (get-in db [:survey :current-question-index])]
+     (assoc-in db [:survey :current-question-index] (inc index)))))
+
+(re-frame/reg-event-db
+ ::previous-question
+ (fn [db]
+   (let [index (get-in db [:survey :current-question-index])]
+     (when (pos? index)
+       (assoc-in db [:survey :current-question-index] (dec index))))))
