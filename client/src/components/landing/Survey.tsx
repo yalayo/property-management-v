@@ -85,6 +85,7 @@ export default function Survey(props) {
     }
   };*/
 
+  const handleNext = props.handleNext;
   const handlePrevious = props.handlePrevious;
   /*const handlePrevious = () => {
     if (showEmailForm) {
@@ -261,28 +262,7 @@ export default function Survey(props) {
             {!showEmailForm ? (
               <Button
                 type="button"
-                onClick={() => {
-                  // Check if the current question has been answered
-                  const currentQuestionId = questions ? questions[currentQuestionIndex].id : -1;
-                  const isCurrentQuestionAnswered = responses.some(r => r.questionId === currentQuestionId);
-                  
-                  // If current question is answered or we're allowing navigation without answering
-                  if (isCurrentQuestionAnswered) {
-                    if (isLastQuestion) {
-                      setShowEmailForm(true);
-                    } else {
-                      setCurrentQuestionIndex(currentQuestionIndex + 1);
-                    }
-                  } else {
-                    // If not answered, set a dummy answer (default to "No")
-                    handleAnswerSelection(false);
-                    if (isLastQuestion) {
-                      setShowEmailForm(true);
-                    } else {
-                      setCurrentQuestionIndex(currentQuestionIndex + 1);
-                    }
-                  }
-                }}
+                onClick={handleNext}
                 size="sm"
               >
                 {isLastQuestion ? 'Complete Survey' : 'Next Question'}
