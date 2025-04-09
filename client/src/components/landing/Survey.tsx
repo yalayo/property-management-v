@@ -43,6 +43,7 @@ export default function Survey(props) {
   // Defining all needed/used variables here
   const questions = props.questions;
   const currentQuestionIndex = props.currentQuestionIndex;
+  const currentQuestionResponse = props.currentQuestionResponse;
   const showEmailForm = props.showEmailForm;
   const isLoading = props.isLoading;
   const error = props.error;
@@ -181,13 +182,13 @@ export default function Survey(props) {
                 <div className="space-y-5">
                   <RadioGroup 
                     value={
-                      responses.find(r => r.questionId === questions[currentQuestionIndex].id)?.answer.toString() || undefined
+                      currentQuestionResponse.toString() || undefined
                     }
                     onValueChange={(value) => handleAnswerSelection(value === "true")}
                     className="space-y-4"
                   >
                     <div className="flex items-start space-x-3 border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors">
-                      <RadioGroupItem value="true" id="yes" className="mt-1" />
+                      <RadioGroupItem value="true" id="yes" className="mt-1"/>
                       <div>
                         <Label htmlFor="yes" className="text-base font-medium">Yes</Label>
                         <p className="text-sm text-slate-500 mt-1">I experience this challenge</p>
