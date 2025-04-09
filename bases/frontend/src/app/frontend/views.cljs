@@ -18,5 +18,6 @@
                        :questions @(re-frame/subscribe [::survey-subs/questions])
                        :currentQuestionIndex @(re-frame/subscribe [::survey-subs/current-question-index])
                        :showEmailForm @(re-frame/subscribe [::survey-subs/show-email-form])
-                       :handleAnswerSelection #(re-frame/dispatch [::survey-events/next-question])
+                       :handleAnswerSelection #(re-frame/dispatch [::survey-events/answer-question %])
+                       :handleNext #(re-frame/dispatch [::survey-events/next-question])
                        :handlePrevious #(re-frame/dispatch [::survey-events/previous-question])}]]])
