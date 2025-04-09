@@ -12,6 +12,13 @@
    (get-in db [:survey :current-question-index])))
 
 (re-frame/reg-sub
+ ::current-question-response
+ (fn [db]
+   (let [index (get-in db [:survey :current-question-index])
+         id (keyword (str index))]
+     (get-in db [:survey :responses id]))))
+
+(re-frame/reg-sub
  ::show-email-form
  (fn [db]
    (get-in db [:survey :show-email-form])))
