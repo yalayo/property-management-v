@@ -5,13 +5,18 @@
             [app.frontend.subs :as subs]
             [app.frontend.survey.subs :as survey-subs]
             [app.frontend.survey.events :as survey-events]
+            [app.frontend.user.views :as user-view]
             ["/pages/home$default" :as home]
             ["/components/landing/Survey$default" :as survey]))
+
+(defn app []
+  [:<>
+   [user-view/login-component]])
 
 (def home-component (r/adapt-react-class home))
 (def survey-component (r/adapt-react-class survey))
 
-(defn app []
+#_(defn app []
   [:<>
    [home-component {:isLoggedIn false :user {}}
     [survey-component {:isLoading false 
