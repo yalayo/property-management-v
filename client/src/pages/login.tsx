@@ -1,12 +1,13 @@
-import { Button } from "../ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
-import { Input } from "../ui/input";
-import { Label } from "../ui/label";
-import { useAuth } from "../../hooks/use-auth";
+import React from "react";
+import { Button } from "../components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { useAuth } from "../hooks/use-auth";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../components/ui/form";
 import { Redirect, Link } from "wouter";
 import { Loader2 } from "lucide-react";
 
@@ -17,8 +18,8 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-export default function Login() {
-  const { user, loginMutation } = useAuth();
+export default function Login(props) {
+  const user = props.user;
   
   // Handle redirects for logged in users
   if (user) {
@@ -39,7 +40,7 @@ export default function Login() {
   });
 
   const onSubmit = (data: LoginFormValues) => {
-    loginMutation.mutate(data);
+    //loginMutation.mutate(data);
   };
 
   return (
@@ -112,9 +113,9 @@ export default function Login() {
                 <Button 
                   type="submit" 
                   className="w-full"
-                  disabled={loginMutation.isPending}
+                  disabled={true}
                 >
-                  {loginMutation.isPending ? (
+                  {false ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Logging in...
