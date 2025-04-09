@@ -6,6 +6,13 @@
             [day8.re-frame.http-fx]))
 
 (re-frame/reg-event-db
+ ::answer-question
+ (fn [db [_ val]]
+   (let [index (get-in db [:survey :current-question-index])
+         id (keyword (str index))]
+     (assoc-in db [:survey :responses id] val))))
+
+(re-frame/reg-event-db
  ::next-question
  (fn [db]
    (let [index (get-in db [:survey :current-question-index])]
