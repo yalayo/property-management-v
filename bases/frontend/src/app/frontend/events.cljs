@@ -42,13 +42,17 @@
                             :on-failure      [::handle-init-db-error]}}
               {:db local-store-db})))
 
+(defn initialize-responses []
+  (into {} (map (fn [k] [(keyword (str k)) true]) (range 20))))
+
 (re-frame/reg-event-db
  ::set-initial-db
  (fn-traced [_ [_ response]]
             (-> db/default-db
                 (assoc-in [:survey :questions] (:result response))
                 (assoc-in [:survey :current-question-index] 0)
-                (assoc-in [:survey :show-email-form] false))))
+                (assoc-in [:survey :show-email-form] false)
+                (assoc-in [:survey :responses] (initialize-responses)))))
 
 (re-frame/reg-event-fx
  ::handle-init-db-error
