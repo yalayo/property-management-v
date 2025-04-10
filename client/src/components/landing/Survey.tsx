@@ -45,20 +45,9 @@ export default function Survey(props) {
   const currentQuestionIndex = props.currentQuestionIndex;
   const currentQuestionResponse = props.currentQuestionResponse;
   const showEmailForm = props.showEmailForm;
+  const isEmailFormPending = props.isEmailFormPending;
   const isLoading = props.isLoading;
   const error = props.error;
-
-  // Handle email form
-  const {
-    register,
-    handleSubmit,
-    formState: { errors }
-  } = useForm<{ email: string }>({
-    resolver: zodResolver(emailSchema)
-  });
-
-  // Submit survey responses
-  const submitSurveyMutation = null;
 
   // Effect to check if we're on the last question
   useEffect(() => {
@@ -71,13 +60,7 @@ export default function Survey(props) {
   const handleAnswerSelection = props.handleAnswerSelection;
   const handleNext = props.handleNext;
   const handlePrevious = props.handlePrevious;
-
-  const onEmailSubmit = (data: { email: string }) => {
-    submitSurveyMutation.mutate({ 
-      email: data.email, 
-      responses 
-    });
-  };
+  const handleSubmit = props.handleSubmit;
 
   if (isLoading) {
     return (
@@ -195,7 +178,7 @@ export default function Survey(props) {
                   </p>
                 </div>
                 
-                <form onSubmit={handleSubmit(onEmailSubmit)}>
+                <div>
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="email" className="text-sm font-medium">Email address</Label>
@@ -203,12 +186,11 @@ export default function Survey(props) {
                         type="email"
                         id="email"
                         placeholder="you@example.com"
-                        {...register("email")}
+                        value={props.email}
+                        onChange={props.onChangeEmail}
                         className="mt-1"
                       />
-                      {errors.email && (
-                        <p className="mt-1 text-sm text-destructive">{errors.email.message}</p>
-                      )}
+                      {/*errors.email && (<p className="mt-1 text-sm text-destructive">{errors.email.message}</p>) nothing for the moment */}
                     </div>
                     
                     <div>
@@ -217,7 +199,7 @@ export default function Survey(props) {
                       </p>
                     </div>
                   </div>
-                </form>
+                </div>
               </div>
             )}
           </CardContent>
@@ -247,11 +229,11 @@ export default function Survey(props) {
               </Button>
             ) : (
               <Button
-                onClick={handleSubmit(onEmailSubmit)}
-                disabled={submitSurveyMutation.isPending}
+                onClick={handleSubmit}
+                disabled={isEmailFormPending}
                 size="sm"
               >
-                {submitSurveyMutation.isPending ? 'Submitting...' : 'Join Waiting List'}
+                {isEmailFormPending ? 'Submitting...' : 'Join Waiting List'}
               </Button>
             )}
           </CardFooter>
