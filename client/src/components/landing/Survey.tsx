@@ -69,32 +69,8 @@ export default function Survey(props) {
 
   // Handle answer selection - only store the answer, don't navigate
   const handleAnswerSelection = props.handleAnswerSelection;
-  /*const handleAnswerSelection = (answer: boolean) => {
-    if (!questions) return;
-
-    const question = questions[currentQuestionIndex];
-    const existingResponseIndex = responses.findIndex(r => r.questionId === question.id);
-    
-    if (existingResponseIndex >= 0) {
-      // Update existing response
-      const updatedResponses = [...responses];
-      updatedResponses[existingResponseIndex].answer = answer;
-      setResponses(updatedResponses);
-    } else {
-      // Add new response
-      setResponses([...responses, { questionId: question.id, answer }]);
-    }
-  };*/
-
   const handleNext = props.handleNext;
   const handlePrevious = props.handlePrevious;
-  /*const handlePrevious = () => {
-    if (showEmailForm) {
-      setShowEmailForm(false);
-    } else if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
-    }
-  };*/
 
   const onEmailSubmit = (data: { email: string }) => {
     submitSurveyMutation.mutate({ 
