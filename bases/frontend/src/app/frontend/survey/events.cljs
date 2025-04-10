@@ -17,12 +17,31 @@
  (fn [db]
    (let [index (get-in db [:survey :current-question-index])]
      (if (>= index 19)
-       (assoc-in db [:survey :show-email-form] true)
+       (-> db
+           (assoc-in [:survey :show-email-form] true)
+           (assoc-in [:survey :current-question-index] (inc index)))
        (assoc-in db [:survey :current-question-index] (inc index))))))
 
 (re-frame/reg-event-db
  ::previous-question
  (fn [db]
-   (let [index (get-in db [:survey :current-question-index])]
+   (let [index (get-in db [:survey :current-question-index])
+         show-email-form? (get-in db [:survey :show-email-form])]
      (when (pos? index)
-       (assoc-in db [:survey :current-question-index] (dec index))))))
+       (if (and (<= index 20) show-email-form?)
+         (-> db
+             (assoc-in [:survey :show-email-form] false)
+             (assoc-in [:survey :current-question-index] (dec index)))
+         (assoc-in db [:survey :current-question-index] (dec index)))))))
+
+(re-frame/reg-event-db
+ ::update-email-form
+ (fn [db [_ id val]]
+   (assoc-in db [:survey :form id] val)))
+
+(re-frame/reg-event-db
+ ::save-survey
+ (fn [db]
+   (let [survey-data {:responses (get-in db [:survey :responses])
+                      :email (get-in db [:survey :form :email])}]
+     (js/console.log "Send to backend:" survey-data))))
