@@ -22,3 +22,14 @@
  ::show-email-form
  (fn [db]
    (get-in db [:survey :show-email-form])))
+
+(re-frame/reg-sub
+ ::email-form-pending
+ (fn [db]
+   (let [pending? (get-in db [:survey :email-form-pending])]
+     (if (some? pending?) pending? false))))
+
+(re-frame/reg-sub
+ ::form
+ (fn [db [_ id]]
+   (get-in db [:survey :form id] "")))
