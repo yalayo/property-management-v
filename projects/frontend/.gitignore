@@ -1,0 +1,13 @@
+node_modules
+out
+.wrangler/
+.shadow-cljs/
+.nrepl-port
+
+# Frontend code
+resources/public/js/
+resources/public/landing/
+resources/public/platform/js/
+resources/public/survey/
+js/
+resources/public/css/index.css
