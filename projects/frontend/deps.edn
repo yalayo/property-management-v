@@ -1,12 +1,8 @@
 {:paths ["src" "resources/js"]
  :deps {poly/web {:local/root "../../bases/web"}
         poly/main-ui {:local/root "../../components/main-ui"}
-        poly/home-ui {:local/root "../../components/home-ui"}
         poly/auth-ui {:local/root "../../components/auth-ui"}
         poly/register-ui {:local/root "../../components/register-ui"}
-        poly/plans-ui {:local/root "../../components/plans-ui"}
-        poly/dashboard-ui {:local/root "../../components/dashboard-ui"}
-        poly/request-ui {:local/root "../../components/request-ui"}
 
         org.clojure/clojure {:mvn/version "1.12.2"}
         org.clojure/clojurescript {:mvn/version "1.12.42"}
