@@ -1,20 +1,11 @@
 (ns app.cloudflare.core
   (:require [integrant.core :as ig]
             [app.worker.core :as worker]
-            [app.price.interface :as price]
-            [app.request.interface :as request]
-            [app.user.interface :as user]
-            [app.settings.interface :as settings]))
+            [app.user.interface :as user]))
 
 (def config
   {::user/routes {}
-   ::price/routes {}
-   ::request/routes {}
-   ::settings/routes {}
-   ::worker/handler {:user-routes (ig/ref ::user/routes) 
-                     :settings-routes (ig/ref ::settings/routes)
-                     :price-routes (ig/ref ::price/routes)
-                     :request-routes (ig/ref ::request/routes)}})
+   ::worker/handler {:user-routes (ig/ref ::user/routes)}})
 
 (defonce system (atom nil))
 
