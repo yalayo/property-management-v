@@ -3,6 +3,7 @@
         poly/main-ui {:local/root "../../components/main-ui"}
         poly/auth-ui {:local/root "../../components/auth-ui"}
         poly/register-ui {:local/root "../../components/register-ui"}
+        poly/survey-ui {:local/root "../../components/survey-ui"}
 
         org.clojure/clojure {:mvn/version "1.12.2"}
         org.clojure/clojurescript {:mvn/version "1.12.42"}

@@ -6,6 +6,7 @@
             [app.main-ui.analytics :as analytics]
             [app.auth-ui.views      :as auth]
             [app.register-ui.interface :as register]
+            [app.survey-ui.views :as survey]
             ;; React page imports (thin wrappers — no separate Polylith component needed)
             ["/pages/main$default"                :as main-js]
             ["/pages/home$default"                :as home-js]
@@ -36,7 +37,8 @@
      {:activeComponent
       (r/as-element
        (case active
-         "home"               [home {:tracker analytics/event}]
+         "home"               [home {:tracker analytics/event}
+                               (r/as-element [survey/component "survey"])]
          "auth"               [auth/component {:id "auth"}]
          "register"           [register/component {:id "register"}]
          "dashboard"          [dashboard {:onLogout #(re-frame/dispatch [::events/sign-out])}]
