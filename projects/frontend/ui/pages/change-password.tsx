@@ -3,9 +3,8 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Redirect, useLocation } from "wouter";
-import { useToast } from "../../hooks/use-toast";
-import { apiRequest } from "../../lib/queryClient";
-import { useAuth } from "../../hooks/use-auth";
+import { useToast } from "../hooks/use-toast";
+import { apiRequest } from "../lib/queryClient";
 
 import {
   Card,
@@ -14,9 +13,9 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "../ui/card";
-import { Input } from "../ui/input";
-import { Button } from "../ui/button";
+} from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Button } from "../components/ui/button";
 import {
   Form,
   FormControl,
@@ -24,7 +23,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "../ui/form";
+} from "../components/ui/form";
 import { Loader2, ShieldCheck } from "lucide-react";
 
 // Form validation schema
@@ -46,13 +45,12 @@ const passwordChangeSchema = z
 
 type PasswordChangeFormValues = z.infer<typeof passwordChangeSchema>;
 
-export default function ChangePassword() {
+export default function ChangePassword(props) {
+  const { user } = props;
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const [, navigate] = useLocation();
-  const { user } = useAuth();
 
-  // If user is not logged in, redirect to login
   if (!user) {
     return <Redirect to="/login" />;
   }

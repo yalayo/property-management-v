@@ -12,19 +12,19 @@ import {
   Briefcase,
   CreditCard
 } from "lucide-react";
-import { useAuth } from "../../hooks/use-auth";
 import { Button } from "../ui/button";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
+  user?: { fullName?: string | null; username?: string; tier?: string | null };
+  onLogout?: () => void;
 }
 
-const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
-  const { user, logoutMutation } = useAuth();
+const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, user, onLogout }) => {
   const [location] = useLocation();
 
   const handleLogout = () => {
-    logoutMutation.mutate();
+    if (onLogout) onLogout();
   };
 
   const sidebarLinks = [

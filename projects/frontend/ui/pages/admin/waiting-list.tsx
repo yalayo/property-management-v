@@ -8,7 +8,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "../ui/card";
+} from "../../components/ui/card";
 import {
   Table,
   TableBody,
@@ -16,8 +16,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../ui/table";
-import { Button } from "../ui/button";
+} from "../../components/ui/table";
+import { Button } from "../../components/ui/button";
 import {
   BarChart3,
   ChevronLeft,
@@ -30,7 +30,7 @@ import {
   User,
 } from "lucide-react";
 import { apiRequest } from "../../lib/queryClient";
-import { Input } from "../ui/input";
+import { Input } from "../../components/ui/input";
 
 // Admin Layout (same as dashboard)
 function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -256,7 +256,7 @@ export default function WaitingListAdmin() {
                       </TableCell>
                       <TableCell>
                         {new Date(entry.joinedAt).toLocaleString(undefined, {
-                          day: 'numeric',
+                          day: "numeric",
                           month: 'short',
                           year: 'numeric',
                           hour: '2-digit',

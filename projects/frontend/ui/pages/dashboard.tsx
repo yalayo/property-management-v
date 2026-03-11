@@ -1,19 +1,16 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Home, Users, FileText, BarChart2, Upload, LogOut } from "lucide-react";
-import { Button } from "../ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import PropertyList from "../dashboard/PropertyList";
-import TenantPayments from "../dashboard/TenantPayments";
-import FileUpload from "../dashboard/FileUpload";
-import UserAnalytics from "../dashboard/UserAnalytics";
-import DashboardHeader from "../dashboard/DashboardHeader";
-import DashboardSummary from "../dashboard/DashboardSummary";
-import { useAuth } from "../../hooks/use-auth";
-
-export default function Dashboard() {
+import { Button } from "../components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import PropertyList from "../components/dashboard/PropertyList";
+import TenantPayments from "../components/dashboard/TenantPayments";
+import FileUpload from "../components/dashboard/FileUpload";
+import UserAnalytics from "../components/dashboard/UserAnalytics";
+import DashboardHeader from "../components/dashboard/DashboardHeader";
+import DashboardSummary from "../components/dashboard/DashboardSummary";
+export default function Dashboard(props) {
   const [activeTab, setActiveTab] = useState("overview");
-  const { logoutMutation } = useAuth();
   const [_, navigate] = useLocation();
 
   return (
@@ -80,21 +77,10 @@ export default function Dashboard() {
             <Button 
               variant="outline" 
               className="w-full"
-              disabled={logoutMutation.isPending}
-              onClick={() => {
-                logoutMutation.mutate(undefined, {
-                  onSuccess: () => {
-                    navigate('/login');
-                  }
-                });
-              }}
+              onClick={() => props.onLogout()}
             >
-              {logoutMutation.isPending ? (
-                <div className="mr-3 h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              ) : (
-                <LogOut className="mr-3 h-5 w-5" />
-              )}
-              {logoutMutation.isPending ? 'Logging out...' : 'Logout'}
+              <LogOut className="mr-3 h-5 w-5" />
+              Logout
             </Button>
           </div>
         </div>

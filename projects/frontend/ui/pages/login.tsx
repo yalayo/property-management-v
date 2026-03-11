@@ -2,8 +2,6 @@ import React from "react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../components/ui/card";
 import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
-import { useAuth } from "../hooks/use-auth";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -40,7 +38,7 @@ export default function Login(props) {
   });
 
   const onSubmit = (data: LoginFormValues) => {
-    //loginMutation.mutate(data);
+    props.onSubmit(data);
   };
 
   return (
@@ -110,12 +108,12 @@ export default function Login(props) {
                     </FormItem>
                   )}
                 />
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="w-full"
-                  disabled={true}
+                  disabled={props.isLoading}
                 >
-                  {false ? (
+                  {props.isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Logging in...
@@ -129,7 +127,7 @@ export default function Login(props) {
           </CardContent>
           <CardFooter className="flex flex-col space-y-2">
             <div className="text-sm text-muted-foreground text-center">
-              Don't have an account?{" "}
+              Don"t have an account?{" "}
               <Link href="/register" className="text-primary hover:underline">
                 Register
               </Link>

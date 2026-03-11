@@ -3,33 +3,32 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { Plus, Edit, Trash2, FileText, Download, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { useLocation } from 'wouter';
-import { queryClient, apiRequest } from '../../lib/queryClient';
-import { useToast } from '../../hooks/use-toast';
-import { useAuth } from '../../hooks/use-auth';
+import { queryClient, apiRequest } from '../lib/queryClient';
+import { useToast } from '../hooks/use-toast';
 
 // UI Components
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
-import { Label } from '../ui/label';
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { Badge } from '../ui/badge';
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
+import { Label } from "../components/ui/label";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { Badge } from "../components/ui/badge";
 import { 
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../ui/select";
-import { Loader2 } from 'lucide-react';
+} from "../components/ui/select";
+import { Loader2 } from "lucide-react";
 
 // Import schema types
 import { BankAccount, BankStatement } from '@shared/schema';
 
-const BankAccountsPage = () => {
-  const { user } = useAuth();
+const BankAccountsPage = (props) => {
+  const { user } = props;
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState<string>('accounts');

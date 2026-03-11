@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
-import { Button } from "../ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
 import { Loader2, CheckCircle } from "lucide-react";
-import { apiRequest } from "../../lib/queryClient";
-import { useToast } from "../../hooks/use-toast";
+import { apiRequest } from "../lib/queryClient";
+import { useToast } from "../hooks/use-toast";
 
 export default function SubscriptionSuccess() {
   const [isLoading, setIsLoading] = useState(true);
@@ -18,7 +18,7 @@ export default function SubscriptionSuccess() {
       try {
         // Get the payment intent ID from the URL query parameters
         const url = new URL(window.location.href);
-        const paymentIntentId = url.searchParams.get('payment_intent');
+        const paymentIntentId = url.searchParams.get("payment_intent");
         const redirectStatus = url.searchParams.get('redirect_status');
 
         if (!paymentIntentId) {

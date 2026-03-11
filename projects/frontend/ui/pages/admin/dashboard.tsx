@@ -9,14 +9,14 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "../ui/card";
+} from "../../components/ui/card";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "../ui/tabs";
-import { Button } from "../ui/button";
+} from "../../components/ui/tabs";
+import { Button } from "../../components/ui/button";
 import {
   BarChart3,
   Database,
@@ -77,7 +77,7 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
             ) : (
               <LogOut className="h-4 w-4 mr-2" />
             )}
-            {isLoggingOut ? 'Logging out...' : 'Logout'}
+            {isLoggingOut ? "Logging out..." : "Logout"}
           </Button>
         </div>
       </header>
