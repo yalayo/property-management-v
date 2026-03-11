@@ -9,12 +9,8 @@
 
 (defn component [id]
   [register
-   {:id id
-    :name @(re-frame/subscribe [::subs/sign-up-form :name])
-    :onChangeName #(re-frame/dispatch [::events/update-sign-up :name (-> % .-target .-value)])
-    :user @(re-frame/subscribe [::subs/sign-up-form :email])
-    :onChangeUser #(re-frame/dispatch [::events/update-sign-up :email (-> % .-target .-value)])
-    :password @(re-frame/subscribe [::subs/sign-up-form :password])
-    :onChangePassword #(re-frame/dispatch [::events/update-sign-up :password (-> % .-target .-value)])
-    :submitRegister #(re-frame/dispatch [::events/sign-up])
+   {:id        id
+    :user      @(re-frame/subscribe [::subs/current-user])
+    :isPending @(re-frame/subscribe [::subs/sign-up-loading])
+    :onSubmit  (fn [data] (re-frame/dispatch [::events/sign-up (js->clj data :keywordize-keys true)]))
     :showSignIn #(re-frame/dispatch [::events/show-sign-in])}])

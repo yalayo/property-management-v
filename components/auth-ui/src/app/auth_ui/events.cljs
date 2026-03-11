@@ -3,24 +3,18 @@
             [cljs.reader]
             [app.auth-ui.config :as config]
             [app.auth-ui.db :as db]
-            [app.dashboard-ui.events :as dashboard]
             [day8.re-frame.http-fx]
             [ajax.edn :as ajax-edn]))
 
 (def local-storage-interceptor (after db/db->local-store))
 
-(re-frame/reg-event-db
- ::update-sign-in
- [local-storage-interceptor]
- (fn [db [_ id val]]
-   (assoc-in db [:user :sign-in :form id] val)))
-
 (re-frame/reg-event-fx
  ::sign-in
- (fn [{:keys [db]} _]
-   {:http-xhrio {:method          :post
+ (fn [{:keys [db]} [_ form-data]]
+   {:db (assoc-in db [:user :sign-in :loading?] true)
+    :http-xhrio {:method          :post
                  :uri             (str (config/get-api-url) "/api/sign-in")
-                 :params          (get-in db [:user :sign-in :form])
+                 :params          form-data
                  :format          (ajax-edn/edn-request-format)
                  :response-format (ajax-edn/edn-response-format)
                  :timeout         8000
@@ -31,24 +25,21 @@
  ::signed-in
  [local-storage-interceptor]
  (fn [{:keys [db]} [_ response]]
-   (let [user (:user response)
+   (let [user  (:user response)
          token (:token response)
-         active-section "dashboard"
-         db' (-> db
-                 (assoc-in [:user :token] token)
-                 (assoc-in [:user :info] user)
-                 (assoc-in [:user :user-loged-in?] true)
-                 (assoc-in [:user :sign-in :form] nil)
-                 (assoc-in [:ui :active-section] active-section))]
-     {:db db'
-      :dispatch-n [[::dashboard/get-current-subscription]
-                   [::dashboard/get-payment-info]]})))
+         db'   (-> db
+                   (assoc-in [:user :sign-in :loading?] false)
+                   (assoc-in [:user :token] token)
+                   (assoc-in [:user :info] user)
+                   (assoc-in [:user :user-loged-in?] true)
+                   (assoc-in [:ui :active-section] "dashboard"))]
+     {:db db'})))
 
 (re-frame/reg-event-fx
  ::sign-in-error
- (fn [{:keys [_]} [_ error]]
+ (fn [{:keys [db]} [_ error]]
    (js/console.error "Signin failed:" error)
-   {}))
+   {:db (assoc-in db [:user :sign-in :loading?] false)}))
 
 (re-frame/reg-event-db
  ::show-sign-up

@@ -3,7 +3,8 @@
             [cljs.reader]
             [app.main-ui.db :as db]
             [day8.re-frame.http-fx]
-            [ajax.edn :as ajax-edn]))
+            [ajax.edn :as ajax-edn]
+            [app.auth-ui.config :as config]))
 
 (def local-storage-interceptor (after db/db->local-store))
 
@@ -85,3 +86,26 @@
  [local-storage-interceptor]
  (fn [db [_ _]]
    (assoc-in db [:user :active-form] :sign-up)))
+
+(re-frame/reg-event-fx
+ ::sign-out
+ (fn [{:keys [db]} _]
+   {:http-xhrio {:method          :post
+                 :uri             (str (config/get-api-url) "/api/sign-out")
+                 :format          (ajax-edn/edn-request-format)
+                 :response-format (ajax-edn/edn-response-format)
+                 :timeout         8000
+                 :on-success      [::signed-out]
+                 :on-failure      [::signed-out]}
+    :db (assoc-in db [:user :sign-out :loading?] true)}))
+
+(re-frame/reg-event-db
+ ::signed-out
+ [local-storage-interceptor]
+ (fn [db _]
+   (-> db
+       (assoc-in [:user :info] nil)
+       (assoc-in [:user :token] nil)
+       (assoc-in [:user :user-loged-in?] false)
+       (assoc-in [:user :sign-out :loading?] false)
+       (assoc-in [:ui :active-section] "auth"))))

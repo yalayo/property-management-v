@@ -2,16 +2,11 @@
   (:require [re-frame.core :as re-frame]))
 
 (re-frame/reg-sub
- ::active-form
- (fn [db [_ _]]
-   (get-in db [:user :active-form] :sign-up)))
+ ::current-user
+ (fn [db _]
+   (get-in db [:user :info])))
 
 (re-frame/reg-sub
- ::sign-in-form
- (fn [db [_ id]]
-   (get-in db [:user :sign-in :form id] "")))
-
-(re-frame/reg-sub
- ::sign-up-form
- (fn [db [_ id]]
-   (get-in db [:user :sign-up :form id] "")))
+ ::sign-in-loading
+ (fn [db _]
+   (get-in db [:user :sign-in :loading?] false)))

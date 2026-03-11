@@ -5,8 +5,7 @@
             [app.web.interceptors :refer [->local-store]]
             [day8.re-frame.tracing :refer-macros [fn-traced]]
             [day8.re-frame.http-fx]
-            [app.web.config :as config]
-            [app.home-ui.events :as home-events]))
+            [app.web.config :as config]))
 
 ;; Interceptor Chain
 (def interceptors [->local-store])
@@ -16,7 +15,6 @@
  :local-store-db
  (fn [cofx _]
    (assoc cofx :local-store-db
-          ;; read in todos from localstore, and process into a sorted map
           (into (sorted-map)
                 (some->> (.getItem js/localStorage db/ls-key)
                          (cljs.reader/read-string))))))
@@ -25,7 +23,4 @@
  ::initialize-db
  [(re-frame/inject-cofx :local-store-db)]
  (fn [{:keys [local-store-db]} _]
-   {:db (merge db/default-db local-store-db)
-    :dispatch-n
-    [[::home-events/get-plans (config/get-api-url)]
-     [::home-events/get-settings (config/get-api-url)]]}))
+   {:db (merge db/default-db local-store-db)}))
