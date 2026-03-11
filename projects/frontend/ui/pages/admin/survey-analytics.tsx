@@ -8,7 +8,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "../ui/card";
+} from "../../components/ui/card";
 import {
   Table,
   TableBody,
@@ -16,8 +16,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../ui/table";
-import { Button } from "../ui/button";
+} from "../../components/ui/table";
+import { Button } from "../../components/ui/button";
 import {
   BarChart3,
   ChevronLeft,
@@ -275,7 +275,7 @@ export default function SurveyAnalytics() {
                     <CardHeader className="pb-2">
                       <div className="flex justify-between">
                         <CardTitle className="text-sm">
-                          {response.email ? `User: ${response.email}` : 'Anonymous User'}
+                          {response.email ? `User: ${response.email}` : ""}
                         </CardTitle>
                         <CardDescription>
                           {new Date(response.submittedAt).toLocaleString()}
