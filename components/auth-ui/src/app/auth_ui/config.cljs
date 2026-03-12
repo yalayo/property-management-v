@@ -5,7 +5,7 @@
   (str/includes? (.-host js/window.location) "localhost:8081"))
 
 (defn cloudflare-prod? []
-  (str/includes? (.-host js/window.location) "alm.busqandote.com"))
+  (str/includes? (.-host js/window.location) "miete.busqandote.com"))
 
 (defn internal? []
   (str/includes? (.-host js/window.location) "localhost:9090"))
