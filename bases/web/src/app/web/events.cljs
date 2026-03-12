@@ -21,6 +21,6 @@
 
 (re-frame/reg-event-fx
  ::initialize-db
- [(re-frame/inject-cofx :local-store-db)]
+ (into [(re-frame/inject-cofx :local-store-db)] interceptors)
  (fn [{:keys [local-store-db]} _]
    {:db (merge db/default-db local-store-db)}))
