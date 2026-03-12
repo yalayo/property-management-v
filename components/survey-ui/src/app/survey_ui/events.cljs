@@ -1,8 +1,11 @@
 (ns app.survey-ui.events
-  (:require [re-frame.core :as re-frame]
+  (:require [re-frame.core :as re-frame :refer [after]]
+            [app.survey-ui.db :as db]
             [app.auth-ui.config :as config]
             [day8.re-frame.http-fx]
             [ajax.edn :as ajax-edn]))
+
+(def local-storage-interceptor (after db/db->local-store))
 
 (re-frame/reg-event-fx
  ::load-questions
@@ -33,6 +36,7 @@
 
 (re-frame/reg-event-db
  ::answer-question
+ [local-storage-interceptor]
  (fn [db [_ answer]]
    (let [idx      (get-in db [:survey :current-question-index] 0)
          questions (get-in db [:survey :questions] [])
@@ -41,6 +45,7 @@
 
 (re-frame/reg-event-db
  ::next-question
+ [local-storage-interceptor]
  (fn [db _]
    (let [idx      (get-in db [:survey :current-question-index] 0)
          questions (get-in db [:survey :questions] [])
@@ -51,6 +56,7 @@
 
 (re-frame/reg-event-db
  ::prev-question
+ [local-storage-interceptor]
  (fn [db _]
    (if (get-in db [:survey :show-email-form?])
      (assoc-in db [:survey :show-email-form?] false)
@@ -59,6 +65,7 @@
 
 (re-frame/reg-event-db
  ::update-email
+ [local-storage-interceptor]
  (fn [db [_ email]]
    (assoc-in db [:survey :email] email)))
 
@@ -84,6 +91,7 @@
 
 (re-frame/reg-event-db
  ::survey-submitted
+ [local-storage-interceptor]
  (fn [db _]
    (-> db
        (assoc-in [:survey :email-pending?] false)
