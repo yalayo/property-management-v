@@ -32,3 +32,32 @@
                         (if (:success result)
                           (cf/response-edn {:ok true} {:status 201})
                           (cf/response-error "Failed to create property"))))))
+
+(defn update-property [{:keys [request env route]}]
+  (let [id (-> route :path-params :id)]
+    (js-await [data (cf/request->edn request)]
+              (let [{:keys [name address city postal-code country units
+                            purchase-price current-value]} data]
+                (js-await [result (db/run+ env
+                                          {:update :properties
+                                           :set    {:name           name
+                                                    :address        address
+                                                    :city           city
+                                                    :postal_code    postal-code
+                                                    :country        country
+                                                    :units          units
+                                                    :purchase_price purchase-price
+                                                    :current_value  current-value}
+                                           :where  [:= :id (js/parseInt id 10)]})]
+                          (if (:success result)
+                            (cf/response-edn {:ok true} {:status 200})
+                            (cf/response-error "Failed to update property")))))))
+
+(defn delete-property [{:keys [env route]}]
+  (let [id (-> route :path-params :id)]
+    (js-await [result (db/run+ env
+                               {:delete-from :properties
+                                :where       [:= :id (js/parseInt id 10)]})]
+              (if (:success result)
+                (cf/response-edn {:ok true} {:status 200})
+                (cf/response-error "Failed to delete property")))))

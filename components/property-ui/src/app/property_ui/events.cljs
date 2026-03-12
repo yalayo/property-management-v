@@ -59,6 +59,44 @@
    (js/console.error "Failed to save property:" error)
    (assoc-in db [:properties :saving?] false)))
 
+(re-frame/reg-event-fx
+ ::update-property
+ (fn [{:keys [db]} [_ id property-data]]
+   {:db         (assoc-in db [:properties :saving?] true)
+    :http-xhrio {:method          :put
+                 :uri             (str (config/get-api-url) "/api/properties/" id)
+                 :params          property-data
+                 :format          (ajax-edn/edn-request-format)
+                 :response-format (ajax-edn/edn-response-format)
+                 :timeout         8000
+                 :on-success      [::property-updated]
+                 :on-failure      [::property-save-error]}}))
+
+(re-frame/reg-event-fx
+ ::property-updated
+ [local-storage-interceptor]
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:properties :saving?] false)
+    :dispatch [::load-properties]}))
+
+(re-frame/reg-event-fx
+ ::delete-property
+ (fn [{:keys [db]} [_ id]]
+   {:db         (assoc-in db [:properties :saving?] true)
+    :http-xhrio {:method          :delete
+                 :uri             (str (config/get-api-url) "/api/properties/" id)
+                 :response-format (ajax-edn/edn-response-format)
+                 :timeout         8000
+                 :on-success      [::property-deleted]
+                 :on-failure      [::property-save-error]}}))
+
+(re-frame/reg-event-fx
+ ::property-deleted
+ [local-storage-interceptor]
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:properties :saving?] false)
+    :dispatch [::load-properties]}))
+
 (re-frame/reg-event-db
  ::go-to-dashboard
  [local-storage-interceptor]

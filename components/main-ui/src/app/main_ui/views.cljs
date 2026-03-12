@@ -8,6 +8,7 @@
             [app.register-ui.interface :as register]
             [app.plans-ui.interface :as plans-ui]
             [app.property-ui.interface :as property-ui]
+            [app.property-ui.subs :as property-subs]
             [app.survey-ui.views :as survey]
             ;; React page imports (thin wrappers — no separate Polylith component needed)
             ["/pages/main$default"                :as main-js]
@@ -35,7 +36,8 @@
 (defn component []
   (let [active       @(re-frame/subscribe [::subs/active-section])
         current-user @(re-frame/subscribe [::subs/current-user])
-        survey-email @(re-frame/subscribe [::subs/survey-email])]
+        survey-email @(re-frame/subscribe [::subs/survey-email])
+        properties   @(re-frame/subscribe [::property-subs/properties])]
     [main
      {:activeComponent
       (r/as-element
@@ -45,7 +47,9 @@
          "auth"               [auth/component {:id "auth"}]
          "register"           [register/component {:id "register"}]
          "dashboard"          [dashboard {:onLogout              #(re-frame/dispatch [::events/sign-out])
-                                         :onNavigateToProperties #(re-frame/dispatch [::events/change-active-section "properties"])}]
+                                         :onNavigateToProperties #(re-frame/dispatch [::events/change-active-section "properties"])
+                                         :onLoadData            #(property-ui/load-properties)
+                                         :properties            (clj->js properties)}]
          "onboarding"         [onboarding {}]
          "bank-accounts"      [bank-accounts {:user current-user}]
          "change-password"    [change-password {:user current-user}]

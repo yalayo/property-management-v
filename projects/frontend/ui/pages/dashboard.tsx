@@ -1,5 +1,5 @@
 import React from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Home, Users, FileText, BarChart2, Upload, LogOut } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -14,6 +14,10 @@ export default function Dashboard(props) {
   const [activeTab, setActiveTab] = useState("overview");
   const onNavigateToProperties = props.onNavigateToProperties;
   const [_, navigate] = useLocation();
+
+  useEffect(() => {
+    if (props.onLoadData) props.onLoadData();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -98,7 +102,7 @@ export default function Dashboard(props) {
             <div className="space-y-6">
               {activeTab === "overview" && (
                 <>
-                  <DashboardSummary />
+                  <DashboardSummary properties={props.properties} />
                   <TenantPayments />
                 </>
               )}

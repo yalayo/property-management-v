@@ -13,17 +13,30 @@
     (let [properties @(re-frame/subscribe [::subs/properties])
           saving?    @(re-frame/subscribe [::subs/saving?])]
       [property-list
-       {:properties    (clj->js properties)
-        :isSaving      saving?
-        :onAddProperty (fn [data]
-                         (let [d (js->clj data :keywordize-keys true)]
-                           (re-frame/dispatch
-                            [::events/add-property
-                             {:name            (:name d)
-                              :address         (:address d)
-                              :city            (:city d)
-                              :postal-code     (:postalCode d)
-                              :units           (:units d)
-                              :purchase-price  (:purchasePrice d)
-                              :current-value   (:currentValue d)}])))
-        :onGoBack      #(re-frame/dispatch [::events/go-to-dashboard])}])))
+       {:properties       (clj->js properties)
+        :isSaving         saving?
+        :onAddProperty    (fn [data]
+                            (let [d (js->clj data :keywordize-keys true)]
+                              (re-frame/dispatch
+                               [::events/add-property
+                                {:name           (:name d)
+                                 :address        (:address d)
+                                 :city           (:city d)
+                                 :postal-code    (:postalCode d)
+                                 :units          (:units d)
+                                 :purchase-price (:purchasePrice d)
+                                 :current-value  (:currentValue d)}])))
+        :onEditProperty   (fn [id data]
+                            (let [d (js->clj data :keywordize-keys true)]
+                              (re-frame/dispatch
+                               [::events/update-property id
+                                {:name           (:name d)
+                                 :address        (:address d)
+                                 :city           (:city d)
+                                 :postal-code    (:postalCode d)
+                                 :units          (:units d)
+                                 :purchase-price (:purchasePrice d)
+                                 :current-value  (:currentValue d)}])))
+        :onDeleteProperty (fn [id]
+                            (re-frame/dispatch [::events/delete-property id]))
+        :onGoBack         #(re-frame/dispatch [::events/go-to-dashboard])}])))
