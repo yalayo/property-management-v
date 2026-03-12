@@ -10,10 +10,6 @@
   [:<>
    (main/component)])
 
-(defn platform-component []
-  [:<>
-   (main/component)])
-
 #_(defn platform-component []
   (let [user-loged-in? @(re-frame/subscribe [::subs/logged-in])]
     [:<>
