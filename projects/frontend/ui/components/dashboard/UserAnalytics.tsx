@@ -1,5 +1,4 @@
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { 
   BarChart,
@@ -16,52 +15,7 @@ import {
   LineChart,
   Line
 } from "recharts";
-import { Skeleton } from "../ui/skeleton";
-
 export default function UserAnalytics() {
-  // Fetch analytics data for the user
-  const { data: analytics, isLoading, error } = useQuery({
-    queryKey: ['/api/user/analytics'],
-    queryFn: () => fetch('/api/user/analytics').then(res => {
-      if (!res.ok) {
-        throw new Error('Failed to fetch analytics data');
-      }
-      return res.json();
-    })
-  });
-
-  if (isLoading) {
-    return (
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle>Your Property Performance</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <Skeleton className="h-[20px] w-[250px]" />
-            <Skeleton className="h-[300px] w-full" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Your Property Performance</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="bg-amber-50 p-4 rounded-md">
-            <p className="text-amber-800">This feature is currently being set up for your account. Analytics will be available after you've added properties and collected rental payments.</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // If analytics endpoint isn't set up yet, show a placeholder with sample data
   const monthlyIncome = [
     { name: 'Jan', income: 3200 },
     { name: 'Feb', income: 3200 },
@@ -94,7 +48,7 @@ export default function UserAnalytics() {
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
-                  data={analytics?.monthlyIncome || monthlyIncome}
+                  data={monthlyIncome}
                   margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
@@ -120,7 +74,7 @@ export default function UserAnalytics() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={analytics?.expenseCategories || expenseCategories}
+                    data={expenseCategories}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
@@ -130,7 +84,7 @@ export default function UserAnalytics() {
                     nameKey="name"
                     label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                   >
-                    {(analytics?.expenseCategories || expenseCategories).map((entry, index) => (
+                    {expenseCategories.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>

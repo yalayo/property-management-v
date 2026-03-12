@@ -1,30 +1,9 @@
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
 import { TierSelection } from "../components/payment/TierSelection";
 import DashboardLayout from "../components/layouts/DashboardLayout";
 
-function SubscriptionTiers() {
-  const { data: user, isLoading, isError } = useQuery({ 
-    queryKey: ["/api/user"] 
-  });
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="flex flex-col justify-center items-center min-h-screen">
-        <h1 className="text-2xl font-bold mb-4">Error Loading User Data</h1>
-        <p className="text-muted-foreground">Please try refreshing the page</p>
-      </div>
-    );
-  }
+function SubscriptionTiers(props) {
+  const user = props.user;
 
   return (
     <DashboardLayout>

@@ -1,6 +1,5 @@
 import React from "react";
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "../../hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Button } from "../ui/button";
@@ -48,41 +47,9 @@ export default function FileUpload() {
   const { toast } = useToast();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedFileData, setSelectedFileData] = useState<FileData | null>(null);
-  
-  // Fetch previously uploaded files
-  const { data: files, isLoading } = useQuery({
-    queryKey: ['/api/files'],
-    queryFn: () => fetch('/api/files').then(res => res.json())
-  });
+  const [isUploading, setIsUploading] = useState(false);
 
-  // Setup file upload mutation
-  const uploadMutation = useMutation({
-    mutationFn: (formData: FormData) => {
-      return fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include'
-      }).then(res => {
-        if (!res.ok) throw new Error('Upload failed');
-        return res.json();
-      });
-    },
-    onSuccess: () => {
-      setSelectedFile(null);
-      //queryClient.invalidateQueries({ queryKey: ['/api/files'] });
-      toast({
-        title: "File uploaded successfully",
-        description: "Your file is being processed with AI-powered data extraction. This may take a minute.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Upload failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  });
+  const files: FileData[] = [];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -125,7 +92,21 @@ export default function FileUpload() {
 
     const formData = new FormData();
     formData.append('file', selectedFile);
-    uploadMutation.mutate(formData);
+
+    setIsUploading(true);
+    fetch('/api/upload', { method: 'POST', body: formData, credentials: 'include' })
+      .then(res => {
+        if (!res.ok) throw new Error('Upload failed');
+        return res.json();
+      })
+      .then(() => {
+        setSelectedFile(null);
+        toast({ title: "File uploaded successfully", description: "Your file is being processed. This may take a minute." });
+      })
+      .catch((error: Error) => {
+        toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+      })
+      .finally(() => setIsUploading(false));
   };
 
   // Function to get file icon based on file type
@@ -401,7 +382,7 @@ export default function FileUpload() {
               type="file"
               accept=".xlsx,.xls,.csv,.pdf,.doc,.docx,.txt"
               onChange={handleFileChange}
-              disabled={uploadMutation.isPending}
+              disabled={isUploading}
             />
             <p className="text-sm text-gray-500">
               Upload bank statements, property data, or tenant documents for AI analysis
@@ -409,10 +390,10 @@ export default function FileUpload() {
           </div>
           <Button 
             type="submit" 
-            disabled={!selectedFile || uploadMutation.isPending}
+            disabled={!selectedFile || isUploading}
             className="flex items-center"
           >
-            {uploadMutation.isPending ? (
+            {isUploading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Uploading...
@@ -430,11 +411,7 @@ export default function FileUpload() {
         <div className="mt-8">
           <h3 className="text-lg font-medium mb-4">Processed Documents</h3>
           
-          {isLoading ? (
-            <div className="flex justify-center p-4">
-              <Loader2 className="h-6 w-6 animate-spin text-primary-600" />
-            </div>
-          ) : files && files.length > 0 ? (
+          {files.length > 0 ? (
             <div className="space-y-3">
               {files.map((file: FileData) => (
                 <div key={file.id} className="p-4 border rounded-md hover:bg-gray-50 transition-colors">

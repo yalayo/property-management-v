@@ -1,5 +1,4 @@
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { 
   BarChart,
@@ -16,44 +15,9 @@ import {
 } from "recharts";
 
 export default function SurveyAnalytics() {
-  // Fetch survey analytics
-  const { data: analytics, isLoading, error } = useQuery({
-    queryKey: ['/api/admin/survey-analytics'],
-    queryFn: () => fetch('/api/admin/survey-analytics').then(res => res.json())
-  });
+  const analytics: any[] = [];
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Survey Results</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex justify-center p-8">
-            <div className="animate-spin w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Survey Results</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="bg-red-50 p-4 rounded-md">
-            <p className="text-red-800">Failed to load survey results. Please try again later.</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // If no data, show empty state
-  if (!analytics || analytics.length === 0) {
+  if (analytics.length === 0) {
     return (
       <Card>
         <CardHeader>

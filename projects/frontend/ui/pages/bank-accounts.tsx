@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
 import { Plus, Edit, Trash2, FileText, Download, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { useLocation } from 'wouter';
-import { queryClient, apiRequest } from '../lib/queryClient';
 import { useToast } from '../hooks/use-toast';
 
 // UI Components
@@ -24,8 +22,27 @@ import {
 } from "../components/ui/select";
 import { Loader2 } from "lucide-react";
 
-// Import schema types
-import { BankAccount, BankStatement } from '@shared/schema';
+type BankAccount = {
+  id: number;
+  accountName: string;
+  bankName: string;
+  accountNumber: string;
+  currency: string;
+  currentBalance: number;
+  isDefault: boolean;
+};
+
+type BankStatement = {
+  id: number;
+  statementDate: string;
+  startDate: string;
+  endDate: string;
+  startingBalance: number;
+  endingBalance: number;
+  currency: string;
+  transactionCount: number;
+  processed: boolean;
+};
 
 const BankAccountsPage = (props) => {
   const { user } = props;
@@ -48,156 +65,18 @@ const BankAccountsPage = (props) => {
   // Form validation state
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
 
-  // Fetch bank accounts
-  const {
-    data: bankAccounts = [],
-    isLoading: isLoadingAccounts,
-    isError: isAccountsError,
-    error: accountsError
-  } = useQuery({
-    queryKey: ['/api/bank-accounts'],
-    enabled: !!user
-  });
+  const bankAccounts: BankAccount[] = [];
+  const isLoadingAccounts = false;
+  const isAccountsError = false;
+  const bankStatements: BankStatement[] = [];
+  const isLoadingStatements = false;
+  const refetchStatements = () => {};
 
-  // Fetch bank statements for the selected account
-  const {
-    data: bankStatements = [],
-    isLoading: isLoadingStatements,
-    isError: isStatementsError,
-    error: statementsError,
-    refetch: refetchStatements
-  } = useQuery({
-    queryKey: ['/api/bank-accounts', selectedAccount?.id, 'statements'],
-    queryFn: async () => {
-      if (!selectedAccount) return [];
-      const response = await apiRequest('GET', `/api/bank-accounts/${selectedAccount.id}/statements`);
-      return response.json();
-    },
-    enabled: !!selectedAccount
-  });
-
-  // Create a new bank account
-  const createAccountMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await apiRequest('POST', '/api/bank-accounts', data);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/bank-accounts'] });
-      toast({
-        title: 'Success!',
-        description: 'Bank account created successfully.',
-      });
-      setIsNewAccountDialogOpen(false);
-      resetNewAccountForm();
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Error!',
-        description: `Failed to create bank account: ${error.message}`,
-        variant: 'destructive',
-      });
-    }
-  });
-
-  // Update an existing bank account
-  const updateAccountMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: any }) => {
-      const response = await apiRequest('PUT', `/api/bank-accounts/${id}`, data);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/bank-accounts'] });
-      toast({
-        title: 'Success!',
-        description: 'Bank account updated successfully.',
-      });
-      setIsEditAccountDialogOpen(false);
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Error!',
-        description: `Failed to update bank account: ${error.message}`,
-        variant: 'destructive',
-      });
-    }
-  });
-
-  // Delete a bank account
-  const deleteAccountMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const response = await apiRequest('DELETE', `/api/bank-accounts/${id}`);
-      if (!response.ok) {
-        throw new Error('Failed to delete bank account');
-      }
-      return true;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/bank-accounts'] });
-      toast({
-        title: 'Success!',
-        description: 'Bank account deleted successfully.',
-      });
-      setIsDeleteAccountDialogOpen(false);
-      if (selectedAccount) {
-        setSelectedAccount(null);
-      }
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Error!',
-        description: `Failed to delete bank account: ${error.message}`,
-        variant: 'destructive',
-      });
-    }
-  });
-
-  // Process a bank statement
-  const processStatementMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const response = await apiRequest('POST', `/api/bank-statements/${id}/process`, {});
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/bank-accounts', selectedAccount?.id, 'statements'] });
-      toast({
-        title: 'Success!',
-        description: 'Bank statement processed successfully.',
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Error!',
-        description: `Failed to process bank statement: ${error.message}`,
-        variant: 'destructive',
-      });
-    }
-  });
-
-  // Delete a bank statement
-  const deleteStatementMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const response = await apiRequest('DELETE', `/api/bank-statements/${id}`);
-      if (!response.ok) {
-        throw new Error('Failed to delete bank statement');
-      }
-      return true;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/bank-accounts', selectedAccount?.id, 'statements'] });
-      toast({
-        title: 'Success!',
-        description: 'Bank statement deleted successfully.',
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Error!',
-        description: `Failed to delete bank statement: ${error.message}`,
-        variant: 'destructive',
-      });
-    }
-  });
+  const [isCreating, setIsCreating] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isDeletingStatement, setIsDeletingStatement] = useState(false);
 
   // Select the first account by default when data is loaded
   useEffect(() => {
@@ -241,10 +120,9 @@ const BankAccountsPage = (props) => {
       return;
     }
 
-    createAccountMutation.mutate({
-      ...newAccountData,
-      userId: user!.id
-    });
+    toast({ title: 'Coming soon', description: 'Bank account management will be connected via ClojureScript.' });
+    setIsNewAccountDialogOpen(false);
+    resetNewAccountForm();
   };
 
   // Handle edit account form submit
@@ -265,17 +143,14 @@ const BankAccountsPage = (props) => {
       return;
     }
 
-    updateAccountMutation.mutate({
-      id: selectedAccount.id,
-      data: newAccountData
-    });
+    toast({ title: 'Coming soon', description: 'Bank account management will be connected via ClojureScript.' });
+    setIsEditAccountDialogOpen(false);
   };
 
   // Handle delete account
   const handleDeleteAccount = () => {
-    if (selectedAccount) {
-      deleteAccountMutation.mutate(selectedAccount.id);
-    }
+    toast({ title: 'Coming soon', description: 'Bank account management will be connected via ClojureScript.' });
+    setIsDeleteAccountDialogOpen(false);
   };
 
   // Handle opening edit dialog
@@ -293,13 +168,13 @@ const BankAccountsPage = (props) => {
   };
 
   // Handle process statement
-  const handleProcessStatement = (statement: BankStatement) => {
-    processStatementMutation.mutate(statement.id);
+  const handleProcessStatement = (_statement: BankStatement) => {
+    toast({ title: 'Coming soon', description: 'Statement processing will be connected via ClojureScript.' });
   };
 
   // Handle delete statement
-  const handleDeleteStatement = (statement: BankStatement) => {
-    deleteStatementMutation.mutate(statement.id);
+  const handleDeleteStatement = (_statement: BankStatement) => {
+    toast({ title: 'Coming soon', description: 'Statement management will be connected via ClojureScript.' });
   };
 
   if (isLoadingAccounts) {
@@ -310,17 +185,6 @@ const BankAccountsPage = (props) => {
     );
   }
 
-  if (isAccountsError) {
-    return (
-      <div className="p-6 text-center">
-        <h1 className="text-2xl font-bold text-red-500">Error loading bank accounts</h1>
-        <p className="mt-2">{(accountsError as Error).message}</p>
-        <Button className="mt-4" onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/bank-accounts'] })}>
-          Try Again
-        </Button>
-      </div>
-    );
-  }
 
   return (
     <div className="container py-6">
@@ -589,8 +453,8 @@ const BankAccountsPage = (props) => {
             }}>
               Cancel
             </Button>
-            <Button onClick={handleCreateAccount} disabled={createAccountMutation.isPending}>
-              {createAccountMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button onClick={handleCreateAccount} disabled={isCreating}>
+              {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create Account
             </Button>
           </DialogFooter>
@@ -680,8 +544,8 @@ const BankAccountsPage = (props) => {
             <Button variant="outline" onClick={() => setIsEditAccountDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateAccount} disabled={updateAccountMutation.isPending}>
-              {updateAccountMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button onClick={handleUpdateAccount} disabled={isUpdating}>
+              {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Changes
             </Button>
           </DialogFooter>
@@ -712,8 +576,8 @@ const BankAccountsPage = (props) => {
             <Button variant="outline" onClick={() => setIsDeleteAccountDialogOpen(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDeleteAccount} disabled={deleteAccountMutation.isPending}>
-              {deleteAccountMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button variant="destructive" onClick={handleDeleteAccount} disabled={isDeleting}>
+              {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Delete Account
             </Button>
           </DialogFooter>
