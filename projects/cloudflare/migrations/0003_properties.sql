@@ -1,4 +1,4 @@
-CREATE TABLE `properties` (
+CREATE TABLE `props_properties` (
     `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     `user_id` TEXT NOT NULL,
     `name` TEXT NOT NULL,

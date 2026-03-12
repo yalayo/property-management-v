@@ -1,4 +1,4 @@
-CREATE TABLE `plans` (
+CREATE TABLE `props_plans` (
     `id`          TEXT PRIMARY KEY,
     `name`        TEXT NOT NULL,
     `price`       TEXT NOT NULL,
@@ -9,7 +9,7 @@ CREATE TABLE `plans` (
     `active`      INTEGER DEFAULT 1
 );
 
-INSERT INTO plans (id, name, price, frequency, description, features, sort_order, active) VALUES
+INSERT INTO props_plans (id, name, price, frequency, description, features, sort_order, active) VALUES
 ('done_for_you',
  'Done for You',
  '35',

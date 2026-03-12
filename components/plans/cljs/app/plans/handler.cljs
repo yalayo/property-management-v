@@ -5,7 +5,7 @@
 
 (defn get-plans [{:keys [_request _env]}]
   (js-await [{:keys [success results]} (db/query+ {:select [:*]
-                                                    :from   [:plans]
+                                                    :from   [:props_plans]
                                                     :where  [:= :active 1]
                                                     :order-by [[:sort_order :asc]]})]
             (if success

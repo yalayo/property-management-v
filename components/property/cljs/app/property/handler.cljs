@@ -5,7 +5,7 @@
 
 (defn get-properties [{:keys [_request _env]}]
   (js-await [{:keys [success results]} (db/query+ {:select   [:*]
-                                                    :from     [:properties]
+                                                    :from     [:props_properties]
                                                     :order-by [[:id :desc]]})]
             (if success
               (cf/response-edn {:properties results} {:status 200})
@@ -16,7 +16,7 @@
             (let [{:keys [user-id name address city postal-code country units
                           acquisition-date purchase-price current-value]} data]
               (js-await [result (db/run+ env
-                                        {:insert-into [:properties]
+                                        {:insert-into [:props_properties]
                                          :columns     [:user_id :name :address :city
                                                        :postal_code :country :units
                                                        :acquisition_date :purchase_price
@@ -39,7 +39,7 @@
               (let [{:keys [name address city postal-code country units
                             purchase-price current-value]} data]
                 (js-await [result (db/run+ env
-                                          {:update :properties
+                                          {:update :props_properties
                                            :set    {:name           name
                                                     :address        address
                                                     :city           city
@@ -56,7 +56,7 @@
 (defn delete-property [{:keys [env route]}]
   (let [id (-> route :path-params :id)]
     (js-await [result (db/run+ env
-                               {:delete-from :properties
+                               {:delete-from :props_properties
                                 :where       [:= :id (js/parseInt id 10)]})]
               (if (:success result)
                 (cf/response-edn {:ok true} {:status 200})

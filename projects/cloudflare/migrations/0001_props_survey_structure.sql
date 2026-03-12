@@ -1,11 +1,11 @@
-CREATE TABLE `questions` (
+CREATE TABLE `props_questions` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`text` text NOT NULL,
 	`order` integer NOT NULL,
 	`active` integer DEFAULT 1
 );
 
-CREATE TABLE `survey_responses` (
+CREATE TABLE `props_survey_responses` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`email` text,
 	`responses` text NOT NULL,
@@ -13,7 +13,7 @@ CREATE TABLE `survey_responses` (
 );
 
 --> Initial questions
-INSERT INTO questions (id, text, `order`, active) VALUES
+INSERT INTO props_questions (id, text, `order`, active) VALUES
 (1, 'Besitzen Sie mehrere Mietobjekte?', 1, 1),
 (2, 'Haben Sie Schwierigkeiten, Mietzahlungen nachzuverfolgen?', 2, 1),
 (3, 'Verwenden Sie derzeit Excel zur Verwaltung Ihrer Immobilien?', 3, 1),
