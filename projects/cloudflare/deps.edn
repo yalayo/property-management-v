@@ -5,8 +5,9 @@
         com.github.seancorfield/honeysql {:mvn/version "2.6.1270"}
         
         ;; Bricks
-        poly/worker {:local/root "../../bases/worker"}
-        poly/user {:local/root "../../components/user"}}
+        poly/worker  {:local/root "../../bases/worker"}
+        poly/user    {:local/root "../../components/user"}
+        poly/survey  {:local/root "../../components/survey"}}
  :paths ["src" "resources"]
  :aliases {:dev {:extra-deps {thheller/shadow-cljs {:mvn/version "3.2.1"}
                               binaryage/devtools {:mvn/version "1.0.7"}}}}}

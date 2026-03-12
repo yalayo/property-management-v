@@ -1,11 +1,14 @@
 (ns app.cloudflare.core
   (:require [integrant.core :as ig]
             [app.worker.core :as worker]
-            [app.user.interface :as user]))
+            [app.user.interface :as user]
+            [app.survey.interface :as survey]))
 
 (def config
-  {::user/routes {}
-   ::worker/handler {:user-routes (ig/ref ::user/routes)}})
+  {::user/routes   {}
+   ::survey/routes {}
+   ::worker/handler {:user-routes   (ig/ref ::user/routes)
+                     :survey-routes (ig/ref ::survey/routes)}})
 
 (defonce system (atom nil))
 
