@@ -11,10 +11,9 @@ import { Redirect } from "wouter";
 import { Loader2 } from "lucide-react";
 
 const registerSchema = z.object({
-  username: z.string().min(3, { message: "Username must be at least 3 characters" }),
   email: z.string().email({ message: "Please enter a valid email" }),
+  name: z.string().optional(),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
-  fullName: z.string().optional(),
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
@@ -27,10 +26,9 @@ export default function Register(props) {
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      username: "",
       email: "",
+      name: "",
       password: "",
-      fullName: "",
     },
   });
 
@@ -89,19 +87,6 @@ export default function Register(props) {
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="username"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Username</FormLabel>
-                      <FormControl>
-                        <Input placeholder="johndoe" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
                   name="email"
                   render={({ field }) => (
                     <FormItem>
@@ -115,7 +100,7 @@ export default function Register(props) {
                 />
                 <FormField
                   control={form.control}
-                  name="fullName"
+                  name="name"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Full Name (Optional)</FormLabel>

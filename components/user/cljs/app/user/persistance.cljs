@@ -24,8 +24,8 @@
   (js-await [hashed (hash-password password "temporary salt")]
             (let [user-id (js/crypto.randomUUID)
                   query {:insert-into [:accounts]
-                         :columns    [:user_id :name :email :password]
-                         :values     [[user-id name email hashed]]}]
+                         :columns    [:user_id :product :name :email :password]
+                         :values     [[user-id "props" name email hashed]]}]
               (js-await [{:keys [success results]} (db/run+ env query)]
                         (if success
                           {:result results}

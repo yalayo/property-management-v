@@ -10,7 +10,7 @@ import { Redirect } from "wouter";
 import { Loader2 } from "lucide-react";
 
 const loginSchema = z.object({
-  username: z.string().min(3, { message: "Username must be at least 3 characters" }),
+  user: z.string().email({ message: "Please enter a valid email" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
 });
 
@@ -32,7 +32,7 @@ export default function Login(props) {
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: "",
+      user: "",
       password: "",
     },
   });
@@ -84,12 +84,12 @@ export default function Login(props) {
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="username"
+                  name="user"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Username</FormLabel>
+                      <FormLabel>Email</FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter your username" {...field} />
+                        <Input type="email" placeholder="john.doe@example.com" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
