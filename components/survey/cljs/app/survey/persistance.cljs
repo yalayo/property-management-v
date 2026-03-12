@@ -3,10 +3,12 @@
             [app.worker.async :refer [js-await]]))
 
 (defn get-questions []
-  (let [query {:select   [:id :text :order]
+  ;; "order" is a reserved SQL keyword — order by :id instead (seeded data has id = order).
+  ;; honey.sql/raw in ClojureScript causes an IFn runtime error, so we avoid it here.
+  (let [query {:select   [:id :text]
                :from     [:questions]
                :where    [:= :active 1]
-               :order-by [[:order :asc]]}]
+               :order-by [[:id :asc]]}]
     (js-await [{:keys [success results]} (db/query+ query)]
               (if success
                 results
