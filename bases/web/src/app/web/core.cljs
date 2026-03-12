@@ -27,15 +27,6 @@
 (defn restart []
   (stop)
   (start))
-  
-(defn ^:dev/after-load mount-root []
-  (re-frame/clear-subscription-cache!)
-  (.render root (r/as-element [views/platform-component])))
-  
-(defn init []
-  #_(start)
-  (re-frame/dispatch-sync [::events/initialize-db])
-  (mount-root))
 
 (defn ^:dev/after-load mount-home []
   (re-frame/clear-subscription-cache!)
