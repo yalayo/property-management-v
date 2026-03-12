@@ -6,8 +6,8 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "dev": "shadow-cljs watch home platform -A:dev",
-    "release": "shadow-cljs release home platform -A:dev",
+    "dev": "shadow-cljs watch home -A:dev",
+    "release": "shadow-cljs release home -A:dev",
     "old": "tsx server/index.ts",
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
