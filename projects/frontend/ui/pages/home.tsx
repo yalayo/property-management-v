@@ -1,50 +1,46 @@
 import React from "react";
-import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
 import Footer from "../components/landing/Footer";
-import { useToast } from "../hooks/use-toast";
+import { Button } from "../components/ui/button";
+import { Home as HomeIcon, LogIn, UserPlus } from "lucide-react";
 
 export default function Home(props) {
-  const [location, navigate] = useLocation();
-  const { toast } = useToast();
+  const onSignIn = props.onSignIn;
+  const onSignUp = props.onSignUp;
 
-  const isLoggedIn = props.isLoggedIn;
-  const user = props.user;
-  
-  // This handler will be called when the survey is completed
-  const onSurveyCompleted = (email: string) => {
-    // Navigate to waiting list with email parameter
-    navigate(`/waiting-list?email=${encodeURIComponent(email)}`);
-    
-    toast({
-      title: "Survey completed!",
-      description: "Thank you for your feedback. You've been added to our waiting list.",
-    });
-  };
-
-  if (isLoggedIn) {
-    return null; // Will redirect to dashboard
-  }
-  
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-white">
-      <main className="pt-8 pb-16">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="mb-10">
-            <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl md:text-6xl mb-6">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-indigo-500">
-                PropManager
-              </span>
-            </h1>
-            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-              The property management solution for German landlords
-            </p>
+    <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-white flex flex-col">
+      {/* Header */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16 items-center">
+            <div className="flex items-center">
+              <div className="bg-primary/10 rounded-md p-1.5">
+                <HomeIcon className="h-6 w-6 text-primary" />
+              </div>
+              <span className="ml-2 text-xl font-bold text-slate-800">PropManager</span>
+            </div>
+            <div className="flex items-center gap-3">
+              {onSignIn && (
+                <Button variant="outline" size="sm" onClick={onSignIn}>
+                  <LogIn className="mr-2 h-4 w-4" />
+                  Sign In
+                </Button>
+              )}
+              {onSignUp && (
+                <Button size="sm" onClick={onSignUp}>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Create Account
+                </Button>
+              )}
+            </div>
           </div>
         </div>
-        
+      </header>
+
+      <main className="flex-grow pt-8 pb-16">
         {props.children}
       </main>
-      
+
       <Footer />
     </div>
   );

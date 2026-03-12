@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../components/ui/form";
 import { Redirect } from "wouter";
-import { Loader2 } from "lucide-react";
+import { Loader2, Home } from "lucide-react";
 
 const loginSchema = z.object({
   user: z.string().email({ message: "Please enter a valid email" }),
@@ -42,7 +42,24 @@ export default function Login(props) {
   };
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-b from-background to-background/90">
+    <div className="flex flex-col min-h-screen bg-gradient-to-b from-background to-background/90">
+      {props.onGoHome && (
+        <header className="bg-white border-b border-slate-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex h-14 items-center">
+              <button
+                type="button"
+                onClick={props.onGoHome}
+                className="flex items-center text-slate-600 hover:text-slate-900 transition-colors"
+              >
+                <Home className="h-5 w-5 mr-2" />
+                <span className="font-semibold">PropManager</span>
+              </button>
+            </div>
+          </div>
+        </header>
+      )}
+      <div className="flex flex-1">
       <div className="hidden md:flex md:w-1/2 bg-primary/10 flex-col justify-center items-center p-10">
         <div className="max-w-md">
           <h1 className="text-4xl font-bold mb-6 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
@@ -138,6 +155,7 @@ export default function Login(props) {
             </div>
           </CardFooter>
         </Card>
+      </div>
       </div>
     </div>
   );
