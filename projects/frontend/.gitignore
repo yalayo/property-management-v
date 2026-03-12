@@ -6,8 +6,8 @@ out
 
 # Frontend code
 resources/public/js/
+resources/public/home/js/
 resources/public/landing/
-resources/public/platform/js/
 resources/public/survey/
 js/
 resources/public/css/index.css
