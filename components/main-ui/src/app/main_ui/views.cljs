@@ -32,7 +32,8 @@
 
 (defn component []
   (let [active       @(re-frame/subscribe [::subs/active-section])
-        current-user @(re-frame/subscribe [::subs/current-user])]
+        current-user @(re-frame/subscribe [::subs/current-user])
+        survey-email @(re-frame/subscribe [::subs/survey-email])]
     [main
      {:activeComponent
       (r/as-element
@@ -46,6 +47,8 @@
          "bank-accounts"      [bank-accounts {:user current-user}]
          "change-password"    [change-password {:user current-user}]
          "subscription-tiers" [subscription-tiers {}]
-         "waiting-list"       [waiting-list {}]
+         "waiting-list"       [waiting-list {:email        survey-email
+                                             :onViewPricing #(re-frame/dispatch [::events/change-active-section "features-pricing"])
+                                             :onGoHome      #(re-frame/dispatch [::events/change-active-section "home"])}]
          "features-pricing"   [features-pricing {}]
          [not-found {}]))}]))

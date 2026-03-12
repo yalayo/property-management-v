@@ -15,12 +15,11 @@
                 (throw (ex-info "DB error: get-questions failed" {}))))))
 
 (defn save-survey-response [env email responses]
-  (let [response-id    (js/crypto.randomUUID)
-        responses-json (js/JSON.stringify (clj->js responses))
+  (let [responses-json (js/JSON.stringify (clj->js responses))
         query          {:insert-into [:survey_responses]
-                        :columns     [:id :email :responses]
-                        :values      [[response-id email responses-json]]}]
+                        :columns     [:email :responses]
+                        :values      [[email responses-json]]}]
     (js-await [{:keys [success]} (db/run+ env query)]
               (if success
-                {:created true :id response-id}
+                {:created true}
                 (throw (js/Error. "Insert failed"))))))

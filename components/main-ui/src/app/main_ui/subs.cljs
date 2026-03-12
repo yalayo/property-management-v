@@ -10,3 +10,8 @@
  ::current-user
  (fn [db _]
    (get-in db [:user :info])))
+
+(re-frame/reg-sub
+ ::survey-email
+ (fn [db _]
+   (get-in db [:survey :email] "")))
