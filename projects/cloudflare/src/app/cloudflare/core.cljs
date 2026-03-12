@@ -3,15 +3,18 @@
             [app.worker.core :as worker]
             [app.user.interface :as user]
             [app.survey.interface :as survey]
-            [app.plans.interface :as plans]))
+            [app.plans.interface :as plans]
+            [app.property.interface :as property]))
 
 (def config
-  {::user/routes   {}
-   ::survey/routes {}
-   ::plans/routes  {}
-   ::worker/handler {:user-routes   (ig/ref ::user/routes)
-                     :survey-routes (ig/ref ::survey/routes)
-                     :plans-routes  (ig/ref ::plans/routes)}})
+  {::user/routes     {}
+   ::survey/routes   {}
+   ::plans/routes    {}
+   ::property/routes {}
+   ::worker/handler {:user-routes     (ig/ref ::user/routes)
+                     :survey-routes   (ig/ref ::survey/routes)
+                     :plans-routes    (ig/ref ::plans/routes)
+                     :property-routes (ig/ref ::property/routes)}})
 
 (defonce system (atom nil))
 

@@ -7,6 +7,7 @@
             [app.auth-ui.views      :as auth]
             [app.register-ui.interface :as register]
             [app.plans-ui.interface :as plans-ui]
+            [app.property-ui.interface :as property-ui]
             [app.survey-ui.views :as survey]
             ;; React page imports (thin wrappers — no separate Polylith component needed)
             ["/pages/main$default"                :as main-js]
@@ -43,7 +44,8 @@
                                (r/as-element [survey/component "survey"])]
          "auth"               [auth/component {:id "auth"}]
          "register"           [register/component {:id "register"}]
-         "dashboard"          [dashboard {:onLogout #(re-frame/dispatch [::events/sign-out])}]
+         "dashboard"          [dashboard {:onLogout              #(re-frame/dispatch [::events/sign-out])
+                                         :onNavigateToProperties #(re-frame/dispatch [::events/change-active-section "properties"])}]
          "onboarding"         [onboarding {}]
          "bank-accounts"      [bank-accounts {:user current-user}]
          "change-password"    [change-password {:user current-user}]
@@ -56,4 +58,5 @@
                                               :onSignUp #(re-frame/dispatch [::events/change-active-section "register"])
                                               :onGoHome #(re-frame/dispatch [::events/change-active-section "home"])}]
          "plans"              [plans-ui/component {:id "plans"}]
+         "properties"         [property-ui/component {:id "properties"}]
          [not-found {}]))}]))

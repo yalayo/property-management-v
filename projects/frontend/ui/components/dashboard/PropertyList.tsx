@@ -23,12 +23,16 @@ const propertyFormSchema = z.object({
 
 type PropertyFormValues = z.infer<typeof propertyFormSchema>;
 
-export default function PropertyList() {
+type Props = {
+  properties?: any[];
+  isSaving?: boolean;
+  onAddProperty?: (data: PropertyFormValues) => void;
+  onGoBack?: () => void;
+};
+
+export default function PropertyList({ properties = [], isSaving = false, onAddProperty, onGoBack }: Props) {
   const { toast } = useToast();
   const [isAddPropertyDialogOpen, setIsAddPropertyDialogOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-
-  const properties: any[] = [];
 
   const form = useForm<PropertyFormValues>({
     resolver: zodResolver(propertyFormSchema),
@@ -43,8 +47,12 @@ export default function PropertyList() {
     },
   });
 
-  const onSubmit = (_data: PropertyFormValues) => {
-    toast({ title: "Coming soon", description: "Property management is being connected." });
+  const onSubmit = (data: PropertyFormValues) => {
+    if (onAddProperty) {
+      onAddProperty(data);
+    } else {
+      toast({ title: "Coming soon", description: "Property management is being connected." });
+    }
     setIsAddPropertyDialogOpen(false);
     form.reset();
   };
@@ -52,7 +60,14 @@ export default function PropertyList() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Properties</CardTitle>
+        <div className="flex items-center gap-3">
+          {onGoBack && (
+            <Button variant="ghost" size="sm" onClick={onGoBack}>
+              ← Back
+            </Button>
+          )}
+          <CardTitle>Properties</CardTitle>
+        </div>
         <Dialog open={isAddPropertyDialogOpen} onOpenChange={setIsAddPropertyDialogOpen}>
           <DialogTrigger asChild>
             <Button size="sm">
@@ -142,7 +157,7 @@ export default function PropertyList() {
                     <div>
                       <h3 className="font-semibold text-lg">{property.name}</h3>
                       <p className="text-sm text-gray-500 mt-1">{property.address}</p>
-                      <p className="text-sm text-gray-500">{property.city}, {property.postalCode}</p>
+                      <p className="text-sm text-gray-500">{property.city}, {property.postal_code || property.postalCode}</p>
                     </div>
                     <div className="flex space-x-2">
                       <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
@@ -151,8 +166,8 @@ export default function PropertyList() {
                   </div>
                   <div className="mt-4 flex justify-between text-sm">
                     <span>Units: {property.units}</span>
-                    {property.currentValue && (
-                      <span className="font-medium">€{property.currentValue.toLocaleString()}</span>
+                    {(property.current_value || property.currentValue) && (
+                      <span className="font-medium">€{(property.current_value || property.currentValue).toLocaleString()}</span>
                     )}
                   </div>
                 </div>

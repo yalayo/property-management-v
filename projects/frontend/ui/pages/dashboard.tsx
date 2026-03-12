@@ -12,6 +12,7 @@ import DashboardHeader from "../components/dashboard/DashboardHeader";
 import DashboardSummary from "../components/dashboard/DashboardSummary";
 export default function Dashboard(props) {
   const [activeTab, setActiveTab] = useState("overview");
+  const onNavigateToProperties = props.onNavigateToProperties;
   const [_, navigate] = useLocation();
 
   return (
@@ -43,7 +44,7 @@ export default function Dashboard(props) {
               <Button
                 variant={activeTab === "properties" ? "default" : "ghost"}
                 className="w-full justify-start"
-                onClick={() => setActiveTab("properties")}
+                onClick={() => onNavigateToProperties ? onNavigateToProperties() : setActiveTab("properties")}
               >
                 <Home className="mr-3 h-5 w-5" />
                 Properties
