@@ -50,5 +50,8 @@
          "waiting-list"       [waiting-list {:email        survey-email
                                              :onViewPricing #(re-frame/dispatch [::events/change-active-section "features-pricing"])
                                              :onGoHome      #(re-frame/dispatch [::events/change-active-section "home"])}]
-         "features-pricing"   [features-pricing {}]
+         "features-pricing"   [features-pricing {:email    survey-email
+                                              :onSignIn #(re-frame/dispatch [::events/change-active-section "auth"])
+                                              :onSignUp #(re-frame/dispatch [::events/change-active-section "register"])
+                                              :onGoHome #(re-frame/dispatch [::events/change-active-section "home"])}]
          [not-found {}]))}]))
