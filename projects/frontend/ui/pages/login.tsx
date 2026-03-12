@@ -6,7 +6,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../components/ui/form";
-import { Redirect, Link } from "wouter";
+import { Redirect } from "wouter";
 import { Loader2 } from "lucide-react";
 
 const loginSchema = z.object({
@@ -127,10 +127,14 @@ export default function Login(props) {
           </CardContent>
           <CardFooter className="flex flex-col space-y-2">
             <div className="text-sm text-muted-foreground text-center">
-              Don"t have an account?{" "}
-              <Link href="/register" className="text-primary hover:underline">
+              Don't have an account?{" "}
+              <button
+                type="button"
+                onClick={props.showSignUp}
+                className="text-primary hover:underline font-medium"
+              >
                 Register
-              </Link>
+              </button>
             </div>
           </CardFooter>
         </Card>

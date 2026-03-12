@@ -1,3 +1,5 @@
+import React from "react";
+import { useEffect } from "react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -5,7 +7,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../components/ui/form";
-import { Redirect, Link } from "wouter";
+import { Redirect } from "wouter";
 import { Loader2 } from "lucide-react";
 
 const registerSchema = z.object({
@@ -31,6 +33,14 @@ export default function Register(props) {
       fullName: "",
     },
   });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const emailParam = params.get("email");
+    if (emailParam) {
+      form.setValue("email", emailParam);
+    }
+  }, []);
 
   const onSubmit = (data: RegisterFormValues) => {
     props.onSubmit(data);
@@ -149,9 +159,13 @@ export default function Register(props) {
           <CardFooter className="flex flex-col space-y-2">
             <div className="text-sm text-muted-foreground text-center">
               Already have an account?{" "}
-              <Link href="/login" className="text-primary hover:underline">
+              <button
+                type="button"
+                onClick={props.showSignIn}
+                className="text-primary hover:underline font-medium"
+              >
                 Login
-              </Link>
+              </button>
             </div>
           </CardFooter>
         </Card>
