@@ -18,5 +18,5 @@
         "http://localhost:9090"
         "http://localhost:8081"))
     (if (cloudflare-prod?)
-      "https://alm-api.busqandote.com"
-      "https://alm-api.busqandote.com")))
+      "https://immo-api.busqandote.com"
+      "https://immo-api.busqandote.com")))

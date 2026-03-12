@@ -1,4 +1,4 @@
-name = "almjoy-backend"
+name = "props-backend"
 main = "out/main.js"
 compatibility_date = "2025-02-04"
 compatibility_flags = ["nodejs_compat"]
@@ -14,7 +14,7 @@ migrations_dir = "./migrations"
 migrations_table = "local_migrations"
 
 [env.production]
-name = "almjoy-backend-production"
+name = "props-backend-production"
 vars = { NODE_ENV = "production" }
 
 [[env.production.d1_databases]]
@@ -25,5 +25,5 @@ migrations_dir = "migrations"
 migrations_table = "prod_migrations"
 
 [[env.production.routes]]
-pattern = "alm-api.busqandote.com/*"
+pattern = "immo-api.busqandote.com/*"
 zone_id = "${ZONE_ID}"
