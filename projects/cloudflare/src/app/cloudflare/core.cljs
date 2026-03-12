@@ -2,13 +2,16 @@
   (:require [integrant.core :as ig]
             [app.worker.core :as worker]
             [app.user.interface :as user]
-            [app.survey.interface :as survey]))
+            [app.survey.interface :as survey]
+            [app.plans.interface :as plans]))
 
 (def config
   {::user/routes   {}
    ::survey/routes {}
+   ::plans/routes  {}
    ::worker/handler {:user-routes   (ig/ref ::user/routes)
-                     :survey-routes (ig/ref ::survey/routes)}})
+                     :survey-routes (ig/ref ::survey/routes)
+                     :plans-routes  (ig/ref ::plans/routes)}})
 
 (defonce system (atom nil))
 

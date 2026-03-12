@@ -6,6 +6,7 @@
             [app.main-ui.analytics :as analytics]
             [app.auth-ui.views      :as auth]
             [app.register-ui.interface :as register]
+            [app.plans-ui.interface :as plans-ui]
             [app.survey-ui.views :as survey]
             ;; React page imports (thin wrappers — no separate Polylith component needed)
             ["/pages/main$default"                :as main-js]
@@ -54,4 +55,5 @@
                                               :onSignIn #(re-frame/dispatch [::events/change-active-section "auth"])
                                               :onSignUp #(re-frame/dispatch [::events/change-active-section "register"])
                                               :onGoHome #(re-frame/dispatch [::events/change-active-section "home"])}]
+         "plans"              [plans-ui/component {:id "plans"}]
          [not-found {}]))}]))

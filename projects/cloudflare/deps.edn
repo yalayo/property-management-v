@@ -7,7 +7,8 @@
         ;; Bricks
         poly/worker  {:local/root "../../bases/worker"}
         poly/user    {:local/root "../../components/user"}
-        poly/survey  {:local/root "../../components/survey"}}
+        poly/survey  {:local/root "../../components/survey"}
+        poly/plans   {:local/root "../../components/plans"}}
  :paths ["src" "resources"]
  :aliases {:dev {:extra-deps {thheller/shadow-cljs {:mvn/version "3.2.1"}
                               binaryage/devtools {:mvn/version "1.0.7"}}}}}
