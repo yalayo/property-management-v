@@ -3,6 +3,7 @@
             [cljs.reader]
             [app.register-ui.config :as config]
             [app.register-ui.db :as db]
+            [app.register-ui.analytics :as analytics]
             [day8.re-frame.http-fx]
             [ajax.edn :as ajax-edn]))
 
@@ -21,17 +22,18 @@
                  :on-success      [::signed-up]
                  :on-failure      [::sign-up-error]}}))
 
-(re-frame/reg-event-db
+(re-frame/reg-event-fx
  ::signed-up
  [local-storage-interceptor]
- (fn [db [_ response]]
-   (-> db
-       (assoc-in [:user :sign-up :loading?] false)
-       (assoc-in [:user :token] (:token response))
-       (assoc-in [:user :info] (:user response))
-       (assoc-in [:user :user-loged-in?] true)
-       (assoc-in [:user :sign-up :form] nil)
-       (assoc-in [:ui :active-section] "plans"))))
+ (fn [{:keys [db]} [_ response]]
+   (analytics/event "sign_up_successful" {})
+   {:db (-> db
+            (assoc-in [:user :sign-up :loading?] false)
+            (assoc-in [:user :token] (:token response))
+            (assoc-in [:user :info] (:user response))
+            (assoc-in [:user :user-loged-in?] true)
+            (assoc-in [:user :sign-up :form] nil)
+            (assoc-in [:ui :active-section] "plans"))}))
 
 (re-frame/reg-event-fx
  ::sign-up-error
@@ -39,8 +41,9 @@
    (js/console.error "Signup failed:" error)
    {:db (assoc-in db [:user :sign-up :loading?] false)}))
 
-(re-frame/reg-event-db
+(re-frame/reg-event-fx
  ::show-sign-in
  [local-storage-interceptor]
- (fn [db [_ _]]
-   (assoc-in db [:ui :active-section] "auth")))
+ (fn [{:keys [db]} _]
+   (analytics/event "sign_in_attempt" {})
+   {:db (assoc-in db [:ui :active-section] "auth")}))

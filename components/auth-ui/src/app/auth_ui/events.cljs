@@ -3,6 +3,7 @@
             [cljs.reader]
             [app.auth-ui.config :as config]
             [app.auth-ui.db :as db]
+            [app.auth-ui.analytics :as analytics]
             [day8.re-frame.http-fx]
             [ajax.edn :as ajax-edn]))
 
@@ -25,6 +26,7 @@
  ::signed-in
  [local-storage-interceptor]
  (fn [{:keys [db]} [_ response]]
+   (analytics/event "sign_in_successful" {})
    (let [user  (:user response)
          token (:token response)
          db'   (-> db
@@ -41,8 +43,9 @@
    (js/console.error "Signin failed:" error)
    {:db (assoc-in db [:user :sign-in :loading?] false)}))
 
-(re-frame/reg-event-db
+(re-frame/reg-event-fx
  ::show-sign-up
  [local-storage-interceptor]
- (fn [db [_ _]]
-   (assoc-in db [:ui :active-section] "register")))
+ (fn [{:keys [db]} _]
+   (analytics/event "sign_up_attempt" {})
+   {:db (assoc-in db [:ui :active-section] "register")}))

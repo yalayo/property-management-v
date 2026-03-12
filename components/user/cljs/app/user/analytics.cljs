@@ -3,7 +3,7 @@
 (def measurement-id
   (if goog.DEBUG
     "G-DEV0000000"
-    "G-G18268Q0GR"))
+    "G-VRSYNH1GFG"))
 
 (def api-secret "YOUR_API_SECRET")
 
