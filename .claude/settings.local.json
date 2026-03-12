@@ -4,7 +4,8 @@
       "Bash(npx tailwindcss:*)",
       "Bash(python3:*)",
       "Bash(node:*)",
-      "Bash(npx wrangler:*)"
+      "Bash(npx wrangler:*)",
+      "Bash(xargs grep:*)"
     ]
   }
 }
