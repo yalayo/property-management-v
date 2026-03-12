@@ -33,7 +33,7 @@
 (defn post-sign-up [{:keys [request env]}]
   (js-await [data (cf/request->edn request)]
             (let [{:keys [email name password]} data]
-              (js-await 
+              (js-await
                [account-res (persistance/create-account env name email password)]
-               (analytics/event "sign_up_successfull" {:event :new-user})
+               (analytics/event email "sign_up_successfull" {:event :new-user} (aget env "GA_SECRET"))
                (cf/response-edn {:created true :account account-res} {:status 201})))))

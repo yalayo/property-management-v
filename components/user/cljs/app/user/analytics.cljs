@@ -33,3 +33,9 @@
                #js {:client_id client-id
                     :events #js [#js {:name event-name
                                       :params (clj->js params)}]})}))
+
+(defn event
+  "Fire-and-forget server-side GA4 event. client-id identifies the user,
+   api-secret comes from the Cloudflare env GA_SECRET binding."
+  [client-id event-name params api-secret]
+  (send-event! client-id event-name params api-secret))
