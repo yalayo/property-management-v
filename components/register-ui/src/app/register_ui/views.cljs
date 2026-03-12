@@ -13,4 +13,5 @@
     :user      @(re-frame/subscribe [::subs/current-user])
     :isPending @(re-frame/subscribe [::subs/sign-up-loading])
     :onSubmit  (fn [data] (re-frame/dispatch [::events/sign-up (js->clj data :keywordize-keys true)]))
-    :showSignIn #(re-frame/dispatch [::events/show-sign-in])}])
+    :showSignIn #(re-frame/dispatch [::events/show-sign-in])
+    :onGoHome   #(re-frame/dispatch [::events/go-home])}])

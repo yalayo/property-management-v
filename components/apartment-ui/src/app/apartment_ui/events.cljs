@@ -7,15 +7,25 @@
 
 (def local-storage-interceptor (after db/db->local-store))
 
+(re-frame/reg-event-db
+ ::set-property-filter
+ [local-storage-interceptor]
+ (fn [db [_ property]]
+   (assoc-in db [:apartments :property-filter] property)))
+
 (re-frame/reg-event-fx
  ::load-apartments
- (fn [{:keys [_db]} _]
-   {:http-xhrio {:method          :get
-                 :uri             (str (config/get-api-url) "/api/apartments")
-                 :response-format (ajax-edn/edn-response-format)
-                 :timeout         8000
-                 :on-success      [::apartments-loaded]
-                 :on-failure      [::apartments-error]}}))
+ (fn [{:keys [db]} _]
+   (let [property-id (get-in db [:apartments :property-filter :id])]
+     {:http-xhrio {:method          :get
+                   :uri             (if property-id
+                                      (str (config/get-api-url) "/api/apartments/by-property/" property-id)
+                                      (str (config/get-api-url) "/api/apartments"))
+                   :response-format (ajax-edn/edn-response-format)
+                   :timeout         8000
+                   :on-success      [::apartments-loaded]
+                   :on-failure      [::apartments-error]}})))
+
 
 (re-frame/reg-event-db
  ::apartments-loaded
@@ -114,6 +124,28 @@
 
 (re-frame/reg-event-fx
  ::apartment-deleted
+ [local-storage-interceptor]
+ (fn [{:keys [db]} _]
+   {:db       (-> db
+                  (assoc-in [:apartments :saving?] false)
+                  (assoc-in [:apartments :selected-id] nil))
+    :dispatch [::load-apartments]}))
+
+(re-frame/reg-event-fx
+ ::update-apartment
+ (fn [{:keys [db]} [_ id data]]
+   {:db         (assoc-in db [:apartments :saving?] true)
+    :http-xhrio {:method          :put
+                 :uri             (str (config/get-api-url) "/api/apartments/" id)
+                 :params          data
+                 :format          (ajax-edn/edn-request-format)
+                 :response-format (ajax-edn/edn-response-format)
+                 :timeout         8000
+                 :on-success      [::apartment-updated]
+                 :on-failure      [::apartment-save-error]}}))
+
+(re-frame/reg-event-fx
+ ::apartment-updated
  [local-storage-interceptor]
  (fn [{:keys [db]} _]
    {:db       (assoc-in db [:apartments :saving?] false)

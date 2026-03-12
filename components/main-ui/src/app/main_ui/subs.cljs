@@ -15,3 +15,8 @@
  ::survey-email
  (fn [db _]
    (get-in db [:survey :email] "")))
+
+(re-frame/reg-sub
+ ::selected-property
+ (fn [db _]
+   (get-in db [:ui :selected-property])))

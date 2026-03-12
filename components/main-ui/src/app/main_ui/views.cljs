@@ -9,6 +9,7 @@
             [app.plans-ui.interface :as plans-ui]
             [app.property-ui.interface :as property-ui]
             [app.property-ui.subs :as property-subs]
+            [app.apartment-ui.interface :as apartment-ui]
             [app.survey-ui.views :as survey]
             ;; React page imports (thin wrappers — no separate Polylith component needed)
             ["/pages/main$default"                :as main-js]
@@ -34,15 +35,17 @@
 (def not-found         (r/adapt-react-class not-found-js))
 
 (defn component []
-  (let [active       @(re-frame/subscribe [::subs/active-section])
-        current-user @(re-frame/subscribe [::subs/current-user])
-        survey-email @(re-frame/subscribe [::subs/survey-email])
-        properties   @(re-frame/subscribe [::property-subs/properties])]
+  (let [active           @(re-frame/subscribe [::subs/active-section])
+        current-user     @(re-frame/subscribe [::subs/current-user])
+        survey-email     @(re-frame/subscribe [::subs/survey-email])
+        properties       @(re-frame/subscribe [::property-subs/properties])]
     [main
      {:activeComponent
       (r/as-element
        (case active
-         "home"               [home {:tracker analytics/event}
+         "home"               [home {:tracker  analytics/event
+                                    :onSignIn #(re-frame/dispatch [::events/change-active-section "auth"])
+                                    :onSignUp #(re-frame/dispatch [::events/change-active-section "register"])}
                                (r/as-element [survey/component "survey"])]
          "auth"               [auth/component {:id "auth"}]
          "register"           [register/component {:id "register"}]
@@ -62,5 +65,10 @@
                                               :onSignUp #(re-frame/dispatch [::events/change-active-section "register"])
                                               :onGoHome #(re-frame/dispatch [::events/change-active-section "home"])}]
          "plans"              [plans-ui/component {:id "plans"}]
-         "properties"         [property-ui/component {:id "properties"}]
+         "properties"         [property-ui/component {:id          "properties"
+                                                      :on-view-apartments
+                                                      (fn [property]
+                                                        (re-frame/dispatch [::events/navigate-to-apartments (js->clj property :keywordize-keys true)]))}]
+         "apartments"         [apartment-ui/component {:properties properties
+                                                       :on-go-back #(re-frame/dispatch [::events/change-active-section "properties"])}]
          [not-found {}]))}]))

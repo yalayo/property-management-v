@@ -13,4 +13,5 @@
     :user      @(re-frame/subscribe [::subs/current-user])
     :isLoading @(re-frame/subscribe [::subs/sign-in-loading])
     :onSubmit  (fn [data] (re-frame/dispatch [::events/sign-in (js->clj data :keywordize-keys true)]))
-    :showSignUp #(re-frame/dispatch [::events/show-sign-up])}])
+    :showSignUp #(re-frame/dispatch [::events/show-sign-up])
+    :onGoHome  #(re-frame/dispatch [::events/go-home])}])

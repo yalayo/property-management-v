@@ -11,27 +11,32 @@
 (def add-apartment    (r/adapt-react-class add-apartment-js))
 (def manage-apartment (r/adapt-react-class manage-apartment-js))
 
-(defn component [{:keys [properties]}]
+(defn component [_]
   (re-frame/dispatch [::events/load-apartments])
-  (fn [{:keys [properties]}]
+  (fn [{:keys [properties on-go-back]}]
     (let [apartments       @(re-frame/subscribe [::subs/apartments])
           loading?         @(re-frame/subscribe [::subs/loading?])
           saving?          @(re-frame/subscribe [::subs/saving?])
           add-dialog-open? @(re-frame/subscribe [::subs/add-dialog-open?])
           selected-id      @(re-frame/subscribe [::subs/selected-apartment-id])
-          new-code         @(re-frame/subscribe [::subs/new-apartment-code])]
+          new-code         @(re-frame/subscribe [::subs/new-apartment-code])
+          selected-apt     (when selected-id (first (filter #(= (:id %) selected-id) apartments)))]
       (if selected-id
         [manage-apartment
-         {:selectedApartment selected-id
-          :onCancel          #(re-frame/dispatch [::events/clear-selected-apartment])
-          :onSaveSelection   #(re-frame/dispatch [::events/clear-selected-apartment])}]
+         {:apartment        (clj->js selected-apt)
+          :isSaving         saving?
+          :onBack           #(re-frame/dispatch [::events/clear-selected-apartment])
+          :onDelete         (fn [id] (re-frame/dispatch [::events/delete-apartment id]))
+          :onToggleOccupied (fn [id occupied]
+                              (re-frame/dispatch [::events/update-apartment id {:occupied occupied}]))}]
         [apartments-list
          {:apartments               (clj->js apartments)
           :isLoading                loading?
           :isAddApartmentDialogOpen add-dialog-open?
           :onChangeAddApartmentDialogOpen #(re-frame/dispatch [::events/open-add-dialog])
           :onManageApartment        (fn [id] (re-frame/dispatch [::events/select-apartment id]))
-          :onAssignTenant           (fn [_id] nil)}
+          :onAssignTenant           (fn [_id] nil)
+          :onGoBack                 on-go-back}
          (when add-dialog-open?
            (r/as-element
             [add-apartment

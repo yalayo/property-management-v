@@ -35,3 +35,8 @@
  ::new-apartment-property-id
  (fn [db _]
    (get-in db [:apartments :new-property-id])))
+
+(re-frame/reg-sub
+ ::property-filter
+ (fn [db _]
+   (get-in db [:apartments :property-filter])))

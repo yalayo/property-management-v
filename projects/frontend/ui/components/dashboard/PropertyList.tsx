@@ -1,6 +1,6 @@
 import React from "react";
 import { useState } from "react";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, Building2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -29,6 +29,7 @@ type Props = {
   onAddProperty?: (data: PropertyFormValues) => void;
   onEditProperty?: (id: number, data: PropertyFormValues) => void;
   onDeleteProperty?: (id: number) => void;
+  onViewApartments?: (property: any) => void;
   onGoBack?: () => void;
 };
 
@@ -110,7 +111,7 @@ const emptyDefaults = {
   name: "", address: "", city: "", postalCode: "", units: "1", purchasePrice: "", currentValue: "",
 };
 
-export default function PropertyList({ properties = [], isSaving = false, onAddProperty, onEditProperty, onDeleteProperty, onGoBack }: Props) {
+export default function PropertyList({ properties = [], isSaving = false, onAddProperty, onEditProperty, onDeleteProperty, onViewApartments, onGoBack }: Props) {
   const { toast } = useToast();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<any | null>(null);
@@ -204,6 +205,17 @@ export default function PropertyList({ properties = [], isSaving = false, onAddP
                       <span className="font-medium">€{(property.current_value || property.currentValue).toLocaleString()}</span>
                     )}
                   </div>
+                  {onViewApartments && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 w-full"
+                      onClick={() => onViewApartments(property)}
+                    >
+                      <Building2 className="h-3.5 w-3.5 mr-1.5" />
+                      View Apartments
+                    </Button>
+                  )}
                 </div>
               </Card>
             ))}

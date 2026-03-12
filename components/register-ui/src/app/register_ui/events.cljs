@@ -47,3 +47,9 @@
  (fn [{:keys [db]} _]
    (analytics/event "sign_in_attempt" {})
    {:db (assoc-in db [:ui :active-section] "auth")}))
+
+(re-frame/reg-event-db
+ ::go-home
+ [local-storage-interceptor]
+ (fn [db _]
+   (assoc-in db [:ui :active-section] "home")))

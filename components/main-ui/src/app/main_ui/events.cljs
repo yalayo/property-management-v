@@ -109,3 +109,12 @@
        (assoc-in [:user :user-loged-in?] false)
        (assoc-in [:user :sign-out :loading?] false)
        (assoc-in [:ui :active-section] "auth"))))
+
+(re-frame/reg-event-fx
+ ::navigate-to-apartments
+ [local-storage-interceptor]
+ (fn [{:keys [db]} [_ property]]
+   {:db       (-> db
+                  (assoc-in [:ui :active-section] "apartments")
+                  (assoc-in [:ui :selected-property] property))
+    :dispatch [:app.apartment-ui.events/set-property-filter property]}))
