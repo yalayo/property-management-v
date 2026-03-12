@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx tailwindcss:*)"
+      "Bash(npx tailwindcss:*)",
+      "Bash(python3:*)",
+      "Bash(node:*)",
+      "Bash(npx wrangler:*)"
     ]
   }
 }
