@@ -1,6 +1,6 @@
+import React from "react";
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient } from "../../lib/queryClient";
 import { useToast } from "../../hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Button } from "../ui/button";
@@ -69,7 +69,7 @@ export default function FileUpload() {
     },
     onSuccess: () => {
       setSelectedFile(null);
-      queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+      //queryClient.invalidateQueries({ queryKey: ['/api/files'] });
       toast({
         title: "File uploaded successfully",
         description: "Your file is being processed with AI-powered data extraction. This may take a minute.",

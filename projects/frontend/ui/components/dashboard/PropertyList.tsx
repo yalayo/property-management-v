@@ -1,10 +1,10 @@
+import React from "react";
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { apiRequest } from "../../lib/queryClient";
 import { useToast } from "../../hooks/use-toast";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
@@ -51,7 +51,7 @@ export default function PropertyList() {
   });
 
   // Add property mutation
-  const addPropertyMutation = useMutation({
+  const addPropertyMutation = null;/*useMutation({
     mutationFn: (data: PropertyFormValues) => 
       apiRequest('POST', '/api/properties', data),
     onSuccess: () => {
@@ -70,7 +70,7 @@ export default function PropertyList() {
         variant: "destructive",
       });
     }
-  });
+  });*/
 
   const onSubmit = (data: PropertyFormValues) => {
     addPropertyMutation.mutate(data);
