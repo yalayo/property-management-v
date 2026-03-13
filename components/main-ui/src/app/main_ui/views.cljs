@@ -11,6 +11,7 @@
             [app.property-ui.subs :as property-subs]
             [app.property-ui.events :as property-events]
             [app.apartment-ui.interface :as apartment-ui]
+            [app.apartment-ui.subs     :as apartment-subs]
             [app.tenant-ui.interface   :as tenant-ui]
             [app.survey-ui.views :as survey]
             ;; React page imports (thin wrappers — no separate Polylith component needed)
@@ -40,8 +41,10 @@
   (let [active           @(re-frame/subscribe [::subs/active-section])
         current-user     @(re-frame/subscribe [::subs/current-user])
         survey-email     @(re-frame/subscribe [::subs/survey-email])
-        properties       @(re-frame/subscribe [::property-subs/properties])
-        prop-saving?     @(re-frame/subscribe [::property-subs/saving?])]
+        properties          @(re-frame/subscribe [::property-subs/properties])
+        prop-saving?        @(re-frame/subscribe [::property-subs/saving?])
+        all-apartments      @(re-frame/subscribe [::apartment-subs/apartments])
+        available-apartments (filter #(not (:occupied %)) all-apartments)]
     [main
      {:activeComponent
       (r/as-element
@@ -57,7 +60,7 @@
                                          :properties             (clj->js properties)
                                          :isSaving               prop-saving?
                                          :apartmentsView         (r/as-element [apartment-ui/component {:properties properties}])
-                                         :tenantsView            (r/as-element [tenant-ui/component {:apartments []}])
+                                         :tenantsView            (r/as-element [tenant-ui/component {:apartments available-apartments}])
                                          :onAddProperty          (fn [data]
                                                                    (let [d (js->clj data :keywordize-keys true)]
                                                                      (re-frame/dispatch
