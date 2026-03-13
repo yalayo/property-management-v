@@ -6,7 +6,9 @@
       "Bash(grep -E \"\\\\.\\(cljs|clj\\)$\")",
       "Bash(find /d/personal/projects/inmo-verwaltung/code/property-management-v/projects/frontend/src/components -type f -name *partment* -o -name *ropert*)",
       "Bash(grep -r apartments /d/personal/projects/inmo-verwaltung/code/property-management-v/projects/frontend --include=*.json --include=*.ts --include=*.tsx --include=*.edn)",
-      "Bash(npx babel:*)"
+      "Bash(npx babel:*)",
+      "Bash(find /d/personal/projects/inmo-verwaltung/code/property-management-v -type f -name *stripe*)",
+      "Bash(find /d/personal/projects/inmo-verwaltung/code/property-management-v/server -type f -name *.ts)"
     ],
     "additionalDirectories": [
       "d:\\personal\\projects\\inmo-verwaltung\\code\\property-management-v\\.claude"
