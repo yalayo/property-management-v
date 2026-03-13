@@ -150,3 +150,73 @@
  (fn [{:keys [db]} _]
    {:db       (assoc-in db [:apartments :saving?] false)
     :dispatch [::load-apartments]}))
+
+;; ── Assign tenant ─────────────────────────────────────────────────────────
+
+(re-frame/reg-event-db
+ ::open-assign-dialog
+ [local-storage-interceptor]
+ (fn [db [_ apt-id]]
+   (-> db
+       (assoc-in [:apartments :assign-apt-id] apt-id)
+       (assoc-in [:apartments :assign-name] "")
+       (assoc-in [:apartments :assign-email] "")
+       (assoc-in [:apartments :assign-phone] "")
+       (assoc-in [:apartments :assign-start-date] ""))))
+
+(re-frame/reg-event-db
+ ::close-assign-dialog
+ [local-storage-interceptor]
+ (fn [db _]
+   (assoc-in db [:apartments :assign-apt-id] nil)))
+
+(re-frame/reg-event-db
+ ::set-assign-name
+ [local-storage-interceptor]
+ (fn [db [_ v]] (assoc-in db [:apartments :assign-name] v)))
+
+(re-frame/reg-event-db
+ ::set-assign-email
+ [local-storage-interceptor]
+ (fn [db [_ v]] (assoc-in db [:apartments :assign-email] v)))
+
+(re-frame/reg-event-db
+ ::set-assign-phone
+ [local-storage-interceptor]
+ (fn [db [_ v]] (assoc-in db [:apartments :assign-phone] v)))
+
+(re-frame/reg-event-db
+ ::set-assign-start-date
+ [local-storage-interceptor]
+ (fn [db [_ v]] (assoc-in db [:apartments :assign-start-date] v)))
+
+(re-frame/reg-event-fx
+ ::assign-tenant
+ (fn [{:keys [db]} _]
+   (let [apt-id     (get-in db [:apartments :assign-apt-id])
+         name       (get-in db [:apartments :assign-name])
+         email      (get-in db [:apartments :assign-email])
+         phone      (get-in db [:apartments :assign-phone])
+         start-date (get-in db [:apartments :assign-start-date])]
+     {:db         (assoc-in db [:apartments :saving?] true)
+      :http-xhrio {:method          :post
+                   :uri             (str (config/get-api-url) "/api/tenants")
+                   :params          {:apartment-id apt-id
+                                     :name         name
+                                     :email        email
+                                     :phone        phone
+                                     :start-date   start-date}
+                   :format          (ajax-edn/edn-request-format)
+                   :response-format (ajax-edn/edn-response-format)
+                   :timeout         8000
+                   :on-success      [::tenant-assigned apt-id]
+                   :on-failure      [::apartment-save-error]}})))
+
+(re-frame/reg-event-fx
+ ::tenant-assigned
+ [local-storage-interceptor]
+ (fn [{:keys [db]} [_ apt-id]]
+   {:db       (-> db
+                  (assoc-in [:apartments :saving?] false)
+                  (assoc-in [:apartments :assign-apt-id] nil))
+    :dispatch [::update-apartment apt-id {:occupied true}]}))

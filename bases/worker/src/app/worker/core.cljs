@@ -91,8 +91,8 @@
           (add-cors-response (cf/response-error {:error "Not implemented"}) origin))))))
 
 
-(defn init [{:keys [user-routes survey-routes plans-routes property-routes apartment-routes settings-routes price-routes request-routes]}]
-  (let [routes (into base-routes (concat user-routes survey-routes plans-routes property-routes apartment-routes settings-routes price-routes request-routes))
+(defn init [{:keys [user-routes survey-routes plans-routes property-routes apartment-routes tenant-routes settings-routes price-routes request-routes]}]
+  (let [routes (into base-routes (concat user-routes survey-routes plans-routes property-routes apartment-routes tenant-routes settings-routes price-routes request-routes))
         router (r/router routes)
         handler #js {:fetch (cf/with-handler router handle-route)}]
     handler))

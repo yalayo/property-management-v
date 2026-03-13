@@ -11,6 +11,7 @@
             [app.property-ui.subs :as property-subs]
             [app.property-ui.events :as property-events]
             [app.apartment-ui.interface :as apartment-ui]
+            [app.tenant-ui.interface   :as tenant-ui]
             [app.survey-ui.views :as survey]
             ;; React page imports (thin wrappers — no separate Polylith component needed)
             ["/pages/main$default"                :as main-js]
@@ -56,6 +57,7 @@
                                          :properties             (clj->js properties)
                                          :isSaving               prop-saving?
                                          :apartmentsView         (r/as-element [apartment-ui/component {:properties properties}])
+                                         :tenantsView            (r/as-element [tenant-ui/component {:apartments []}])
                                          :onAddProperty          (fn [data]
                                                                    (let [d (js->clj data :keywordize-keys true)]
                                                                      (re-frame/dispatch

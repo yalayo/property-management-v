@@ -40,3 +40,28 @@
  ::property-filter
  (fn [db _]
    (get-in db [:apartments :property-filter])))
+
+(re-frame/reg-sub
+ ::assign-apt-id
+ (fn [db _]
+   (get-in db [:apartments :assign-apt-id])))
+
+(re-frame/reg-sub
+ ::assign-name
+ (fn [db _]
+   (get-in db [:apartments :assign-name] "")))
+
+(re-frame/reg-sub
+ ::assign-email
+ (fn [db _]
+   (get-in db [:apartments :assign-email] "")))
+
+(re-frame/reg-sub
+ ::assign-phone
+ (fn [db _]
+   (get-in db [:apartments :assign-phone] "")))
+
+(re-frame/reg-sub
+ ::assign-start-date
+ (fn [db _]
+   (get-in db [:apartments :assign-start-date] "")))

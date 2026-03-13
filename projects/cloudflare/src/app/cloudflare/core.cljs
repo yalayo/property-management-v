@@ -5,7 +5,8 @@
             [app.survey.interface :as survey]
             [app.plans.interface :as plans]
             [app.property.interface  :as property]
-            [app.apartment.interface :as apartment]))
+            [app.apartment.interface :as apartment]
+            [app.tenant.interface   :as tenant]))
 
 (def config
   {::user/routes      {}
@@ -13,11 +14,13 @@
    ::plans/routes     {}
    ::property/routes  {}
    ::apartment/routes {}
+   ::tenant/routes    {}
    ::worker/handler {:user-routes      (ig/ref ::user/routes)
                      :survey-routes    (ig/ref ::survey/routes)
                      :plans-routes     (ig/ref ::plans/routes)
                      :property-routes  (ig/ref ::property/routes)
-                     :apartment-routes (ig/ref ::apartment/routes)}})
+                     :apartment-routes (ig/ref ::apartment/routes)
+                     :tenant-routes    (ig/ref ::tenant/routes)}})
 
 (defonce system (atom nil))
 

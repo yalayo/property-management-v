@@ -135,7 +135,7 @@ export default function Dashboard(props) {
 
           {activeTab === "apartments" && props.apartmentsView}
 
-          {activeTab === "tenants" && <TenantPayments />}
+          {activeTab === "tenants" && props.tenantsView}
           {activeTab === "documents" && <FileUpload />}
           {activeTab === "analytics" && <UserAnalytics />}
         </main>
