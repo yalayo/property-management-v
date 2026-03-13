@@ -96,7 +96,10 @@
          "waiting-list"       [waiting-list
                                {:email         survey-email
                                 :onViewPricing #(re-frame/dispatch [::events/change-active-section "features-pricing"])
-                                :onGoHome      #(re-frame/dispatch [::events/change-active-section "home"])}]
+                                :onGoHome      #(re-frame/dispatch [::events/change-active-section "home"])
+                                :onSelectPlan  (fn [tier-id]
+                                                 (re-frame/dispatch [::events/change-active-section "payment"])
+                                                 (payment-ui/select-tier tier-id))}]
          "features-pricing"   [features-pricing
                                {:email        survey-email
                                 :onSignIn     #(re-frame/dispatch [::events/change-active-section "auth"])

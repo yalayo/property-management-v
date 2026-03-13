@@ -7,6 +7,7 @@ export default function WaitingList(props) {
   const email: string | null = props.email || null;
   const onViewPricing = props.onViewPricing;
   const onGoHome = props.onGoHome;
+  const onSelectPlan = props.onSelectPlan;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -31,7 +32,7 @@ export default function WaitingList(props) {
         <div className="bg-gradient-to-b from-white to-slate-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
             <div className="max-w-lg mx-auto">
-              <WaitingListConfirmation email={email} />
+              <WaitingListConfirmation email={email} onSelectPlan={onSelectPlan} />
 
               {/* Call to action buttons */}
               <div className="mt-10 space-y-6">

@@ -2,15 +2,15 @@ import React from "react";
 import { CheckCircle, Clock } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 
-import { Link } from "wouter";
 import { Button } from "../ui/button";
 import { Gift, ArrowRight } from "lucide-react";
 
 interface WaitingListConfirmationProps {
   email: string | null;
+  onSelectPlan?: (tierId: string) => void;
 }
 
-export default function WaitingListConfirmation({ email }: WaitingListConfirmationProps) {
+export default function WaitingListConfirmation({ email, onSelectPlan }: WaitingListConfirmationProps) {
   return (
     <Card className="shadow-xl border-slate-200">
       <CardHeader className="text-center pb-6">
@@ -52,12 +52,10 @@ export default function WaitingListConfirmation({ email }: WaitingListConfirmati
               <p className="mt-1 text-sm text-slate-600 mb-3">
                 Get lifetime access to all current and future features with a one-time contribution of <span className="font-bold text-primary">€370</span>.
               </p>
-              <Link href={`/payment/crowdfunding${email ? `?email=${encodeURIComponent(email)}` : ''}`}>
-                <Button size="sm" className="bg-primary hover:bg-primary/90">
-                  Support Now
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
+              <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => onSelectPlan?.("crowdfunding")}>
+                Support Now
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>

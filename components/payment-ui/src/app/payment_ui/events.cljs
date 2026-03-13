@@ -32,11 +32,15 @@
 (re-frame/reg-event-db
  ::payment-intent-ready
  [local-storage-interceptor]
- (fn [db [_ {:keys [client-secret type]}]]
-   (-> db
-       (assoc-in [:payment :client-secret] client-secret)
-       (assoc-in [:payment :intent-type] (keyword type))
-       (assoc-in [:payment :loading?] false))))
+ (fn [db [_ {:keys [client-secret type error]}]]
+   (if error
+     (-> db
+         (assoc-in [:payment :loading?] false)
+         (assoc-in [:payment :error] (str error)))
+     (-> db
+         (assoc-in [:payment :client-secret] client-secret)
+         (assoc-in [:payment :intent-type] (keyword type))
+         (assoc-in [:payment :loading?] false)))))
 
 (re-frame/reg-event-db
  ::payment-intent-error

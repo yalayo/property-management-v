@@ -109,15 +109,22 @@ export default function Payment({ tier, clientSecret, isLoadingSecret, secretErr
             {isLoadingSecret ? (
               <div className="py-10 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-slate-400" /></div>
             ) : secretError ? (
-              <div className="bg-red-50 border border-red-200 rounded-md p-4 flex gap-2">
-                <AlertCircle className="h-5 w-5 text-red-400 shrink-0" />
-                <span className="text-red-700">{secretError}</span>
+              <div className="space-y-4">
+                <div className="bg-red-50 border border-red-200 rounded-md p-4 flex gap-2">
+                  <AlertCircle className="h-5 w-5 text-red-400 shrink-0" />
+                  <span className="text-red-700">{secretError}</span>
+                </div>
+                <Button variant="outline" className="w-full" onClick={onBack}>
+                  Go back and try again
+                </Button>
               </div>
             ) : clientSecret ? (
               <Elements stripe={stripePromise} options={{ clientSecret }}>
                 <CheckoutForm tier={tier} intentType={intentType} onSuccess={onPaymentSuccess} />
               </Elements>
-            ) : null}
+            ) : (
+              <div className="py-10 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-slate-400" /></div>
+            )}
           </CardContent>
         </Card>
       </div>
