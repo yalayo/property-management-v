@@ -25,7 +25,7 @@ type Props = {
 };
 
 export default function ApartmentsList({
-  apartments = [],
+  apartments,
   isLoading = false,
   isAddApartmentDialogOpen = false,
   onChangeAddApartmentDialogOpen,
@@ -34,8 +34,9 @@ export default function ApartmentsList({
   onGoBack,
   children,
 }: Props) {
-  const occupied = apartments.filter((a) => a.occupied).length;
-  const empty = apartments.length - occupied;
+  const safeApartments: Apartment[] = apartments ?? [];
+  const occupied = safeApartments.filter((a) => a.occupied).length;
+  const empty = safeApartments.length - occupied;
 
   return (
     <Card>
@@ -48,8 +49,8 @@ export default function ApartmentsList({
             </Button>
           )}
           <div>
-            <CardTitle>Apartments ({apartments.length})</CardTitle>
-            {apartments.length > 0 && (
+            <CardTitle>Apartments ({safeApartments.length})</CardTitle>
+            {safeApartments.length > 0 && (
               <p className="text-sm text-muted-foreground mt-0.5">
                 {occupied} occupied · {empty} available
               </p>
@@ -69,9 +70,9 @@ export default function ApartmentsList({
               <Skeleton key={i} className="h-28 rounded-xl" />
             ))}
           </div>
-        ) : apartments.length > 0 ? (
+        ) : safeApartments.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {apartments.map((apt) => {
+            {safeApartments.map((apt) => {
               const isOccupied = !!apt.occupied;
               return (
                 <Card key={apt.id} className="overflow-hidden">
