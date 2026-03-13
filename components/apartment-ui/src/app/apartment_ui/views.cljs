@@ -15,6 +15,7 @@
 
 (defn component [_]
   (re-frame/dispatch [::events/load-apartments])
+  (re-frame/dispatch [::events/close-assign-dialog])
   (fn [{:keys [properties on-go-back]}]
     (let [apartments       @(re-frame/subscribe [::subs/apartments])
           loading?         @(re-frame/subscribe [::subs/loading?])
