@@ -65,6 +65,7 @@ jobs:
           cd ./projects/cloudflare
           echo "${{ secrets.JWT_SECRET }}" | npx wrangler secret put JWT_SECRET --env production
           echo "${{ secrets.GA_SECRET }}" | npx wrangler secret put GA_SECRET --env production
+          echo "${{ secrets.STRIPE_SECRET_KEY }}" | npx wrangler secret put STRIPE_SECRET_KEY --env production
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
