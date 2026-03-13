@@ -1,14 +1,14 @@
 import React from "react";
-import { Link } from "wouter";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
 import { CheckCircle2, Star, Gift, Calendar, Shield, Wrench, Book, Headphones } from "lucide-react";
 
 interface PricingProps {
   userEmail?: string;
+  onSelectPlan?: (tierId: string) => void;
 }
 
-export default function Pricing({ userEmail }: PricingProps) {
+export default function Pricing({ userEmail, onSelectPlan }: PricingProps) {
   const tiers = [
     {
       name: "Done for You",
@@ -141,14 +141,13 @@ export default function Pricing({ userEmail }: PricingProps) {
                 </ul>
               </CardContent>
               <CardFooter className="px-6 pt-0 pb-6">
-                <Link href={`/payment/${tier.id}${userEmail ? `?email=${encodeURIComponent(userEmail)}` : ''}`} className="block w-full">
-                  <Button
-                    className={`w-full bg-gradient-to-r ${tier.color} hover:shadow-lg hover:opacity-90 transition-all duration-200`}
-                    variant="default"
-                  >
-                    {tier.cta}
-                  </Button>
-                </Link>
+                <Button
+                  className={`w-full bg-gradient-to-r ${tier.color} hover:shadow-lg hover:opacity-90 transition-all duration-200`}
+                  variant="default"
+                  onClick={() => onSelectPlan?.(tier.id)}
+                >
+                  {tier.cta}
+                </Button>
               </CardFooter>
             </Card>
           ))}
@@ -165,11 +164,12 @@ export default function Pricing({ userEmail }: PricingProps) {
               Make a one-time, lifetime contribution of <span className="font-semibold text-purple-700">€370</span> to support our system development and get lifetime access to all current and future features.
             </p>
             <div className="mt-6">
-              <Link href={`/payment/crowdfunding${userEmail ? `?email=${encodeURIComponent(userEmail)}` : ''}`}>
-                <Button className="bg-gradient-to-r from-purple-600 to-blue-500 hover:shadow-lg hover:opacity-90 transition-all duration-200">
-                  Make a Contribution
-                </Button>
-              </Link>
+              <Button
+                className="bg-gradient-to-r from-purple-600 to-blue-500 hover:shadow-lg hover:opacity-90 transition-all duration-200"
+                onClick={() => onSelectPlan?.("crowdfunding")}
+              >
+                Make a Contribution
+              </Button>
             </div>
           </div>
         </div>

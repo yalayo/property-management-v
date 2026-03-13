@@ -11,13 +11,10 @@
  (fn [db _]
    (assoc-in db [:ui :active-section] "dashboard")))
 
-(re-frame/reg-event-db
+(re-frame/reg-event-fx
  ::select-plan
  [local-storage-interceptor]
- (fn [db [_ plan-id]]
+ (fn [{:keys [db]} [_ plan-id]]
    (analytics/event "plan_selected" {:plan plan-id})
-   ;; Store chosen plan and navigate to dashboard for now
-   ;; (payment flow can be wired here later)
-   (-> db
-       (assoc-in [:user :selected-plan] plan-id)
-       (assoc-in [:ui :active-section] "dashboard"))))
+   {:db       (assoc-in db [:ui :active-section] "payment")
+    :dispatch [:app.payment-ui.events/select-tier plan-id]}))

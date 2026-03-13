@@ -6,7 +6,8 @@
             [app.plans.interface :as plans]
             [app.property.interface  :as property]
             [app.apartment.interface :as apartment]
-            [app.tenant.interface   :as tenant]))
+            [app.tenant.interface   :as tenant]
+            [app.payment.interface :as payment]))
 
 (def config
   {::user/routes      {}
@@ -15,12 +16,14 @@
    ::property/routes  {}
    ::apartment/routes {}
    ::tenant/routes    {}
+   ::payment/routes   {}
    ::worker/handler {:user-routes      (ig/ref ::user/routes)
                      :survey-routes    (ig/ref ::survey/routes)
                      :plans-routes     (ig/ref ::plans/routes)
                      :property-routes  (ig/ref ::property/routes)
                      :apartment-routes (ig/ref ::apartment/routes)
-                     :tenant-routes    (ig/ref ::tenant/routes)}})
+                     :tenant-routes    (ig/ref ::tenant/routes)
+                     :payment-routes   (ig/ref ::payment/routes)}})
 
 (defonce system (atom nil))
 

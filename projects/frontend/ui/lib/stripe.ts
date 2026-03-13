@@ -1,35 +1,22 @@
 import { loadStripe, Stripe } from "@stripe/stripe-js";
 
-// Make sure to call loadStripe outside of a component's render to avoid
-// recreating the Stripe object on every render.
-let stripePromise: Promise<Stripe | null>;
+// Public keys are safe to include client-side.
+// Use test key in dev, live key in prod.
+const STRIPE_PUBLIC_KEY_DEV  = "pk_test_placeholder_replace_me";
+const STRIPE_PUBLIC_KEY_PROD = "pk_live_placeholder_replace_me";
 
-export const getStripe = () => {
+function getPublicKey(): string {
+  const host = typeof window !== "undefined" ? window.location.host : "";
+  return host.includes("miete.busqandote.com")
+    ? STRIPE_PUBLIC_KEY_PROD
+    : STRIPE_PUBLIC_KEY_DEV;
+}
+
+let stripePromise: ReturnType<typeof loadStripe> | null = null;
+
+export function getStripe(): ReturnType<typeof loadStripe> {
   if (!stripePromise) {
-    const key = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
-    if (!key) {
-      console.error("Missing Stripe public key");
-      throw new Error("Missing required Stripe key: VITE_STRIPE_PUBLIC_KEY");
-    }
-    stripePromise = loadStripe(key);
+    stripePromise = loadStripe(getPublicKey());
   }
   return stripePromise;
-};
-
-// Format amount for display
-export const formatAmountForDisplay = (
-  amount: number,
-  currency: string = "EUR"
-): string => {
-  const numberFormat = new Intl.NumberFormat("de-DE", {
-    style: "currency",
-    currency,
-    currencyDisplay: "symbol",
-  });
-  return numberFormat.format(amount);
-};
-
-// Convert amount for Stripe (multiply by 100)
-export const formatAmountForStripe = (amount: number): number => {
-  return Math.round(amount * 100);
-};
+}

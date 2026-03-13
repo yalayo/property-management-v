@@ -8,9 +8,10 @@ import { Home, LogIn, UserPlus, CheckCircle2 } from "lucide-react";
 
 export default function FeaturesPricing(props) {
   const [userEmail, setUserEmail] = useState(props.email || "");
-  const onSignIn = props.onSignIn;
-  const onSignUp = props.onSignUp;
-  const onGoHome = props.onGoHome;
+  const onSignIn     = props.onSignIn;
+  const onSignUp     = props.onSignUp;
+  const onGoHome     = props.onGoHome;
+  const onSelectPlan = props.onSelectPlan;
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -77,7 +78,7 @@ export default function FeaturesPricing(props) {
           </div>
 
           <Features />
-          <Pricing userEmail={userEmail} />
+          <Pricing userEmail={userEmail} onSelectPlan={onSelectPlan} />
         </div>
 
         {/* Bottom CTA */}
