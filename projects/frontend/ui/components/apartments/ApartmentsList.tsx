@@ -20,8 +20,11 @@ type Props = {
   onChangeAddApartmentDialogOpen?: () => void;
   onManageApartment?: (id: number) => void;
   onAssignTenant?: (id: number) => void;
+  onCloseAssignDialog?: () => void;
+  isAssignDialogOpen?: boolean;
   onGoBack?: () => void;
   children?: React.ReactNode;
+  assignDialogContent?: React.ReactNode;
 };
 
 export default function ApartmentsList({
@@ -31,8 +34,11 @@ export default function ApartmentsList({
   onChangeAddApartmentDialogOpen,
   onManageApartment,
   onAssignTenant,
+  onCloseAssignDialog,
+  isAssignDialogOpen = false,
   onGoBack,
   children,
+  assignDialogContent,
 }: Props) {
   const safeApartments: Apartment[] = apartments ?? [];
   const occupied = safeApartments.filter((a) => a.occupied).length;
@@ -132,6 +138,11 @@ export default function ApartmentsList({
       {/* Add apartment dialog — content is injected as children */}
       <Dialog open={isAddApartmentDialogOpen}>
         <DialogContent>{children}</DialogContent>
+      </Dialog>
+
+      {/* Assign tenant dialog */}
+      <Dialog open={isAssignDialogOpen} onOpenChange={(open) => !open && onCloseAssignDialog?.()}>
+        <DialogContent>{assignDialogContent}</DialogContent>
       </Dialog>
     </Card>
   );

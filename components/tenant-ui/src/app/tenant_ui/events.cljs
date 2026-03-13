@@ -51,15 +51,14 @@
 
 (re-frame/reg-event-fx
  ::add-tenant
- (fn [{:keys [db]} [_ {:keys [name email phone start-date apartment-id]}]]
+ (fn [{:keys [db]} [_ {:keys [name email phone start-date]}]]
    {:db         (assoc-in db [:tenants :saving?] true)
     :http-xhrio {:method          :post
                  :uri             (str (config/get-api-url) "/api/tenants")
-                 :params          {:name         name
-                                   :email        email
-                                   :phone        phone
-                                   :start-date   start-date
-                                   :apartment-id apartment-id}
+                 :params          {:name       name
+                                   :email      email
+                                   :phone      phone
+                                   :start-date start-date}
                  :format          (ajax-edn/edn-request-format)
                  :response-format (ajax-edn/edn-response-format)
                  :timeout         8000

@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "../ui/button";
+import { DialogHeader, DialogTitle } from "../ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../ui/form";
 import { Input } from "../ui/input";
 
@@ -41,11 +42,11 @@ export default function AssignTenant({
 
   return (
     <>
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold leading-none tracking-tight">
+      <DialogHeader>
+        <DialogTitle>
           Assign Tenant{apartmentCode ? ` — Apt ${apartmentCode}` : ""}
-        </h2>
-      </div>
+        </DialogTitle>
+      </DialogHeader>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 pt-2">

@@ -13,7 +13,7 @@
 
 (defn component [_]
   (re-frame/dispatch [::events/load-tenants])
-  (fn [{:keys [apartments]}]
+  (fn [_]
     (let [tenants          @(re-frame/subscribe [::subs/tenants])
           loading?         @(re-frame/subscribe [::subs/loading?])
           saving?          @(re-frame/subscribe [::subs/saving?])
@@ -43,14 +43,12 @@
          (when add-dialog-open?
            (r/as-element
             [add-tenant
-             {:apartments (clj->js (or apartments []))
-              :isLoading  saving?
-              :onClose    #(re-frame/dispatch [::events/close-add-dialog])
-              :onSubmit   (fn [data]
-                            (let [d (js->clj data :keywordize-keys true)]
-                              (re-frame/dispatch [::events/add-tenant
-                                                  {:name         (:name d)
-                                                   :email        (:email d)
-                                                   :phone        (:phone d)
-                                                   :start-date   (:startDate d)
-                                                   :apartment-id (:apartmentId d)}])))}]))]))))
+             {:isLoading saving?
+              :onClose   #(re-frame/dispatch [::events/close-add-dialog])
+              :onSubmit  (fn [data]
+                           (let [d (js->clj data :keywordize-keys true)]
+                             (re-frame/dispatch [::events/add-tenant
+                                                 {:name       (:name d)
+                                                  :email      (:email d)
+                                                  :phone      (:phone d)
+                                                  :start-date (:startDate d)}])))}]))]))))

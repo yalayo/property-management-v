@@ -7,47 +7,30 @@ import { Button } from "../ui/button";
 import { DialogHeader, DialogTitle } from "../ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../ui/form";
 import { Input } from "../ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
 const tenantSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.union([z.string().email("Invalid email address"), z.literal("")]).optional(),
   phone: z.string().optional(),
   startDate: z.string().optional(),
-  apartmentId: z.string().optional(),
 });
 
 type TenantFormValues = z.infer<typeof tenantSchema>;
 
-type Apartment = {
-  id: number;
-  code: string;
-};
-
 type Props = {
-  apartments?: Apartment[];
   isLoading?: boolean;
-  apartmentId?: string;
   onClose?: () => void;
   onSubmit?: (data: TenantFormValues) => void;
 };
 
 export default function AddTenant({
-  apartments = [],
   isLoading = false,
-  apartmentId,
   onClose,
   onSubmit,
 }: Props) {
   const form = useForm<TenantFormValues>({
     resolver: zodResolver(tenantSchema),
-    defaultValues: {
-      name: "",
-      email: "",
-      phone: "",
-      startDate: "",
-      apartmentId: apartmentId ?? "",
-    },
+    defaultValues: { name: "", email: "", phone: "", startDate: "" },
   });
 
   const handleSubmit = (data: TenantFormValues) => {
@@ -102,29 +85,6 @@ export default function AddTenant({
               <FormMessage />
             </FormItem>
           )} />
-
-          {!apartmentId && (
-            <FormField control={form.control} name="apartmentId" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Apartment</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select an apartment" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {apartments.map((a) => (
-                      <SelectItem key={a.id} value={String(a.id)}>
-                        {a.code}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
-          )}
 
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
