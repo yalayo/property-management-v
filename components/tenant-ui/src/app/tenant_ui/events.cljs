@@ -39,13 +39,7 @@
  ::open-add-dialog
  [local-storage-interceptor]
  (fn [db _]
-   (-> db
-       (assoc-in [:tenants :add-dialog-open?] true)
-       (assoc-in [:tenants :new-name] "")
-       (assoc-in [:tenants :new-email] "")
-       (assoc-in [:tenants :new-phone] "")
-       (assoc-in [:tenants :new-start-date] "")
-       (assoc-in [:tenants :new-apartment-id] nil))))
+   (assoc-in db [:tenants :add-dialog-open?] true)))
 
 (re-frame/reg-event-db
  ::close-add-dialog
@@ -53,54 +47,24 @@
  (fn [db _]
    (assoc-in db [:tenants :add-dialog-open?] false)))
 
-(re-frame/reg-event-db
- ::set-new-name
- [local-storage-interceptor]
- (fn [db [_ v]] (assoc-in db [:tenants :new-name] v)))
-
-(re-frame/reg-event-db
- ::set-new-email
- [local-storage-interceptor]
- (fn [db [_ v]] (assoc-in db [:tenants :new-email] v)))
-
-(re-frame/reg-event-db
- ::set-new-phone
- [local-storage-interceptor]
- (fn [db [_ v]] (assoc-in db [:tenants :new-phone] v)))
-
-(re-frame/reg-event-db
- ::set-new-start-date
- [local-storage-interceptor]
- (fn [db [_ v]] (assoc-in db [:tenants :new-start-date] v)))
-
-(re-frame/reg-event-db
- ::set-new-apartment-id
- [local-storage-interceptor]
- (fn [db [_ v]] (assoc-in db [:tenants :new-apartment-id] v)))
-
 ;; ── Add tenant ────────────────────────────────────────────────────────────
 
 (re-frame/reg-event-fx
  ::add-tenant
- (fn [{:keys [db]} _]
-   (let [name         (get-in db [:tenants :new-name])
-         email        (get-in db [:tenants :new-email])
-         phone        (get-in db [:tenants :new-phone])
-         start-date   (get-in db [:tenants :new-start-date])
-         apartment-id (get-in db [:tenants :new-apartment-id])]
-     {:db         (assoc-in db [:tenants :saving?] true)
-      :http-xhrio {:method          :post
-                   :uri             (str (config/get-api-url) "/api/tenants")
-                   :params          {:name         name
-                                     :email        email
-                                     :phone        phone
-                                     :start-date   start-date
-                                     :apartment-id apartment-id}
-                   :format          (ajax-edn/edn-request-format)
-                   :response-format (ajax-edn/edn-response-format)
-                   :timeout         8000
-                   :on-success      [::tenant-added]
-                   :on-failure      [::tenant-save-error]}})))
+ (fn [{:keys [db]} [_ {:keys [name email phone start-date apartment-id]}]]
+   {:db         (assoc-in db [:tenants :saving?] true)
+    :http-xhrio {:method          :post
+                 :uri             (str (config/get-api-url) "/api/tenants")
+                 :params          {:name         name
+                                   :email        email
+                                   :phone        phone
+                                   :start-date   start-date
+                                   :apartment-id apartment-id}
+                 :format          (ajax-edn/edn-request-format)
+                 :response-format (ajax-edn/edn-response-format)
+                 :timeout         8000
+                 :on-success      [::tenant-added]
+                 :on-failure      [::tenant-save-error]}}))
 
 (re-frame/reg-event-fx
  ::tenant-added

@@ -1,10 +1,23 @@
 import React from "react";
 import { Loader2 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Button } from "../ui/button";
 import { DialogHeader, DialogTitle } from "../ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../ui/form";
 import { Input } from "../ui/input";
-import { Label } from "../ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+
+const tenantSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.union([z.string().email("Invalid email address"), z.literal("")]).optional(),
+  phone: z.string().optional(),
+  startDate: z.string().optional(),
+  apartmentId: z.string().optional(),
+});
+
+type TenantFormValues = z.infer<typeof tenantSchema>;
 
 type Apartment = {
   id: number;
@@ -14,119 +27,122 @@ type Apartment = {
 type Props = {
   apartments?: Apartment[];
   isLoading?: boolean;
-  name?: string;
-  email?: string;
-  phone?: string;
-  startDate?: string;
   apartmentId?: string;
   onClose?: () => void;
-  onChangeName?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onChangeEmail?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onChangePhone?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onChangeStartDate?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onChangeApartment?: (value: string) => void;
-  onSubmit?: () => void;
+  onSubmit?: (data: TenantFormValues) => void;
 };
 
 export default function AddTenant({
   apartments = [],
   isLoading = false,
-  name = "",
-  email = "",
-  phone = "",
-  startDate = "",
   apartmentId,
   onClose,
-  onChangeName,
-  onChangeEmail,
-  onChangePhone,
-  onChangeStartDate,
-  onChangeApartment,
   onSubmit,
 }: Props) {
+  const form = useForm<TenantFormValues>({
+    resolver: zodResolver(tenantSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      startDate: "",
+      apartmentId: apartmentId ?? "",
+    },
+  });
+
+  const handleSubmit = (data: TenantFormValues) => {
+    onSubmit?.(data);
+    form.reset();
+  };
+
   return (
     <>
       <DialogHeader>
         <DialogTitle>Add Tenant</DialogTitle>
       </DialogHeader>
 
-      <div className="space-y-4 pt-2">
-        <div className="space-y-2">
-          <Label htmlFor="tenant-name">Full Name</Label>
-          <Input
-            id="tenant-name"
-            placeholder="E.g., Maria Schmidt"
-            value={name}
-            onChange={onChangeName}
-          />
-        </div>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 pt-2">
+          <FormField control={form.control} name="name" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Full Name</FormLabel>
+              <FormControl>
+                <Input placeholder="E.g., Maria Schmidt" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
 
-        <div className="space-y-2">
-          <Label htmlFor="tenant-email">Email</Label>
-          <Input
-            id="tenant-email"
-            type="email"
-            placeholder="tenant@example.com"
-            value={email}
-            onChange={onChangeEmail}
-          />
-        </div>
+          <FormField control={form.control} name="email" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input type="email" placeholder="tenant@example.com" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
 
-        <div className="space-y-2">
-          <Label htmlFor="tenant-phone">Phone</Label>
-          <Input
-            id="tenant-phone"
-            type="tel"
-            placeholder="+49 123 456789"
-            value={phone}
-            onChange={onChangePhone}
-          />
-        </div>
+          <FormField control={form.control} name="phone" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Phone</FormLabel>
+              <FormControl>
+                <Input type="tel" placeholder="+49 123 456789" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
 
-        <div className="space-y-2">
-          <Label htmlFor="tenant-start">Start Date</Label>
-          <Input
-            id="tenant-start"
-            type="date"
-            value={startDate}
-            onChange={onChangeStartDate}
-          />
-        </div>
+          <FormField control={form.control} name="startDate" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Start Date</FormLabel>
+              <FormControl>
+                <Input type="date" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
 
-        {!apartmentId && (
-          <div className="space-y-2">
-            <Label htmlFor="tenant-apartment">Apartment</Label>
-            <Select onValueChange={onChangeApartment}>
-              <SelectTrigger id="tenant-apartment">
-                <SelectValue placeholder="Select an apartment" />
-              </SelectTrigger>
-              <SelectContent>
-                {apartments.map((a) => (
-                  <SelectItem key={a.id} value={String(a.id)}>
-                    {a.code}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {!apartmentId && (
+            <FormField control={form.control} name="apartmentId" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Apartment</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select an apartment" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {apartments.map((a) => (
+                      <SelectItem key={a.id} value={String(a.id)}>
+                        {a.code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )} />
+          )}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Add Tenant"
+              )}
+            </Button>
           </div>
-        )}
-
-        <div className="flex justify-end gap-3 pt-2">
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
-            Cancel
-          </Button>
-          <Button onClick={onSubmit} disabled={isLoading || !name.trim()}>
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              "Add Tenant"
-            )}
-          </Button>
-        </div>
-      </div>
+        </form>
+      </Form>
     </>
   );
 }

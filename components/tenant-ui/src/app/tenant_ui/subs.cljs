@@ -25,28 +25,3 @@
  ::selected-tenant-id
  (fn [db _]
    (get-in db [:tenants :selected-id])))
-
-(re-frame/reg-sub
- ::new-name
- (fn [db _]
-   (get-in db [:tenants :new-name] "")))
-
-(re-frame/reg-sub
- ::new-email
- (fn [db _]
-   (get-in db [:tenants :new-email] "")))
-
-(re-frame/reg-sub
- ::new-phone
- (fn [db _]
-   (get-in db [:tenants :new-phone] "")))
-
-(re-frame/reg-sub
- ::new-start-date
- (fn [db _]
-   (get-in db [:tenants :new-start-date] "")))
-
-(re-frame/reg-sub
- ::new-apartment-id
- (fn [db _]
-   (get-in db [:tenants :new-apartment-id])))

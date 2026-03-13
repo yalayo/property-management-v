@@ -1,39 +1,45 @@
 import React from "react";
 import { Loader2 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Button } from "../ui/button";
 import { DialogHeader, DialogTitle } from "../ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../ui/form";
 import { Input } from "../ui/input";
-import { Label } from "../ui/label";
+
+const assignSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.union([z.string().email("Invalid email address"), z.literal("")]).optional(),
+  phone: z.string().optional(),
+  startDate: z.string().optional(),
+});
+
+type AssignFormValues = z.infer<typeof assignSchema>;
 
 type Props = {
   apartmentCode?: string;
   isLoading?: boolean;
-  name?: string;
-  email?: string;
-  phone?: string;
-  startDate?: string;
   onClose?: () => void;
-  onChangeName?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onChangeEmail?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onChangePhone?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onChangeStartDate?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onSubmit?: () => void;
+  onSubmit?: (data: AssignFormValues) => void;
 };
 
 export default function AssignTenant({
   apartmentCode,
   isLoading = false,
-  name = "",
-  email = "",
-  phone = "",
-  startDate = "",
   onClose,
-  onChangeName,
-  onChangeEmail,
-  onChangePhone,
-  onChangeStartDate,
   onSubmit,
 }: Props) {
+  const form = useForm<AssignFormValues>({
+    resolver: zodResolver(assignSchema),
+    defaultValues: { name: "", email: "", phone: "", startDate: "" },
+  });
+
+  const handleSubmit = (data: AssignFormValues) => {
+    onSubmit?.(data);
+    form.reset();
+  };
+
   return (
     <>
       <DialogHeader>
@@ -42,65 +48,65 @@ export default function AssignTenant({
         </DialogTitle>
       </DialogHeader>
 
-      <div className="space-y-4 pt-2">
-        <div className="space-y-2">
-          <Label htmlFor="assign-name">Full Name</Label>
-          <Input
-            id="assign-name"
-            placeholder="E.g., Maria Schmidt"
-            value={name}
-            onChange={onChangeName}
-          />
-        </div>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 pt-2">
+          <FormField control={form.control} name="name" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Full Name</FormLabel>
+              <FormControl>
+                <Input placeholder="E.g., Maria Schmidt" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
 
-        <div className="space-y-2">
-          <Label htmlFor="assign-email">Email</Label>
-          <Input
-            id="assign-email"
-            type="email"
-            placeholder="tenant@example.com"
-            value={email}
-            onChange={onChangeEmail}
-          />
-        </div>
+          <FormField control={form.control} name="email" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input type="email" placeholder="tenant@example.com" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
 
-        <div className="space-y-2">
-          <Label htmlFor="assign-phone">Phone</Label>
-          <Input
-            id="assign-phone"
-            type="tel"
-            placeholder="+49 123 456789"
-            value={phone}
-            onChange={onChangePhone}
-          />
-        </div>
+          <FormField control={form.control} name="phone" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Phone</FormLabel>
+              <FormControl>
+                <Input type="tel" placeholder="+49 123 456789" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
 
-        <div className="space-y-2">
-          <Label htmlFor="assign-start">Start Date</Label>
-          <Input
-            id="assign-start"
-            type="date"
-            value={startDate}
-            onChange={onChangeStartDate}
-          />
-        </div>
+          <FormField control={form.control} name="startDate" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Start Date</FormLabel>
+              <FormControl>
+                <Input type="date" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
 
-        <div className="flex justify-end gap-3 pt-2">
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
-            Cancel
-          </Button>
-          <Button onClick={onSubmit} disabled={isLoading || !name.trim()}>
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Assigning...
-              </>
-            ) : (
-              "Assign Tenant"
-            )}
-          </Button>
-        </div>
-      </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Assigning...
+                </>
+              ) : (
+                "Assign Tenant"
+              )}
+            </Button>
+          </div>
+        </form>
+      </Form>
     </>
   );
 }

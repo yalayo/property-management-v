@@ -16,19 +16,15 @@
 (defn component [_]
   (re-frame/dispatch [::events/load-apartments])
   (fn [{:keys [properties on-go-back]}]
-    (let [apartments        @(re-frame/subscribe [::subs/apartments])
-          loading?          @(re-frame/subscribe [::subs/loading?])
-          saving?           @(re-frame/subscribe [::subs/saving?])
-          add-dialog-open?  @(re-frame/subscribe [::subs/add-dialog-open?])
-          selected-id       @(re-frame/subscribe [::subs/selected-apartment-id])
-          new-code          @(re-frame/subscribe [::subs/new-apartment-code])
-          assign-apt-id     @(re-frame/subscribe [::subs/assign-apt-id])
-          assign-name       @(re-frame/subscribe [::subs/assign-name])
-          assign-email      @(re-frame/subscribe [::subs/assign-email])
-          assign-phone      @(re-frame/subscribe [::subs/assign-phone])
-          assign-start-date @(re-frame/subscribe [::subs/assign-start-date])
-          selected-apt      (when selected-id (first (filter #(= (:id %) selected-id) apartments)))
-          assign-apt        (when assign-apt-id (first (filter #(= (:id %) assign-apt-id) apartments)))]
+    (let [apartments       @(re-frame/subscribe [::subs/apartments])
+          loading?         @(re-frame/subscribe [::subs/loading?])
+          saving?          @(re-frame/subscribe [::subs/saving?])
+          add-dialog-open? @(re-frame/subscribe [::subs/add-dialog-open?])
+          selected-id      @(re-frame/subscribe [::subs/selected-apartment-id])
+          new-code         @(re-frame/subscribe [::subs/new-apartment-code])
+          assign-apt-id    @(re-frame/subscribe [::subs/assign-apt-id])
+          selected-apt     (when selected-id (first (filter #(= (:id %) selected-id) apartments)))
+          assign-apt       (when assign-apt-id (first (filter #(= (:id %) assign-apt-id) apartments)))]
       (if selected-id
         [manage-apartment
          {:apartment        (clj->js selected-apt)
@@ -59,7 +55,7 @@
                :onChangeProperty                (fn [v]
                                                  (re-frame/dispatch [::events/set-new-property-id v]))
                :submitApartment                 #(re-frame/dispatch [::events/add-apartment])}]))]
-         ;; Assign tenant overlay — portal-style fixed backdrop
+         ;; Assign tenant overlay
          (when assign-apt-id
            [:div {:style {:position "fixed" :inset "0" :z-index 50
                           :display "flex" :align-items "center" :justify-content "center"
@@ -67,15 +63,14 @@
             [:div {:style {:background "white" :border-radius "8px" :padding "24px"
                            :width "100%" :max-width "440px" :margin "0 16px"}}
              [assign-tenant
-              {:apartmentCode    (:code assign-apt)
-               :isLoading        saving?
-               :name             assign-name
-               :email            assign-email
-               :phone            assign-phone
-               :startDate        assign-start-date
-               :onClose          #(re-frame/dispatch [::events/close-assign-dialog])
-               :onChangeName     (fn [e] (re-frame/dispatch [::events/set-assign-name (.. e -target -value)]))
-               :onChangeEmail    (fn [e] (re-frame/dispatch [::events/set-assign-email (.. e -target -value)]))
-               :onChangePhone    (fn [e] (re-frame/dispatch [::events/set-assign-phone (.. e -target -value)]))
-               :onChangeStartDate (fn [e] (re-frame/dispatch [::events/set-assign-start-date (.. e -target -value)]))
-               :onSubmit         #(re-frame/dispatch [::events/assign-tenant])}]]])]))))
+              {:apartmentCode (:code assign-apt)
+               :isLoading     saving?
+               :onClose       #(re-frame/dispatch [::events/close-assign-dialog])
+               :onSubmit      (fn [data]
+                                (let [d (js->clj data :keywordize-keys true)]
+                                  (re-frame/dispatch [::events/assign-tenant
+                                                      assign-apt-id
+                                                      {:name       (:name d)
+                                                       :email      (:email d)
+                                                       :phone      (:phone d)
+                                                       :start-date (:startDate d)}])))}]]])]))))

@@ -19,10 +19,6 @@
           saving?          @(re-frame/subscribe [::subs/saving?])
           add-dialog-open? @(re-frame/subscribe [::subs/add-dialog-open?])
           selected-id      @(re-frame/subscribe [::subs/selected-tenant-id])
-          new-name         @(re-frame/subscribe [::subs/new-name])
-          new-email        @(re-frame/subscribe [::subs/new-email])
-          new-phone        @(re-frame/subscribe [::subs/new-phone])
-          new-start-date   @(re-frame/subscribe [::subs/new-start-date])
           selected-tenant  (when selected-id (first (filter #(= (:id %) selected-id) tenants)))]
       (if selected-id
         [manage-tenant
@@ -39,24 +35,22 @@
                                              :start-date (:start_date d)
                                              :end-date   (:end_date d)}])))}]
         [tenants-list
-         {:tenants              (clj->js tenants)
-          :isLoading            loading?
+         {:tenants               (clj->js tenants)
+          :isLoading             loading?
           :isAddTenantDialogOpen add-dialog-open?
           :onOpenAddTenantDialog #(re-frame/dispatch [::events/open-add-dialog])
           :onManageTenant        (fn [id] (re-frame/dispatch [::events/select-tenant id]))}
          (when add-dialog-open?
            (r/as-element
             [add-tenant
-             {:apartments      (clj->js (or apartments []))
-              :isLoading       saving?
-              :name            new-name
-              :email           new-email
-              :phone           new-phone
-              :startDate       new-start-date
-              :onClose         #(re-frame/dispatch [::events/close-add-dialog])
-              :onChangeName    (fn [e] (re-frame/dispatch [::events/set-new-name (.. e -target -value)]))
-              :onChangeEmail   (fn [e] (re-frame/dispatch [::events/set-new-email (.. e -target -value)]))
-              :onChangePhone   (fn [e] (re-frame/dispatch [::events/set-new-phone (.. e -target -value)]))
-              :onChangeStartDate (fn [e] (re-frame/dispatch [::events/set-new-start-date (.. e -target -value)]))
-              :onChangeApartment (fn [v] (re-frame/dispatch [::events/set-new-apartment-id v]))
-              :onSubmit        #(re-frame/dispatch [::events/add-tenant])}]))]))))
+             {:apartments (clj->js (or apartments []))
+              :isLoading  saving?
+              :onClose    #(re-frame/dispatch [::events/close-add-dialog])
+              :onSubmit   (fn [data]
+                            (let [d (js->clj data :keywordize-keys true)]
+                              (re-frame/dispatch [::events/add-tenant
+                                                  {:name         (:name d)
+                                                   :email        (:email d)
+                                                   :phone        (:phone d)
+                                                   :start-date   (:startDate d)
+                                                   :apartment-id (:apartmentId d)}])))}]))]))))
