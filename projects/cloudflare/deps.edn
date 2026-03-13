@@ -9,7 +9,8 @@
         poly/user    {:local/root "../../components/user"}
         poly/survey  {:local/root "../../components/survey"}
         poly/plans    {:local/root "../../components/plans"}
-        poly/property {:local/root "../../components/property"}}
+        poly/property   {:local/root "../../components/property"}
+        poly/apartment  {:local/root "../../components/apartment"}}
  :paths ["src" "resources"]
  :aliases {:dev {:extra-deps {thheller/shadow-cljs {:mvn/version "3.2.1"}
                               binaryage/devtools {:mvn/version "1.0.7"}}}}}
