@@ -1,6 +1,7 @@
 import React from "react";
 import { useState, useEffect } from "react";
 import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../components/ui/sheet";
 import PropertyList from "../components/dashboard/PropertyList";
@@ -8,17 +9,20 @@ import TenantPayments from "../components/dashboard/TenantPayments";
 import FileUpload from "../components/dashboard/FileUpload";
 import UserAnalytics from "../components/dashboard/UserAnalytics";
 import DashboardSummary from "../components/dashboard/DashboardSummary";
-
-const NAV_ITEMS = [
-  { id: "overview",   label: "Overview",   icon: Home },
-  { id: "properties", label: "Properties", icon: Building },
-  { id: "apartments", label: "Apartments", icon: Building2 },
-  { id: "tenants",    label: "Tenants",    icon: Users },
-  { id: "documents",  label: "Documents",  icon: FileText },
-  { id: "analytics",  label: "Analytics",  icon: BarChart2 },
-];
+import LanguageSwitcher from "../components/common/LanguageSwitcher";
 
 function SidebarContent({ activeTab, onSelect, onLogout }) {
+  const { t } = useTranslation("nav");
+
+  const NAV_ITEMS = [
+    { id: "overview",   label: t("overview"),   icon: Home },
+    { id: "properties", label: t("properties"), icon: Building },
+    { id: "apartments", label: t("apartments"), icon: Building2 },
+    { id: "tenants",    label: t("tenants"),    icon: Users },
+    { id: "documents",  label: t("documents"),  icon: FileText },
+    { id: "analytics",  label: t("analytics"),  icon: BarChart2 },
+  ];
+
   return (
     <div className="flex flex-col h-full bg-white">
       <div className="flex items-center h-16 flex-shrink-0 px-4 bg-primary">
@@ -46,7 +50,7 @@ function SidebarContent({ activeTab, onSelect, onLogout }) {
       <div className="flex-shrink-0 border-t border-gray-200 p-4">
         <Button variant="outline" className="w-full" onClick={onLogout}>
           <LogOut className="mr-3 h-5 w-5" />
-          Logout
+          {t("logout")}
         </Button>
       </div>
     </div>
@@ -54,12 +58,22 @@ function SidebarContent({ activeTab, onSelect, onLogout }) {
 }
 
 export default function Dashboard(props) {
+  const { t } = useTranslation("nav");
   const [activeTab, setActiveTab] = useState("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (props.onLoadData) props.onLoadData();
   }, []);
+
+  const NAV_LABELS: Record<string, string> = {
+    overview:   t("overview"),
+    properties: t("properties"),
+    apartments: t("apartments"),
+    tenants:    t("tenants"),
+    documents:  t("documents"),
+    analytics:  t("analytics"),
+  };
 
   const handleSelect = (id: string) => {
     setActiveTab(id);
@@ -71,7 +85,7 @@ export default function Dashboard(props) {
     props.onViewApartments?.(property);
   };
 
-  const activeLabel = NAV_ITEMS.find(n => n.id === activeTab)?.label ?? "Dashboard";
+  const activeLabel = NAV_LABELS[activeTab] ?? "Dashboard";
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -88,7 +102,7 @@ export default function Dashboard(props) {
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <SheetContent side="left" className="p-0 w-64">
           <SheetHeader className="sr-only">
-            <SheetTitle>Navigation</SheetTitle>
+            <SheetTitle>{t("navigation")}</SheetTitle>
           </SheetHeader>
           <SidebarContent
             activeTab={activeTab}
@@ -100,7 +114,7 @@ export default function Dashboard(props) {
 
       {/* Main column */}
       <div className="md:pl-64 flex flex-col flex-1 min-w-0">
-        {/* Top bar — hamburger on mobile, section title always */}
+        {/* Top bar — hamburger on mobile, section title + language switcher */}
         <header className="bg-white border-b border-gray-200 h-14 flex items-center px-4 gap-3">
           <Button
             variant="ghost"
@@ -109,9 +123,10 @@ export default function Dashboard(props) {
             onClick={() => setSidebarOpen(true)}
           >
             <Menu className="h-5 w-5" />
-            <span className="sr-only">Open menu</span>
+            <span className="sr-only">{t("openMenu")}</span>
           </Button>
-          <span className="font-semibold text-slate-700">{activeLabel}</span>
+          <span className="font-semibold text-slate-700 flex-1">{activeLabel}</span>
+          <LanguageSwitcher />
         </header>
 
         <main className="flex-1 p-4 sm:p-6">

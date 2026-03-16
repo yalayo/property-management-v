@@ -1,5 +1,6 @@
 import React from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
+import { useTranslation } from "react-i18next";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Progress } from "../ui/progress";
 import {
   Home,
@@ -11,52 +12,38 @@ import {
 } from "lucide-react";
 
 export default function DashboardSummary(props) {
-  // Fetch properties
+  const { t } = useTranslation("dashboard");
+
   const properties = props.properties;
-  const propertiesLoading = props.propertiesLoading; /*useQuery({
-    queryKey: ['/api/properties'],
-    queryFn: () => fetch('/api/properties').then(res => res.json())
-  });*/
-
-  // Fetch tenants
+  const propertiesLoading = props.propertiesLoading;
   const tenants = props.tenants;
-  const tenantsLoading = props.tenantsLoading;  /*useQuery({
-    queryKey: ['/api/tenants'],
-    queryFn: () => fetch('/api/tenants').then(res => res.json())
-  });*/
-
-  // Fetch late payments
+  const tenantsLoading = props.tenantsLoading;
   const latePayments = props.latePayments;
-  const paymentsLoading = props.paymentsLoading; /* useQuery({
-    queryKey: ['/api/late-payments'],
-    queryFn: () => fetch('/api/late-payments').then(res => res.json())
-  });*/
+  const paymentsLoading = props.paymentsLoading;
 
   const isLoading = propertiesLoading || tenantsLoading || paymentsLoading;
 
   const currentDate = new Date();
-  const currentMonth = currentDate.toLocaleString('default', { month: 'long' });
+  const currentMonth = currentDate.toLocaleString("default", { month: "long" });
 
-  // Calculate stats
   const propertyCount = properties?.length || 0;
   const tenantCount = tenants?.length || 0;
   const latePaymentCount = latePayments?.length || 0;
-  
-  // Calculate occupancy rate (assuming each property has units field)
+
   let totalUnits = 0;
   let occupiedUnits = 0;
-  
+
   if (properties && tenants) {
     totalUnits = properties.reduce((sum: number, property: any) => sum + (property.units || 1), 0);
     occupiedUnits = tenants.filter((tenant: any) => tenant.active).length;
   }
-  
+
   const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
-      
+      <h2 className="text-2xl font-bold tracking-tight">{t("title")}</h2>
+
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
@@ -75,41 +62,43 @@ export default function DashboardSummary(props) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Properties</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("summary.properties")}</CardTitle>
               <Home className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{propertyCount}</div>
-              <p className="text-xs text-muted-foreground">Total managed properties</p>
+              <p className="text-xs text-muted-foreground">{t("summary.propertiesDesc")}</p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Tenants</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("summary.tenants")}</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{tenantCount}</div>
-              <p className="text-xs text-muted-foreground">Active tenant contracts</p>
+              <p className="text-xs text-muted-foreground">{t("summary.tenantsDesc")}</p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Occupancy</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("summary.occupancy")}</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{occupancyRate}%</div>
               <Progress value={occupancyRate} className="h-2 mt-2" />
-              <p className="text-xs text-muted-foreground mt-2">{occupiedUnits} of {totalUnits} units occupied</p>
+              <p className="text-xs text-muted-foreground mt-2">
+                {t("summary.occupancyDesc", { occupied: occupiedUnits, total: totalUnits })}
+              </p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Payments</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("summary.payments")}</CardTitle>
               <CreditCard className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -118,16 +107,18 @@ export default function DashboardSummary(props) {
                 {latePaymentCount > 0 ? (
                   <span className="text-red-500 text-sm flex items-center">
                     <ArrowUpRight className="h-4 w-4 mr-1" />
-                    Late
+                    {t("summary.late")}
                   </span>
                 ) : (
                   <span className="text-green-500 text-sm flex items-center">
                     <ArrowDownRight className="h-4 w-4 mr-1" />
-                    On time
+                    {t("summary.onTime")}
                   </span>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground">For {currentMonth}</p>
+              <p className="text-xs text-muted-foreground">
+                {t("summary.paymentsFor", { month: currentMonth })}
+              </p>
             </CardContent>
           </Card>
         </div>
