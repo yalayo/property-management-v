@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { Menu, X } from "lucide-react";
 import { Button } from "../ui/button";
+import { useTranslation } from "react-i18next";
 
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { t } = useTranslation("landing");
 
   return (
     <header className="bg-white shadow-sm sticky top-0 z-50">
@@ -21,21 +23,21 @@ export default function Header() {
           </div>
           <nav className="hidden md:ml-6 md:flex md:space-x-8">
             <a href="#features" className="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
-              Features
+              {t("header.features")}
             </a>
             <a href="#pricing" className="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
-              Pricing
+              {t("header.pricing")}
             </a>
             <a href="#testimonials" className="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
-              Testimonials
+              {t("header.testimonials")}
             </a>
             <a href="#contact" className="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
-              Contact
+              {t("header.contact")}
             </a>
           </nav>
           <div className="flex items-center">
             <a href="#survey" className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-              Start Survey
+              {t("header.startSurvey")}
             </a>
           </div>
           {/* Mobile menu button */}
@@ -48,7 +50,7 @@ export default function Header() {
               aria-controls="mobile-menu"
               aria-expanded={mobileMenuOpen}
             >
-              <span className="sr-only">Open main menu</span>
+              <span className="sr-only">{t("header.openMenu")}</span>
               {mobileMenuOpen ? (
                 <X className="h-6 w-6" />
               ) : (
@@ -68,35 +70,35 @@ export default function Header() {
               className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Features
+              {t("header.features")}
             </a>
             <a
               href="#pricing"
               className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Pricing
+              {t("header.pricing")}
             </a>
             <a
               href="#testimonials"
               className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Testimonials
+              {t("header.testimonials")}
             </a>
             <a
               href="#contact"
               className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Contact
+              {t("header.contact")}
             </a>
             <a
               href="#survey"
               className="block pl-3 pr-4 py-2 border-l-4 border-primary-500 text-base font-medium text-primary-700 bg-primary-50"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Start Survey
+              {t("header.startSurvey")}
             </a>
           </div>
         </div>

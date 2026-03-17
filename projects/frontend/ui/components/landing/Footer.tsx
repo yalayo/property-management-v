@@ -1,29 +1,32 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Facebook, Twitter, Linkedin } from "lucide-react";
 
 export default function Footer() {
+  const { t } = useTranslation("footer");
+
   return (
     <footer className="bg-white">
       <div className="max-w-7xl mx-auto py-12 px-4 overflow-hidden sm:px-6 lg:px-8">
         <nav className="-mx-5 -my-2 flex flex-wrap justify-center" aria-label="Footer">
           <div className="px-5 py-2">
             <a href="#" className="text-base text-gray-500 hover:text-gray-900">
-              About
+              {t("about")}
             </a>
           </div>
           <div className="px-5 py-2">
             <a href="/features-pricing" className="text-base text-gray-500 hover:text-gray-900">
-              Features & Pricing
+              {t("featuresPricing")}
             </a>
           </div>
           <div className="px-5 py-2">
             <a href="#" className="text-base text-gray-500 hover:text-gray-900">
-              FAQ
+              {t("faq")}
             </a>
           </div>
           <div className="px-5 py-2">
             <a href="#" className="text-base text-gray-500 hover:text-gray-900">
-              Contact
+              {t("contact")}
             </a>
           </div>
         </nav>
@@ -42,7 +45,7 @@ export default function Footer() {
           </a>
         </div>
         <p className="mt-8 text-center text-base text-gray-400">
-          &copy; {new Date().getFullYear()} PropManager GmbH. All rights reserved.
+          {t("copyright", { year: new Date().getFullYear() })}
         </p>
       </div>
     </footer>

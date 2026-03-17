@@ -3,6 +3,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Redirect, useLocation } from "wouter";
+import { useTranslation } from "react-i18next";
 import { useToast } from "../hooks/use-toast";
 import { apiRequest } from "../lib/queryClient";
 
@@ -26,27 +27,15 @@ import {
 } from "../components/ui/form";
 import { Loader2, ShieldCheck } from "lucide-react";
 
-// Form validation schema
-const passwordChangeSchema = z
-  .object({
-    currentPassword: z.string().min(1, "Current password is required"),
-    newPassword: z
-      .string()
-      .min(8, "Password must be at least 8 characters")
-      .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-      .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-      .regex(/[0-9]/, "Password must contain at least one number"),
-    confirmPassword: z.string().min(1, "Please confirm your password"),
-  })
-  .refine((data) => data.newPassword === data.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  });
-
-type PasswordChangeFormValues = z.infer<typeof passwordChangeSchema>;
+type PasswordChangeFormValues = {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+};
 
 export default function ChangePassword(props) {
   const { user } = props;
+  const { t } = useTranslation("changePassword");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const [, navigate] = useLocation();
@@ -54,6 +43,22 @@ export default function ChangePassword(props) {
   if (!user) {
     return <Redirect to="/login" />;
   }
+
+  const passwordChangeSchema = z
+    .object({
+      currentPassword: z.string().min(1, t("validation.currentRequired")),
+      newPassword: z
+        .string()
+        .min(8, t("validation.newMin"))
+        .regex(/[a-z]/, t("validation.lowercase"))
+        .regex(/[A-Z]/, t("validation.uppercase"))
+        .regex(/[0-9]/, t("validation.number")),
+      confirmPassword: z.string().min(1, t("validation.confirmRequired")),
+    })
+    .refine((data) => data.newPassword === data.confirmPassword, {
+      message: t("validation.noMatch"),
+      path: ["confirmPassword"],
+    });
 
   const form = useForm<PasswordChangeFormValues>({
     resolver: zodResolver(passwordChangeSchema),
@@ -75,16 +80,14 @@ export default function ChangePassword(props) {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || "Failed to change password");
+        throw new Error(error.message || t("failed"));
       }
 
-      // Show success message
       toast({
-        title: "Password changed successfully",
-        description: "You can now use your new password to login",
+        title: t("success"),
+        description: t("successDesc"),
       });
 
-      // Redirect based on user type
       if (user.isAdmin) {
         navigate("/admin/dashboard");
       } else {
@@ -92,8 +95,8 @@ export default function ChangePassword(props) {
       }
     } catch (error) {
       toast({
-        title: "Password change failed",
-        description: error instanceof Error ? error.message : "Something went wrong",
+        title: t("failed"),
+        description: error instanceof Error ? error.message : t("failed"),
         variant: "destructive",
       });
     } finally {
@@ -111,11 +114,9 @@ export default function ChangePassword(props) {
                 <ShieldCheck className="w-10 h-10 text-primary" />
               </div>
             </div>
-            <CardTitle className="text-2xl font-bold text-center">Change Password</CardTitle>
+            <CardTitle className="text-2xl font-bold text-center">{t("title")}</CardTitle>
             <CardDescription className="text-center">
-              {user.passwordChangeRequired 
-                ? "Please set a new password to continue using the application" 
-                : "Update your password below"}
+              {user.passwordChangeRequired ? t("subtitleRequired") : t("subtitle")}
             </CardDescription>
           </CardHeader>
 
@@ -127,11 +128,11 @@ export default function ChangePassword(props) {
                   name="currentPassword"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Current Password</FormLabel>
+                      <FormLabel>{t("currentPassword")}</FormLabel>
                       <FormControl>
                         <Input
                           type="password"
-                          placeholder="Enter your current password"
+                          placeholder={t("placeholders.current")}
                           {...field}
                         />
                       </FormControl>
@@ -145,11 +146,11 @@ export default function ChangePassword(props) {
                   name="newPassword"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>New Password</FormLabel>
+                      <FormLabel>{t("newPassword")}</FormLabel>
                       <FormControl>
                         <Input
                           type="password"
-                          placeholder="Enter your new password"
+                          placeholder={t("placeholders.new")}
                           {...field}
                         />
                       </FormControl>
@@ -163,11 +164,11 @@ export default function ChangePassword(props) {
                   name="confirmPassword"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Confirm New Password</FormLabel>
+                      <FormLabel>{t("confirmPassword")}</FormLabel>
                       <FormControl>
                         <Input
                           type="password"
-                          placeholder="Confirm your new password"
+                          placeholder={t("placeholders.confirm")}
                           {...field}
                         />
                       </FormControl>
@@ -186,10 +187,10 @@ export default function ChangePassword(props) {
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Updating Password...
+                      {t("submitting")}
                     </>
                   ) : (
-                    "Change Password"
+                    t("submit")
                   )}
                 </Button>
               </CardFooter>

@@ -1,6 +1,7 @@
 import React from "react";
 import { AlertCircle, CheckCircle, Loader2, Mail, UserPlus } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "../ui/card";
+import { useTranslation } from "react-i18next";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import {
   Table,
@@ -10,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "../ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Textarea } from "../ui/textarea";
 import { useToast } from "../../hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
@@ -18,120 +19,52 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 
 export default function TenantPayments(props) {
+  const { t } = useTranslation("payments");
+  const { t: tCommon } = useTranslation("common");
   const { toast } = useToast();
   const [_, navigate] = useLocation();
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
   const [additionalMessage, setAdditionalMessage] = useState("");
-  
-  // Fetch late payments
+
   const latePayments = props.latePayments;
   const isLoading = props.isLoading;
-  const error = props.error; /*useQuery({
-    queryKey: ['/api/late-payments'],
-    queryFn: () => fetch('/api/late-payments').then(res => res.json())
-  });*/
-  
-  // Mutation for sending individual reminders
-  const sendReminderMutation = props.sendReminderMutation; /*useMutation({
-    mutationFn: async ({ tenantId, message }: { tenantId: number, message?: string }) => {
-      const response = await apiRequest(
-        "POST", 
-        `/api/tenants/${tenantId}/send-payment-reminder`,
-        { message }
-      );
-      return response.json();
-    },
-    onSuccess: (data) => {
-      toast({
-        title: "Reminder Sent",
-        description: "Payment reminder has been sent successfully.",
-        variant: "default",
-      });
-      
-      // Close dialog if open
-      setSelectedTenant(null);
-      setAdditionalMessage("");
-      
-      // If in development mode and we have a preview URL, open it in a new tab
-      if (data.previewUrl) {
-        window.open(data.previewUrl, '_blank');
-      }
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to Send Reminder",
-        description: error.message || "There was an error sending the reminder.",
-        variant: "destructive",
-      });
-    }
-  });*/
-  
-  // Mutation for generating monthly report
-  const generateReportMutation = props.generateReportMutation; /*useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest(
-        "POST", 
-        `/api/generate-late-payment-report`,
-        {}
-      );
-      return response.json();
-    },
-    onSuccess: (data) => {
-      toast({
-        title: "Report Generated",
-        description: `Monthly late payment report has been generated and sent. ${data.reportCount} late payments included.`,
-        variant: "default",
-      });
-      
-      setIsReportDialogOpen(false);
-      
-      // If in development mode and we have a preview URL, open it in a new tab
-      if (data.previewUrl) {
-        window.open(data.previewUrl, '_blank');
-      }
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to Generate Report",
-        description: error.message || "There was an error generating the report.",
-        variant: "destructive",
-      });
-    }
-  });*/
-  
+  const error = props.error;
+
+  const sendReminderMutation = props.sendReminderMutation;
+  const generateReportMutation = props.generateReportMutation;
+
   const handleSendReminder = (tenant: any) => {
     if (!tenant.email) {
       toast({
-        title: "Cannot Send Reminder",
-        description: "This tenant doesn't have an email address.",
+        title: t("cannotSend"),
+        description: t("noEmail"),
         variant: "destructive",
       });
       return;
     }
-    
     setSelectedTenant(tenant);
   };
-  
+
   const confirmSendReminder = () => {
     if (selectedTenant) {
-      
+      // mutation call handled by parent via prop
     }
   };
-  
+
   const handleGenerateReport = () => {
     setIsReportDialogOpen(true);
   };
-  
+
   const confirmGenerateReport = () => {
-    
+    // mutation call handled by parent via prop
   };
 
   if (isLoading) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Tenant Payment Status</CardTitle>
+          <CardTitle>{t("title")}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex justify-center p-4">
@@ -146,11 +79,11 @@ export default function TenantPayments(props) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Tenant Payment Status</CardTitle>
+          <CardTitle>{t("title")}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="bg-red-50 p-4 rounded-md">
-            <p className="text-red-800">Failed to load payment status. Please try again later.</p>
+            <p className="text-red-800">{t("failedToLoad")}</p>
           </div>
         </CardContent>
       </Card>
@@ -161,21 +94,21 @@ export default function TenantPayments(props) {
     <>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Tenant Payment Status</CardTitle>
+          <CardTitle>{t("title")}</CardTitle>
           <div className="flex gap-2">
-            <Button 
-              size="sm" 
-              variant="default" 
-              onClick={() => navigate('/tenant-onboarding')}
+            <Button
+              size="sm"
+              variant="default"
+              onClick={() => navigate("/tenant-onboarding")}
             >
               <UserPlus className="h-4 w-4 mr-2" />
-              Add New Tenant
+              {t("addNewTenant")}
             </Button>
-            
+
             {latePayments && latePayments.length > 0 && (
-              <Button 
-                size="sm" 
-                variant="outline" 
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={handleGenerateReport}
                 disabled={false}
               >
@@ -184,7 +117,7 @@ export default function TenantPayments(props) {
                 ) : (
                   <Mail className="h-4 w-4 mr-2" />
                 )}
-                Generate Monthly Report
+                {t("generateReport")}
               </Button>
             )}
           </div>
@@ -196,33 +129,33 @@ export default function TenantPayments(props) {
                 <div className="flex">
                   <AlertCircle className="h-5 w-5 text-amber-600 mr-2" />
                   <p className="text-amber-800 text-sm">
-                    {latePayments.length} tenant(s) might have late payments. Consider sending reminders.
+                    {t("lateWarning", { count: latePayments.length })}
                   </p>
                 </div>
               </div>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Tenant</TableHead>
-                    <TableHead>Property</TableHead>
-                    <TableHead>Last Payment</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Action</TableHead>
+                    <TableHead>{t("columns.tenant")}</TableHead>
+                    <TableHead>{t("columns.property")}</TableHead>
+                    <TableHead>{t("columns.lastPayment")}</TableHead>
+                    <TableHead>{t("columns.status")}</TableHead>
+                    <TableHead>{t("columns.action")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {latePayments.map((entry: any) => {
                     const tenant = entry.tenant;
                     const lastPayment = entry.lastPayment;
-                    const status = !lastPayment ? "No payments" : "Last payment outdated";
-                    
+                    const status = !lastPayment ? t("statusNoPayments") : t("statusOutdated");
+
                     return (
                       <TableRow key={tenant.id}>
                         <TableCell>
                           <div className="font-medium">{tenant.firstName} {tenant.lastName}</div>
                           {tenant.email && <div className="text-sm text-gray-500">{tenant.email}</div>}
                         </TableCell>
-                        <TableCell>Property #{tenant.propertyId}</TableCell>
+                        <TableCell>{t("propertyNum", { id: tenant.propertyId })}</TableCell>
                         <TableCell>
                           {lastPayment ? (
                             <>
@@ -232,7 +165,7 @@ export default function TenantPayments(props) {
                               </div>
                             </>
                           ) : (
-                            <span className="text-amber-600">No payments recorded</span>
+                            <span className="text-amber-600">{t("noPaymentsRecorded")}</span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -242,8 +175,8 @@ export default function TenantPayments(props) {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Button 
-                            size="sm" 
+                          <Button
+                            size="sm"
                             variant="outline"
                             onClick={() => handleSendReminder(tenant)}
                             disabled={false}
@@ -253,7 +186,7 @@ export default function TenantPayments(props) {
                             ) : (
                               <Mail className="h-4 w-4 mr-2" />
                             )}
-                            Send Reminder
+                            {t("sendReminder")}
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -267,96 +200,79 @@ export default function TenantPayments(props) {
               <div className="bg-green-50 rounded-full p-3 mb-4">
                 <CheckCircle className="h-8 w-8 text-green-500" />
               </div>
-              <h3 className="text-lg font-semibold">All payments are up to date!</h3>
-              <p className="text-gray-500 text-center mt-2">
-                There are no late payments to report. All your tenants are currently on track.
-              </p>
+              <h3 className="text-lg font-semibold">{t("allOnTime")}</h3>
+              <p className="text-gray-500 text-center mt-2">{t("allOnTimeDesc")}</p>
             </div>
           )}
         </CardContent>
       </Card>
-      
+
       {/* Reminder Dialog */}
       <Dialog open={!!selectedTenant} onOpenChange={(isOpen) => !isOpen && setSelectedTenant(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Send Payment Reminder</DialogTitle>
+            <DialogTitle>{t("reminderTitle")}</DialogTitle>
             <DialogDescription>
-              Send a payment reminder email to {selectedTenant?.firstName} {selectedTenant?.lastName}.
+              {t("reminderDesc", { name: `${selectedTenant?.firstName} ${selectedTenant?.lastName}` })}
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Additional Message (Optional)</label>
+              <label className="text-sm font-medium">{t("additionalMessage")}</label>
               <Textarea
-                placeholder="Add any additional information or context for this reminder..."
+                placeholder={t("additionalMessagePlaceholder")}
                 value={additionalMessage}
                 onChange={(e) => setAdditionalMessage(e.target.value)}
                 rows={5}
               />
             </div>
           </div>
-          
+
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setSelectedTenant(null)}
-            >
-              Cancel
+            <Button variant="outline" onClick={() => setSelectedTenant(null)}>
+              {tCommon("cancel")}
             </Button>
-            <Button
-              onClick={confirmSendReminder}
-              disabled={false}
-            >
+            <Button onClick={confirmSendReminder} disabled={false}>
               {false ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Sending...
+                  {t("sending")}
                 </>
               ) : (
-                <>Send Reminder</>
+                t("sendReminder")
               )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       {/* Report Dialog */}
       <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Generate Late Payment Report</DialogTitle>
-            <DialogDescription>
-              Generate and send a monthly report of all tenants with late or missing payments to your email.
-            </DialogDescription>
+            <DialogTitle>{t("reportTitle")}</DialogTitle>
+            <DialogDescription>{t("reportDesc")}</DialogDescription>
           </DialogHeader>
-          
+
           <div className="py-4">
             <p className="text-sm">
-              This report will include details about all {latePayments?.length} tenants who have late or missing payments.
-              The report will be sent to your registered email address.
+              {t("reportCount", { count: latePayments?.length })}
             </p>
           </div>
-          
+
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsReportDialogOpen(false)}
-            >
-              Cancel
+            <Button variant="outline" onClick={() => setIsReportDialogOpen(false)}>
+              {tCommon("cancel")}
             </Button>
-            <Button
-              onClick={confirmGenerateReport}
-              disabled={false}
-            >
+            <Button onClick={confirmGenerateReport} disabled={false}>
               {false ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Generating...
+                  {t("generating")}
                 </>
               ) : (
-                <>Generate Report</>
+                t("generateReport")
               )}
             </Button>
           </DialogFooter>

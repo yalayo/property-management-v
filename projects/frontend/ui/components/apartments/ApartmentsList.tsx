@@ -1,5 +1,6 @@
 import React from "react";
 import { Plus, Settings, UserPlus, DoorOpen, DoorClosed, ArrowLeft } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
@@ -40,6 +41,9 @@ export default function ApartmentsList({
   children,
   assignDialogContent,
 }: Props) {
+  const { t } = useTranslation("apartments");
+  const { t: tCommon } = useTranslation("common");
+
   const safeApartments: Apartment[] = apartments ?? [];
   const occupied = safeApartments.filter((a) => a.occupied).length;
   const empty = safeApartments.length - occupied;
@@ -51,21 +55,21 @@ export default function ApartmentsList({
           {onGoBack && (
             <Button variant="ghost" size="sm" onClick={onGoBack}>
               <ArrowLeft className="h-4 w-4 mr-1" />
-              Back
+              {tCommon("back").replace("← ", "")}
             </Button>
           )}
           <div>
-            <CardTitle>Apartments ({safeApartments.length})</CardTitle>
+            <CardTitle>{t("title", { count: safeApartments.length })}</CardTitle>
             {safeApartments.length > 0 && (
               <p className="text-sm text-muted-foreground mt-0.5">
-                {occupied} occupied · {empty} available
+                {t("occupiedCount", { occupied, empty })}
               </p>
             )}
           </div>
         </div>
         <Button size="sm" onClick={onChangeAddApartmentDialogOpen}>
           <Plus className="h-4 w-4 mr-2" />
-          Add Apartment
+          {t("addApartment")}
         </Button>
       </CardHeader>
 
@@ -93,7 +97,7 @@ export default function ApartmentsList({
                         <span className="font-semibold text-lg">{apt.code}</span>
                       </div>
                       <Badge variant={isOccupied ? "secondary" : "outline"} className={isOccupied ? "" : "text-green-600 border-green-300"}>
-                        {isOccupied ? "Occupied" : "Available"}
+                        {isOccupied ? t("occupied") : t("available")}
                       </Badge>
                     </div>
                     <div className="flex gap-2">
@@ -104,7 +108,7 @@ export default function ApartmentsList({
                         onClick={() => onManageApartment?.(apt.id)}
                       >
                         <Settings className="h-3.5 w-3.5 mr-1.5" />
-                        Manage
+                        {t("manage")}
                       </Button>
                       {!isOccupied && (
                         <Button
@@ -113,7 +117,7 @@ export default function ApartmentsList({
                           onClick={() => onAssignTenant?.(apt.id)}
                         >
                           <UserPlus className="h-3.5 w-3.5 mr-1.5" />
-                          Assign
+                          {t("assign")}
                         </Button>
                       )}
                     </div>
@@ -125,17 +129,17 @@ export default function ApartmentsList({
         ) : (
           <div className="text-center py-12">
             <DoorOpen className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-            <p className="text-muted-foreground font-medium">No apartments yet</p>
-            <p className="text-sm text-muted-foreground mt-1">Add your first apartment to get started.</p>
+            <p className="text-muted-foreground font-medium">{t("noApartments")}</p>
+            <p className="text-sm text-muted-foreground mt-1">{t("addFirst")}</p>
             <Button className="mt-4" size="sm" onClick={onChangeAddApartmentDialogOpen}>
               <Plus className="h-4 w-4 mr-2" />
-              Add Apartment
+              {t("addApartment")}
             </Button>
           </div>
         )}
       </CardContent>
 
-      {/* Add apartment dialog — content is injected as children */}
+      {/* Add apartment dialog */}
       <Dialog open={isAddApartmentDialogOpen}>
         <DialogContent>{children}</DialogContent>
       </Dialog>

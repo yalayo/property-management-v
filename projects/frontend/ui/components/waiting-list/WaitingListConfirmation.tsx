@@ -1,7 +1,7 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { CheckCircle, Clock } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
-
 import { Button } from "../ui/button";
 import { Gift, ArrowRight } from "lucide-react";
 
@@ -11,6 +11,8 @@ interface WaitingListConfirmationProps {
 }
 
 export default function WaitingListConfirmation({ email, onSelectPlan }: WaitingListConfirmationProps) {
+  const { t } = useTranslation("landing");
+
   return (
     <Card className="shadow-xl border-slate-200">
       <CardHeader className="text-center pb-6">
@@ -19,9 +21,9 @@ export default function WaitingListConfirmation({ email, onSelectPlan }: Waiting
             <CheckCircle className="h-12 w-12 text-green-600" />
           </div>
         </div>
-        <CardTitle className="text-2xl font-bold">You're on the waiting list!</CardTitle>
+        <CardTitle className="text-2xl font-bold">{t("waitingListConfirmation.title")}</CardTitle>
         <CardDescription className="text-base">
-          Thanks for your interest in PropManager
+          {t("waitingListConfirmation.description")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -29,16 +31,20 @@ export default function WaitingListConfirmation({ email, onSelectPlan }: Waiting
           <div className="flex items-start">
             <Clock className="h-5 w-5 text-slate-600 mt-0.5 mr-3" />
             <div>
-              <h3 className="font-medium text-slate-900">What happens next?</h3>
+              <h3 className="font-medium text-slate-900">{t("waitingListConfirmation.whatNext")}</h3>
               <ul className="mt-2 text-sm text-slate-600 space-y-2">
-                <li>We're currently in early access development.</li>
-                <li>You'll be among the first to know when we launch.</li>
-                <li>We'll send updates to {email ? <span className="font-medium">{email}</span> : "your email"}.</li>
+                <li>{t("waitingListConfirmation.next1")}</li>
+                <li>{t("waitingListConfirmation.next2")}</li>
+                <li>
+                  {email
+                    ? t("waitingListConfirmation.next3Email", { email })
+                    : t("waitingListConfirmation.next3NoEmail")}
+                </li>
               </ul>
             </div>
           </div>
         </div>
-        
+
         {/* Support Our Development option */}
         <div className="bg-gradient-to-r from-indigo-50 to-purple-50 p-5 rounded-lg border border-indigo-100">
           <div className="flex items-start">
@@ -48,12 +54,12 @@ export default function WaitingListConfirmation({ email, onSelectPlan }: Waiting
               </div>
             </div>
             <div>
-              <h3 className="font-bold text-lg text-slate-900">Support Our Development</h3>
+              <h3 className="font-bold text-lg text-slate-900">{t("waitingListConfirmation.supportTitle")}</h3>
               <p className="mt-1 text-sm text-slate-600 mb-3">
-                Get lifetime access to all current and future features with a one-time contribution of <span className="font-bold text-primary">€370</span>.
+                {t("waitingListConfirmation.supportDesc")}
               </p>
               <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => onSelectPlan?.("crowdfunding")}>
-                Support Now
+                {t("waitingListConfirmation.supportNow")}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
@@ -61,7 +67,7 @@ export default function WaitingListConfirmation({ email, onSelectPlan }: Waiting
         </div>
 
         <div className="text-sm text-gray-500 text-center">
-          <p>Don't want to wait? Choose one of our available plans to get immediate access.</p>
+          <p>{t("waitingListConfirmation.noWait")}</p>
         </div>
       </CardContent>
     </Card>

@@ -1,5 +1,6 @@
 import React from "react";
 import { Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
 import { DialogHeader, DialogTitle } from "../ui/dialog";
 import { Input } from "../ui/input";
@@ -31,18 +32,21 @@ export default function AddApartment({
   onChangeProperty,
   submitApartment,
 }: Props) {
+  const { t } = useTranslation("apartments");
+  const { t: tCommon } = useTranslation("common");
+
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Add Apartment</DialogTitle>
+        <DialogTitle>{t("addApartment")}</DialogTitle>
       </DialogHeader>
 
       <div className="space-y-4 pt-2">
         <div className="space-y-2">
-          <Label htmlFor="property">Property</Label>
+          <Label htmlFor="property">{t("fields.property")}</Label>
           <Select onValueChange={onChangeProperty}>
             <SelectTrigger id="property">
-              <SelectValue placeholder="Select a property" />
+              <SelectValue placeholder={t("fields.selectProperty")} />
             </SelectTrigger>
             <SelectContent>
               {properties.map((p) => (
@@ -55,30 +59,28 @@ export default function AddApartment({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="code">Apartment Code</Label>
+          <Label htmlFor="code">{t("fields.code")}</Label>
           <Input
             id="code"
-            placeholder="E.g., A1, 2B, Top-Left"
+            placeholder={t("placeholders.code")}
             value={code}
             onChange={onChangeCode}
           />
-          <p className="text-xs text-muted-foreground">
-            A short identifier for this unit within the property.
-          </p>
+          <p className="text-xs text-muted-foreground">{t("fields.codeHint")}</p>
         </div>
 
         <div className="flex justify-end gap-3 pt-2">
           <Button variant="outline" onClick={onChangeAddApartmentDialogClose} disabled={isLoading}>
-            Cancel
+            {tCommon("cancel")}
           </Button>
           <Button onClick={submitApartment} disabled={isLoading || !code.trim()}>
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
+                {tCommon("saving")}
               </>
             ) : (
-              "Add Apartment"
+              t("addApartment")
             )}
           </Button>
         </div>

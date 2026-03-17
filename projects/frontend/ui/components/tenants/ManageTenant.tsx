@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { ArrowLeft, Trash2, Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Input } from "../ui/input";
@@ -31,6 +32,8 @@ export default function ManageTenant({
   onDelete,
   onUpdate,
 }: Props) {
+  const { t } = useTranslation("tenants");
+  const { t: tCommon } = useTranslation("common");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [name, setName] = useState(tenant?.name ?? "");
   const [email, setEmail] = useState(tenant?.email ?? "");
@@ -42,7 +45,7 @@ export default function ManageTenant({
     return (
       <Card>
         <CardContent className="py-12 text-center text-muted-foreground">
-          Tenant not found.
+          {t("notFound")}
         </CardContent>
       </Card>
     );
@@ -63,7 +66,7 @@ export default function ManageTenant({
         <CardHeader className="flex flex-row items-center gap-3">
           <Button variant="ghost" size="sm" onClick={onBack}>
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Back
+            {tCommon("back").replace("← ", "")}
           </Button>
           <CardTitle>{tenant.name}</CardTitle>
         </CardHeader>
@@ -71,24 +74,24 @@ export default function ManageTenant({
         <CardContent className="space-y-6">
           <div className="rounded-xl border p-4 space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name">{t("fields.name")}</Label>
               <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("fields.email")}</Label>
               <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">{t("fields.phone")}</Label>
               <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="start">Start Date</Label>
+                <Label htmlFor="start">{t("fields.startDate")}</Label>
                 <Input id="start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="end">End Date</Label>
+                <Label htmlFor="end">{t("fields.endDate")}</Label>
                 <Input id="end" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
               </div>
             </div>
@@ -97,17 +100,17 @@ export default function ManageTenant({
                 {isSaving ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
+                    {tCommon("saving")}
                   </>
                 ) : (
-                  "Save Changes"
+                  t("saveChanges")
                 )}
               </Button>
             </div>
           </div>
 
           <div className="rounded-xl border border-destructive/30 p-4">
-            <p className="text-sm font-medium text-destructive mb-3">Danger zone</p>
+            <p className="text-sm font-medium text-destructive mb-3">{tCommon("dangerZone")}</p>
             <Button
               variant="destructive"
               size="sm"
@@ -115,7 +118,7 @@ export default function ManageTenant({
               disabled={isSaving}
             >
               <Trash2 className="h-4 w-4 mr-2" />
-              Delete Tenant
+              {t("deleteTenant")}
             </Button>
           </div>
         </CardContent>
@@ -124,23 +127,21 @@ export default function ManageTenant({
       <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete {tenant.name}?</DialogTitle>
+            <DialogTitle>{t("deleteConfirm", { name: tenant.name })}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground py-2">
-            This action cannot be undone. The tenant record will be permanently removed.
-          </p>
+          <p className="text-sm text-muted-foreground py-2">{t("deleteWarning")}</p>
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => setConfirmDelete(false)} disabled={isSaving}>
-              Cancel
+              {tCommon("cancel")}
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={isSaving}>
               {isSaving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
+                  {tCommon("deleting")}
                 </>
               ) : (
-                "Delete"
+                tCommon("delete")
               )}
             </Button>
           </div>

@@ -1,5 +1,6 @@
 import React from "react";
 import { Plus, Settings, User } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
@@ -33,6 +34,8 @@ export default function TenantsList({
   onManageTenant,
   children,
 }: Props) {
+  const { t } = useTranslation("tenants");
+
   const safeTenants: Tenant[] = tenants ?? [];
   const active = safeTenants.filter((t) => !t.end_date).length;
 
@@ -40,16 +43,16 @@ export default function TenantsList({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <CardTitle>Tenants ({safeTenants.length})</CardTitle>
+          <CardTitle>{t("title", { count: safeTenants.length })}</CardTitle>
           {safeTenants.length > 0 && (
             <p className="text-sm text-muted-foreground mt-0.5">
-              {active} active · {safeTenants.length - active} past
+              {t("activePast", { active, past: safeTenants.length - active })}
             </p>
           )}
         </div>
         <Button size="sm" onClick={onOpenAddTenantDialog}>
           <Plus className="h-4 w-4 mr-2" />
-          Add Tenant
+          {t("addTenant")}
         </Button>
       </CardHeader>
 
@@ -73,7 +76,7 @@ export default function TenantsList({
                         <span className="font-semibold">{tenant.name}</span>
                       </div>
                       <Badge variant={isActive ? "default" : "secondary"}>
-                        {isActive ? "Active" : "Past"}
+                        {isActive ? t("active") : t("past")}
                       </Badge>
                     </div>
                     {tenant.email && (
@@ -81,8 +84,9 @@ export default function TenantsList({
                     )}
                     {tenant.start_date && (
                       <p className="text-xs text-muted-foreground">
-                        From {tenant.start_date}
-                        {tenant.end_date ? ` to ${tenant.end_date}` : ""}
+                        {tenant.end_date
+                          ? t("fromTo", { from: tenant.start_date, to: tenant.end_date })
+                          : t("from", { from: tenant.start_date })}
                       </p>
                     )}
                     <Button
@@ -91,7 +95,7 @@ export default function TenantsList({
                       onClick={() => onManageTenant?.(tenant.id)}
                     >
                       <Settings className="h-3.5 w-3.5 mr-1.5" />
-                      Manage
+                      {t("manage")}
                     </Button>
                   </div>
                 </Card>
@@ -101,11 +105,11 @@ export default function TenantsList({
         ) : (
           <div className="text-center py-12">
             <User className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-            <p className="text-muted-foreground font-medium">No tenants yet</p>
-            <p className="text-sm text-muted-foreground mt-1">Add your first tenant to get started.</p>
+            <p className="text-muted-foreground font-medium">{t("noTenants")}</p>
+            <p className="text-sm text-muted-foreground mt-1">{t("addFirst")}</p>
             <Button className="mt-4" size="sm" onClick={onOpenAddTenantDialog}>
               <Plus className="h-4 w-4 mr-2" />
-              Add Tenant
+              {t("addTenant")}
             </Button>
           </div>
         )}
