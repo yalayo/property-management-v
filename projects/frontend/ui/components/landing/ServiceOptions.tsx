@@ -1,6 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, ArrowRight } from "lucide-react";
+import { CheckCircle2, ArrowRight, ChevronDown } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 
@@ -50,8 +50,12 @@ export default function ServiceOptions({ onSelectPlan, onSignUp, trackCTA }: Ser
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
-          {/* Done For You — Primary / Hero card */}
-          <div className="lg:col-span-1 order-first lg:order-none rounded-2xl border-2 border-primary bg-gradient-to-br from-primary/5 to-indigo-50 p-6 sm:p-8 shadow-xl relative mt-4">
+
+          {/* Done For You — featured card */}
+          <div
+            className="lg:col-span-1 order-first lg:order-none rounded-2xl border-2 border-primary p-6 sm:p-8 shadow-xl relative mt-4"
+            style={{ background: "linear-gradient(135deg, #f5f3ff 0%, #eef2ff 100%)" }}
+          >
             <div className="absolute -top-3.5 left-6">
               <Badge className="bg-primary text-white px-3 py-1 text-xs font-semibold uppercase tracking-wide shadow">
                 {t("serviceOptions.doneForYou.badge")}
@@ -94,7 +98,7 @@ export default function ServiceOptions({ onSelectPlan, onSignUp, trackCTA }: Ser
             </Button>
           </div>
 
-          {/* Done With You + Done By You — secondary cards stacked */}
+          {/* Done With You + Done By You */}
           <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
             {(["doneWithYou", "doneByYou"] as const).map((key) => {
               const tierId = key === "doneWithYou" ? "done_with_you" : "done_by_you";
@@ -126,6 +130,7 @@ export default function ServiceOptions({ onSelectPlan, onSignUp, trackCTA }: Ser
                     onClick={() => handleLearnMore(tierId)}
                   >
                     {t(`serviceOptions.${key}.cta`)}
+                    <ChevronDown className="ml-1.5 h-4 w-4" />
                   </Button>
                 </div>
               );

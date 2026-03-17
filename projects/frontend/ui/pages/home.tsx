@@ -1,7 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { Home as HomeIcon, LogIn, UserPlus, ArrowRight, ArrowDown, Star } from "lucide-react";
-
+import { Home as HomeIcon, LogIn, UserPlus, ArrowRight, ChevronDown, Star } from "lucide-react";
 
 import { Button } from "../components/ui/button";
 import LanguageSwitcher from "../components/common/LanguageSwitcher";
@@ -18,73 +17,73 @@ export default function Home(props) {
   const { t: tHome } = useTranslation("home");
   const { t: tCommon } = useTranslation("common");
 
-  const onSignIn = props.onSignIn;
-  const onSignUp = props.onSignUp;
+  const onSignIn     = props.onSignIn;
+  const onSignUp     = props.onSignUp;
   const onSelectPlan = props.onSelectPlan;
-  const tracker = props.tracker;
+  const tracker      = props.tracker;
 
   const { trackCTA } = usePageTracking(tracker);
 
-  const scrollTo = (id: string) => {
+  const scrollTo = (id: string) =>
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-  };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      {/* ── Sticky Header ─────────────────────────────────────────── */}
-      <header className="bg-white/95 backdrop-blur border-b border-slate-200 sticky top-0 z-30">
+    <div className="min-h-screen bg-white flex flex-col font-sans">
+
+      {/* ── Header ──────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
+          <div className="flex justify-between h-16 items-center gap-4">
+
             {/* Logo */}
-            <div className="flex items-center gap-2">
-              <div className="bg-primary/10 rounded-md p-1.5">
-                <HomeIcon className="h-5 w-5 text-primary" />
+            <div className="flex items-center gap-2.5 flex-shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                <HomeIcon className="h-4 w-4 text-white" />
               </div>
-              <span className="text-base sm:text-lg font-bold text-slate-800">{tCommon("appName")}</span>
+              <span className="text-base font-bold text-slate-900 tracking-tight">
+                {tCommon("appName")}
+              </span>
             </div>
 
-            {/* Desktop nav */}
-            <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
-              <button onClick={() => scrollTo("what-we-handle")} className="hover:text-primary transition-colors">
-                {t("whatWeHandle.sectionLabel")}
-              </button>
-              <button onClick={() => scrollTo("how-it-works")} className="hover:text-primary transition-colors">
-                {t("howItWorks.sectionLabel")}
-              </button>
-              <button onClick={() => scrollTo("options")} className="hover:text-primary transition-colors">
-                {t("serviceOptions.sectionLabel")}
-              </button>
-              <button onClick={() => scrollTo("pricing")} className="hover:text-primary transition-colors">
-                {t("pricing.sectionLabel")}
-              </button>
+            {/* Nav — desktop only */}
+            <nav className="hidden lg:flex items-center gap-1">
+              {[
+                { label: t("whatWeHandle.sectionLabel"), id: "what-we-handle" },
+                { label: t("howItWorks.sectionLabel"),   id: "how-it-works"   },
+                { label: t("serviceOptions.sectionLabel"), id: "options"      },
+                { label: t("pricing.sectionLabel"),      id: "pricing"        },
+              ].map(({ label, id }) => (
+                <button
+                  key={id}
+                  onClick={() => scrollTo(id)}
+                  className="px-3 py-1.5 text-sm text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-md transition-colors"
+                >
+                  {label}
+                </button>
+              ))}
             </nav>
 
             {/* Actions */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <LanguageSwitcher />
               {onSignIn && (
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  className="hidden sm:inline-flex"
-                  onClick={() => {
-                    trackCTA("header_signin", "header");
-                    onSignIn();
-                  }}
+                  className="hidden sm:inline-flex text-slate-600 hover:text-slate-900"
+                  onClick={() => { trackCTA("header_signin", "header"); onSignIn(); }}
                 >
-                  <LogIn className="mr-2 h-4 w-4" />
+                  <LogIn className="mr-1.5 h-3.5 w-3.5" />
                   {tHome("signIn")}
                 </Button>
               )}
               {onSignUp && (
                 <Button
                   size="sm"
-                  onClick={() => {
-                    trackCTA("header_get_started", "header");
-                    onSignUp();
-                  }}
+                  className="bg-slate-900 hover:bg-slate-700 text-white rounded-lg px-4"
+                  onClick={() => { trackCTA("header_get_started", "header"); onSignUp(); }}
                 >
-                  <UserPlus className="mr-2 h-4 w-4" />
+                  <UserPlus className="mr-1.5 h-3.5 w-3.5" />
                   {tHome("createAccount")}
                 </Button>
               )}
@@ -95,73 +94,89 @@ export default function Home(props) {
 
       <main className="flex-grow">
 
-        {/* ── Hero ──────────────────────────────────────────────────── */}
+        {/* ── Hero ────────────────────────────────────────────────────── */}
         <section
           id="hero"
           data-section="hero"
-          className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-900 text-white"
+          className="relative overflow-hidden text-white"
+          style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e3a5f 40%, #312e81 70%, #4c1d95 100%)" }}
         >
-          {/* Decorative blobs */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-indigo-600/20 blur-3xl" />
-            <div className="absolute bottom-0 -left-40 w-[500px] h-[500px] rounded-full bg-purple-600/20 blur-3xl" />
+          {/* Overlay blobs */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            <div className="absolute -top-32 -right-32 w-[500px] h-[500px] rounded-full opacity-20"
+                 style={{ background: "radial-gradient(circle, #6366f1 0%, transparent 70%)" }} />
+            <div className="absolute -bottom-32 -left-32 w-[500px] h-[500px] rounded-full opacity-20"
+                 style={{ background: "radial-gradient(circle, #7c3aed 0%, transparent 70%)" }} />
+            {/* Subtle grid */}
+            <div
+              className="absolute inset-0 opacity-[0.04]"
+              style={{
+                backgroundImage:
+                  "linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)",
+                backgroundSize: "48px 48px",
+              }}
+            />
           </div>
 
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 lg:py-32">
-            <div className="max-w-3xl">
-              {/* Badge */}
-              <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-widest mb-8">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                {t("hero.badge")}
+          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24 sm:pt-28 sm:pb-32 lg:pt-36 lg:pb-40">
+            <div className="max-w-2xl lg:max-w-3xl">
+
+              {/* Eyebrow badge */}
+              <div className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 mb-8"
+                   style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)" }}>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/70">
+                  {t("hero.badge")}
+                </span>
               </div>
 
               {/* Headline */}
-              <h1 className="text-4xl sm:text-5xl lg:text-7xl font-black leading-tight mb-6">
-                {t("hero.headline1")}{" "}
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300">
+              <h1 className="text-[2.75rem] sm:text-6xl lg:text-7xl font-bold leading-[1.05] tracking-tight mb-6 text-white">
+                {t("hero.headline1")}
+                <br />
+                <span style={{ background: "linear-gradient(90deg, #a5b4fc, #c4b5fd)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
                   {t("hero.headline2")}
                 </span>
               </h1>
 
-              <p className="text-base sm:text-xl text-slate-300 max-w-2xl leading-relaxed mb-8 sm:mb-10">
+              {/* Subtitle */}
+              <p className="text-base sm:text-lg leading-relaxed max-w-xl mb-10" style={{ color: "rgba(148,163,184,1)" }}>
                 {t("hero.subtitle")}
               </p>
 
               {/* CTAs */}
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-10 sm:mb-14">
+              <div className="flex flex-col sm:flex-row gap-3 mb-14">
                 <Button
                   size="lg"
-                  className="bg-white text-slate-900 hover:bg-slate-100 font-bold text-base px-8"
-                  onClick={() => {
-                    trackCTA("hero_primary", "hero");
-                    onSignUp?.();
-                  }}
+                  className="bg-white text-slate-900 hover:bg-white/90 font-semibold rounded-xl h-12 px-7 text-sm shadow-lg"
+                  onClick={() => { trackCTA("hero_primary", "hero"); onSignUp?.(); }}
                 >
                   {t("hero.ctaPrimary")}
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="border-white/30 text-white hover:bg-white/10 font-medium text-base px-8"
-                  onClick={() => {
-                    trackCTA("hero_secondary", "hero");
-                    scrollTo("options");
-                  }}
+                <button
+                  className="inline-flex items-center justify-center h-12 px-7 text-sm font-medium rounded-xl transition-colors"
+                  style={{ color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.15)", background: "transparent" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.08)")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                  onClick={() => { trackCTA("hero_secondary", "hero"); scrollTo("options"); }}
                 >
                   {t("hero.ctaSecondary")}
-                  <ArrowDown className="ml-2 h-5 w-5" />
-                </Button>
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                </button>
               </div>
 
-              {/* Stats row */}
-              <div className="grid grid-cols-3 gap-4 sm:flex sm:flex-wrap sm:gap-x-10 sm:gap-y-4 pb-2">
+              {/* Divider */}
+              <div className="w-16 h-px mb-10" style={{ background: "rgba(255,255,255,0.15)" }} />
+
+              {/* Stats */}
+              <div className="flex items-start gap-8 sm:gap-12">
                 {(["landlords", "properties", "satisfaction"] as const).map((key) => (
                   <div key={key}>
-                    <div className="text-2xl sm:text-3xl font-black text-white">
+                    <div className="text-2xl sm:text-3xl font-bold text-white tabular-nums">
                       {t(`hero.stats.${key}`)}
                     </div>
-                    <div className="text-slate-400 text-xs sm:text-sm mt-0.5">
+                    <div className="text-xs sm:text-sm mt-1 font-medium" style={{ color: "rgba(148,163,184,1)" }}>
                       {t(`hero.stats.${key}Label`)}
                     </div>
                   </div>
@@ -169,61 +184,51 @@ export default function Home(props) {
               </div>
 
               {/* Trust note */}
-              <p className="mt-5 text-slate-400 text-sm flex items-center gap-2">
-                <Star className="h-4 w-4 text-yellow-400 fill-yellow-400 flex-shrink-0" />
+              <p className="mt-6 flex items-center gap-1.5 text-xs" style={{ color: "rgba(148,163,184,1)" }}>
+                <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400 flex-shrink-0" />
                 {t("hero.stats.trustNote")}
               </p>
             </div>
           </div>
 
-          {/* Scroll chevron */}
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 hidden lg:flex flex-col items-center text-white/30">
-            <ArrowDown className="h-5 w-5 animate-bounce" />
-          </div>
+          {/* Bottom fade */}
+          <div className="absolute bottom-0 inset-x-0 h-16 pointer-events-none"
+               style={{ background: "linear-gradient(to top, rgba(255,255,255,0.05), transparent)" }} />
         </section>
 
-        {/* ── What We Handle ────────────────────────────────────────── */}
+        {/* ── What We Handle ──────────────────────────────────────────── */}
         <div id="what-we-handle">
           <WhatWeHandle />
         </div>
 
-        {/* ── How It Works ──────────────────────────────────────────── */}
+        {/* ── How It Works ────────────────────────────────────────────── */}
         <div id="how-it-works">
           <HowItWorks />
         </div>
 
-        {/* ── Service Options ───────────────────────────────────────── */}
-        <ServiceOptions
-          onSelectPlan={onSelectPlan}
-          onSignUp={onSignUp}
-          trackCTA={trackCTA}
-        />
-
-        {/* ── Survey Section ────────────────────────────────────────── */}
+        {/* ── Survey ──────────────────────────────────────────────────── */}
         <section
           id="survey"
           data-section="survey"
-          className="py-20 bg-gradient-to-b from-slate-50 to-white"
+          className="py-20 sm:py-24 bg-slate-50 border-y border-slate-100"
         >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6">
             <div className="text-center mb-10">
-              <span className="text-sm font-semibold uppercase tracking-widest text-primary">
+              <span className="inline-block text-[11px] font-semibold uppercase tracking-[0.12em] text-primary bg-primary/8 rounded-full px-3 py-1 mb-4">
                 {t("surveyIntro.sectionLabel")}
               </span>
-              <h2 className="mt-3 text-3xl sm:text-4xl font-extrabold text-slate-900">
+              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight mb-3">
                 {t("surveyIntro.title")}
               </h2>
-              <p className="mt-4 text-lg text-slate-500 max-w-xl mx-auto">
+              <p className="text-slate-500 text-base max-w-md mx-auto leading-relaxed">
                 {t("surveyIntro.subtitle")}
               </p>
             </div>
-
-            {/* Survey rendered by CLJS as children */}
             {props.children}
           </div>
         </section>
 
-        {/* ── Pricing ───────────────────────────────────────────────── */}
+        {/* ── Pricing ─────────────────────────────────────────────────── */}
         <section id="pricing" data-section="pricing">
           <Pricing
             onSelectPlan={(tierId) => {
@@ -233,12 +238,8 @@ export default function Home(props) {
           />
         </section>
 
-        {/* ── Bottom CTA ────────────────────────────────────────────── */}
-        <BottomCTA
-          onSignUp={onSignUp}
-          onSignIn={onSignIn}
-          trackCTA={trackCTA}
-        />
+        {/* ── Bottom CTA ──────────────────────────────────────────────── */}
+        <BottomCTA onSignUp={onSignUp} onSignIn={onSignIn} trackCTA={trackCTA} />
       </main>
 
       <Footer />
