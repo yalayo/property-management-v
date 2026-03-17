@@ -50,9 +50,13 @@
      {:activeComponent
       (r/as-element
        (case active
-         "home"               [home {:tracker  analytics/event
-                                     :onSignIn #(re-frame/dispatch [::events/change-active-section "auth"])
-                                     :onSignUp #(re-frame/dispatch [::events/change-active-section "register"])}
+         "home"               [home {:tracker      analytics/event
+                                     :onSignIn    #(re-frame/dispatch [::events/change-active-section "auth"])
+                                     :onSignUp    #(re-frame/dispatch [::events/change-active-section "register"])
+                                     :onSelectPlan (fn [tier-id]
+                                                     (analytics/event "plan_selected" {:tier tier-id :source "landing"})
+                                                     (re-frame/dispatch [::events/change-active-section "payment"])
+                                                     (payment-ui/select-tier tier-id))}
                                (r/as-element [survey/component "survey"])]
          "auth"               [auth/component {:id "auth"}]
          "register"           [register/component {:id "register"}]
