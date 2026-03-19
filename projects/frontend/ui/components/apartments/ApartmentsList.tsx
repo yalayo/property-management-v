@@ -1,5 +1,5 @@
 import React from "react";
-import { Plus, Settings, UserPlus, DoorOpen, DoorClosed, ArrowLeft } from "lucide-react";
+import { Plus, Settings, UserPlus, DoorOpen, DoorClosed, ArrowLeft, Clock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
@@ -14,8 +14,14 @@ type Apartment = {
   occupied: number | boolean;
 };
 
+type OnboardingRecord = {
+  status: string;
+  email: string;
+};
+
 type Props = {
   apartments?: Apartment[];
+  onboardingsByApartment?: Record<number, OnboardingRecord>;
   isLoading?: boolean;
   isAddApartmentDialogOpen?: boolean;
   onChangeAddApartmentDialogOpen?: () => void;
@@ -30,6 +36,7 @@ type Props = {
 
 export default function ApartmentsList({
   apartments,
+  onboardingsByApartment = {},
   isLoading = false,
   isAddApartmentDialogOpen = false,
   onChangeAddApartmentDialogOpen,
@@ -84,6 +91,7 @@ export default function ApartmentsList({
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {safeApartments.map((apt) => {
               const isOccupied = !!apt.occupied;
+              const onboarding = onboardingsByApartment[apt.id];
               return (
                 <Card key={apt.id} className="overflow-hidden">
                   <div className="p-4 flex flex-col gap-3">
@@ -100,6 +108,15 @@ export default function ApartmentsList({
                         {isOccupied ? t("occupied") : t("available")}
                       </Badge>
                     </div>
+                    {onboarding && (
+                      <div className="flex items-center gap-1.5 text-xs text-amber-600">
+                        <Clock className="h-3 w-3 shrink-0" />
+                        <span className="truncate">
+                          {t(`onboarding.status.${onboarding.status}`, { defaultValue: onboarding.status })}
+                          {" · "}{onboarding.email}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex gap-2">
                       <Button
                         variant="outline"

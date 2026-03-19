@@ -46,3 +46,22 @@
  (fn [db _]
    (get-in db [:apartments :assign-apt-id])))
 
+(re-frame/reg-sub
+ ::onboarding?
+ (fn [db _]
+   (get-in db [:apartments :onboarding?] false)))
+
+(re-frame/reg-sub
+ ::onboarding-status
+ (fn [db _]
+   (get-in db [:apartments :onboarding-status])))
+
+(re-frame/reg-sub
+ ::onboardings-by-apartment
+ (fn [db _]
+   (->> (get-in db [:apartments :onboardings] [])
+        (group-by :apartment_id)
+        (reduce (fn [acc [apt-id records]]
+                  (assoc acc apt-id (first records)))
+                {}))))
+

@@ -55,3 +55,36 @@
               (if (:success result)
                 (cf/response-edn {:ok true} {:status 200})
                 (cf/response-error "Failed to delete apartment")))))
+
+(defn get-all-onboardings [_]
+  (js-await [{:keys [success results]} (db/query+ {:select   [:*]
+                                                    :from     [:props_onboarding]
+                                                    :order-by [[:id :desc]]})]
+            (if success
+              (cf/response-edn {:onboardings results} {:status 200})
+              (cf/response-error "Failed to load onboardings"))))
+
+(defn get-onboarding [{:keys [_env route]}]
+  (let [id (-> route :path-params :id)]
+    (js-await [{:keys [success results]} (db/query+ {:select   [:*]
+                                                     :from     [:props_onboarding]
+                                                     :where    [:= :apartment_id (js/parseInt id 10)]
+                                                     :order-by [[:id :desc]]
+                                                     :limit    1})]
+              (if success
+                (cf/response-edn {:onboarding (first results)} {:status 200})
+                (cf/response-error "Failed to load onboarding")))))
+
+(defn start-onboarding [{:keys [request env route]}]
+  (let [id (-> route :path-params :id)]
+    (js-await [data (cf/request->edn request)]
+              (let [{:keys [email]} data]
+                (if (or (nil? email) (empty? email))
+                  (cf/response-error "Email is required" {:status 400})
+                  (js-await [result (db/run+ env
+                                            {:insert-into [:props_onboarding]
+                                             :columns     [:apartment_id :email :status]
+                                             :values      [[(js/parseInt id 10) email "pending"]]})]
+                            (if (:success result)
+                              (cf/response-edn {:ok true} {:status 201})
+                              (cf/response-error "Failed to start onboarding"))))))))

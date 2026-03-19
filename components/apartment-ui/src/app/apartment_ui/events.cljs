@@ -27,13 +27,30 @@
                    :on-failure      [::apartments-error]}})))
 
 
-(re-frame/reg-event-db
+(re-frame/reg-event-fx
  ::apartments-loaded
  [local-storage-interceptor]
- (fn [db [_ {:keys [apartments]}]]
-   (-> db
-       (assoc-in [:apartments :list] apartments)
-       (assoc-in [:apartments :loading?] false))))
+ (fn [{:keys [db]} [_ {:keys [apartments]}]]
+   {:db       (-> db
+                  (assoc-in [:apartments :list] apartments)
+                  (assoc-in [:apartments :loading?] false))
+    :dispatch [::load-all-onboardings]}))
+
+(re-frame/reg-event-fx
+ ::load-all-onboardings
+ (fn [_ _]
+   {:http-xhrio {:method          :get
+                 :uri             (str (config/get-api-url) "/api/apartments/onboarding")
+                 :response-format (ajax-edn/edn-response-format)
+                 :timeout         8000
+                 :on-success      [::all-onboardings-loaded]
+                 :on-failure      [::apartments-error]}}))
+
+(re-frame/reg-event-db
+ ::all-onboardings-loaded
+ [local-storage-interceptor]
+ (fn [db [_ {:keys [onboardings]}]]
+   (assoc-in db [:apartments :onboardings] onboardings)))
 
 (re-frame/reg-event-fx
  ::apartments-error
@@ -99,17 +116,43 @@
    (js/console.error "Failed to save apartment:" error)
    (assoc-in db [:apartments :saving?] false)))
 
-(re-frame/reg-event-db
+(re-frame/reg-event-fx
  ::select-apartment
  [local-storage-interceptor]
- (fn [db [_ id]]
-   (assoc-in db [:apartments :selected-id] id)))
+ (fn [{:keys [db]} [_ id]]
+   {:db       (-> db
+                  (assoc-in [:apartments :selected-id] id)
+                  (assoc-in [:apartments :onboarding-status] nil))
+    :dispatch [::load-onboarding id]}))
 
 (re-frame/reg-event-db
  ::clear-selected-apartment
  [local-storage-interceptor]
  (fn [db _]
-   (assoc-in db [:apartments :selected-id] nil)))
+   (-> db
+       (assoc-in [:apartments :selected-id] nil)
+       (assoc-in [:apartments :onboarding-status] nil))))
+
+(re-frame/reg-event-fx
+ ::load-onboarding
+ (fn [_ [_ id]]
+   {:http-xhrio {:method          :get
+                 :uri             (str (config/get-api-url) "/api/apartments/onboard/" id)
+                 :response-format (ajax-edn/edn-response-format)
+                 :timeout         8000
+                 :on-success      [::onboarding-loaded]
+                 :on-failure      [::onboarding-load-error]}}))
+
+(re-frame/reg-event-db
+ ::onboarding-loaded
+ [local-storage-interceptor]
+ (fn [db [_ {:keys [onboarding]}]]
+   (assoc-in db [:apartments :onboarding-status] onboarding)))
+
+(re-frame/reg-event-db
+ ::onboarding-load-error
+ (fn [db _]
+   (assoc-in db [:apartments :onboarding-status] nil)))
 
 (re-frame/reg-event-fx
  ::delete-apartment
@@ -190,3 +233,33 @@
                   (assoc-in [:apartments :saving?] false)
                   (assoc-in [:apartments :assign-apt-id] nil))
     :dispatch [::update-apartment apt-id {:occupied true}]}))
+
+;; ── Tenant onboarding ─────────────────────────────────────────────────────
+
+(re-frame/reg-event-fx
+ ::start-onboarding
+ (fn [{:keys [db]} [_ apt-id email]]
+   {:db         (assoc-in db [:apartments :onboarding?] true)
+    :http-xhrio {:method          :post
+                 :uri             (str (config/get-api-url) "/api/apartments/onboard/" apt-id)
+                 :params          {:email email}
+                 :format          (ajax-edn/edn-request-format)
+                 :response-format (ajax-edn/edn-response-format)
+                 :timeout         8000
+                 :on-success      [::onboarding-sent]
+                 :on-failure      [::onboarding-error]}}))
+
+(re-frame/reg-event-fx
+ ::onboarding-sent
+ [local-storage-interceptor]
+ (fn [{:keys [db]} _]
+   (let [id (get-in db [:apartments :selected-id])]
+     {:db       (assoc-in db [:apartments :onboarding?] false)
+      :dispatch [::load-onboarding id]})))
+
+(re-frame/reg-event-db
+ ::onboarding-error
+ [local-storage-interceptor]
+ (fn [db [_ error]]
+   (js/console.error "Failed to start onboarding:" error)
+   (assoc-in db [:apartments :onboarding?] false)))

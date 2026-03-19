@@ -16,10 +16,13 @@
 (defn component [_]
   (re-frame/dispatch [::events/load-apartments])
   (re-frame/dispatch [::events/close-assign-dialog])
-  (fn [{:keys [properties on-go-back]}]
+  (fn [{:keys [properties _on-go-back]}]
     (let [apartments       @(re-frame/subscribe [::subs/apartments])
           loading?         @(re-frame/subscribe [::subs/loading?])
           saving?          @(re-frame/subscribe [::subs/saving?])
+          onboarding?      @(re-frame/subscribe [::subs/onboarding?])
+          onboarding-status     @(re-frame/subscribe [::subs/onboarding-status])
+          onboardings-by-apt    @(re-frame/subscribe [::subs/onboardings-by-apartment])
           add-dialog-open? @(re-frame/subscribe [::subs/add-dialog-open?])
           selected-id      @(re-frame/subscribe [::subs/selected-apartment-id])
           new-code         @(re-frame/subscribe [::subs/new-apartment-code])
@@ -28,14 +31,19 @@
           assign-apt       (when assign-apt-id (first (filter #(= (:id %) assign-apt-id) apartments)))]
       (if selected-id
         [manage-apartment
-         {:apartment        (clj->js selected-apt)
-          :isSaving         saving?
-          :onBack           #(re-frame/dispatch [::events/clear-selected-apartment])
-          :onDelete         (fn [id] (re-frame/dispatch [::events/delete-apartment id]))
-          :onToggleOccupied (fn [id occupied]
-                              (re-frame/dispatch [::events/update-apartment id {:occupied occupied}]))}]
+         {:apartment          (clj->js selected-apt)
+          :isSaving           saving?
+          :isOnboarding       onboarding?
+          :onboardingStatus   (clj->js onboarding-status)
+          :onBack             #(re-frame/dispatch [::events/clear-selected-apartment])
+          :onDelete           (fn [id] (re-frame/dispatch [::events/delete-apartment id]))
+          :onToggleOccupied   (fn [id occupied]
+                                (re-frame/dispatch [::events/update-apartment id {:occupied occupied}]))
+          :onStartOnboarding  (fn [id email]
+                                (re-frame/dispatch [::events/start-onboarding id email]))}]
         [apartments-list
          {:apartments                     (clj->js apartments)
+          :onboardingsByApartment         (clj->js onboardings-by-apt)
           :isLoading                      loading?
           :isAddApartmentDialogOpen       add-dialog-open?
           :onChangeAddApartmentDialogOpen #(re-frame/dispatch [::events/open-add-dialog])
