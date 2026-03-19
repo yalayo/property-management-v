@@ -12,8 +12,7 @@
             [app.payment.interface :as payment]))
 
 (def config
-  {::core/core        {}
-   ::controller/controller {:core (ig/ref ::core/core)}
+  {::core/domain      {}
    ::user/routes      {}
    ::survey/routes    {}
    ::plans/routes     {}

@@ -1,5 +1,6 @@
 (ns app.core.interface
-  (:require [integrant.core :as ig]))
+  (:require [integrant.core :as ig]
+            [app.core.system :as core]))
 
-(defmethod ig/init-key ::core [_ _]
-  )
+(defmethod ig/init-key ::domain [_ _]
+  (core/init))
