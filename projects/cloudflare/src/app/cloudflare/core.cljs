@@ -1,6 +1,8 @@
 (ns app.cloudflare.core
   (:require [integrant.core :as ig]
             [app.worker.core :as worker]
+            [app.core.interface :as core]
+            [app.controller.interface :as controller]
             [app.user.interface :as user]
             [app.survey.interface :as survey]
             [app.plans.interface :as plans]
@@ -10,7 +12,9 @@
             [app.payment.interface :as payment]))
 
 (def config
-  {::user/routes      {}
+  {::core/core        {}
+   ::controller/controller {:core (ig/ref ::core/core)}
+   ::user/routes      {}
    ::survey/routes    {}
    ::plans/routes     {}
    ::property/routes  {}
