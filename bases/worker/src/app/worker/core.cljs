@@ -75,7 +75,7 @@
 
 (defn init [{:keys [user-routes survey-routes plans-routes property-routes apartment-routes tenant-routes payment-routes settings-routes price-routes request-routes]}]
   (let [routes (into base-routes (concat user-routes survey-routes plans-routes property-routes apartment-routes tenant-routes payment-routes settings-routes price-routes request-routes))
-        router (r/router routes)
+        router (r/router routes {:conflicts nil})
         handler #js {:fetch (cf/with-handler router handle-route)}]
     handler))
 

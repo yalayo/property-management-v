@@ -45,4 +45,9 @@
   (start)
   (::worker/handler @system))
 
-(def handler (init))
+(def handler
+  (try
+    (init)
+    (catch :default e
+      (js/console.error "Failed to initialize worker:" (.-message e) e)
+      (throw e))))
