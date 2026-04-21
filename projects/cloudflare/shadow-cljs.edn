@@ -2,7 +2,7 @@
  :builds {:server {:target :esm
                    :output-dir "out"
                    :modules {:main {:exports {default app.cloudflare.core/handler
-                                              PresenceDurableObject app.worker.core/PresenceDurableObject}}}
+                                              PresenceDurableObject app.worker.presence/PresenceDurableObject}}}
                    :js-options {:js-provider :import}
                    :devtools {:enabled false}
                    :release

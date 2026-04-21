@@ -1,27 +1,9 @@
 (ns app.worker.core
   (:require [integrant.core :as ig]
-            ["cloudflare:workers" :refer [DurableObject]]
             [reitit.core :as r]
             [app.worker.async :refer [js-await]]
-            [app.worker.durable-objects :as do]
             [app.worker.auth :as auth]
-            [app.worker.cf :as cf :refer [defclass]]))
-
-;; usage example of Durable Objects as a short-lived state
-;; for user presence tracking in multiplayer web app
-(defclass ^{:extends DurableObject} PresenceDurableObject [ctx env]
-  Object
-  (constructor [this ctx env]
-               (super ctx env))
-
-  (add-user-presence+ [this id timestamp]
-                      (js-await [_ (do/storage-put+ ctx id timestamp)
-                                 users (do/storage-list+ ctx)
-                                 now (js/Date.now)]
-                                (doseq [[id _] (->> (cf/js->clj users)
-                                                    (filter (fn [[id ts]] (> (- now ts) 10000))))]
-                                  (do/storage-delete+ ctx id))
-                                (do/storage-list+ ctx))))
+            [app.worker.cf :as cf]))
 
 (def allowed-origins
   #{"http://localhost:8081"
