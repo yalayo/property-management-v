@@ -2,42 +2,93 @@
   (:require [odoyle.rules :as o]))
 
 (def rules
-  (o/ruleset 
-   {
-    ;; to register a pending onboarding of a tenant
-    ::record-tenant-onboarding
+  (o/ruleset
+   {    ;; --- Onboarding registration (inserted from DB query results) -----------
+
+    ::pending-tenant
     [:what
-     [::onboarding-tenant ::id apartment]
-     [::onboarding-tenant ::tenant tenant]
-     [::onboarding-tenant ::email email]
-     :then
-     (o/insert! email ::apartment apartment)
-     (o/insert! email ::tenant    tenant)
-     (o/insert! email ::status    :awaiting-signup)]
-    
-    ;; query rule to read pending signups back out
-    ::pending-tenant-signups
-    [:what
+     [email ::role      :tenant]
      [email ::apartment apartment]
-     [email ::tenant    tenant]
      [email ::status    :awaiting-signup]]
-    
-    ;; to register a pending onboarding of a land lord
-    ::record-landlord-onboarding
+
+    ::pending-landlord
     [:what
-     [::onboarding-landlord ::email email]
-     :then
-     (o/insert! email ::status :awaiting-signup)]
-    
-    ;; query rule to read pending signups back out
-    ::pending-landlord-signups
-    [:what
+     [email ::role   :landlord]
      [email ::status :awaiting-signup]]
-   }))
+
+    ;; --- Signup attempts ----------------------------------------------------
+
+    ::tenant-signup
+    [:what
+     [::signup ::email email]
+     [::signup ::name  name]
+     [::signup ::role  :tenant]
+     [email ::role      :tenant]
+     [email ::apartment apartment]
+     [email ::status    :awaiting-signup]
+     :then
+     (o/insert! ::events ::pending
+                {:type :create-tenant-user
+                 :data {:email     email
+                        :name      name
+                        :apartment apartment
+                        :role      :tenant}})]
+
+    ::landlord-signup
+    [:what
+     [::signup ::email email]
+     [::signup ::name  name]
+     [::signup ::role  :landlord]
+     [email ::role   :landlord]
+     [email ::status :awaiting-signup]
+     :then
+     (o/insert! ::events ::pending
+                {:type :create-landlord-user
+                 :data {:email email
+                        :name  name
+                        :role  :landlord}})]
+
+    ::signup-not-allowed
+    [:what
+     [::signup ::email email]
+     [::signup ::role  role]
+     :when (and (empty? (o/query-all o/*session* ::pending-tenant))
+                (empty? (o/query-all o/*session* ::pending-landlord)))
+     :then
+     (o/insert! ::events ::pending
+                {:type :signup-rejected
+                 :data {:email  email
+                        :reason :no-pending-onboarding}})]
+
+    ;; --- Event bus ----------------------------------------------------------
+
+    ::events
+    [:what
+     [::events ::pending event]]}))
+
+(defn- fresh-session []
+  (reduce o/add-rule (o/->session) rules))
 
 ;; create session and add rule
 (def *session
-  (atom (reduce o/add-rule (o/->session) rules)))
+  (atom (fresh-session)))
+
+(defn register-tenant-onboarding
+  "Step 1 (landlord registers tenant). Returns event to persist to DB."
+  [apartment tenant email]
+  (let [session (-> @*session
+                    (o/insert ::onboarding ::email     email)
+                    (o/insert ::onboarding ::role      :tenant)
+                    (o/insert ::onboarding ::apartment apartment)
+                    (o/insert ::onboarding ::tenant    tenant)
+                    o/fire-rules)]
+    {:type :register-onboarding
+     :data {:email     email
+            :role      :tenant
+            :apartment apartment
+            :tenant    tenant
+            :status    :awaiting-signup}}))
+
 
 (defn start-tenant-onboarding [apartment tenant email]
   (swap! *session
@@ -66,4 +117,13 @@
 
   ;; Query pending onboardings
   (o/query-all @*session ::pending-landlord-signups)
+
+  ;; Trying another approach
+  (register-tenant-onboarding :apartment-1 :tenant-1 "tenant-1@gmail.com")
+
+  ;; Query pending tenant onboardings
+  (o/query-all @*session ::pending-tenant)
+
+  ;; Query pending events to be processed afterwards
+  (o/query-all @*session ::events)
   )

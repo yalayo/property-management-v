@@ -1,5 +1,5 @@
 (ns app.core.system
-  (:require [app.core.rules :as rules]))
+  #_(:require [app.core.rules :as rules]))
 
 (def command->fn
   {})
