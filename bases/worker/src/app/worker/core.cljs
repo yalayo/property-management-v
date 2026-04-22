@@ -67,10 +67,12 @@
                    (authenticate request env))]
            (if (and requires-auth? (nil? user))
              (add-cors-response (cf/response-error {:error "Unauthorized"} {:status 401}) origin)
-             (js-await
-              [resp (handler {:route route :request request :env env :execution-ctx ctx :user user})]
-              (add-cors-response resp origin))))
-          (add-cors-response (cf/response-error {:error "Not implemented"}) origin))))))
+             (-> (js/Promise.resolve (handler {:route route :request request :env env :execution-ctx ctx :user user}))
+                 (.then (fn [resp] (add-cors-response resp origin)))
+                 (.catch (fn [err]
+                           (js/console.error "Handler error:" err)
+                           (add-cors-response (cf/response-error {:error (.-message err)} {:status 500}) origin))))))
+          (add-cors-response (cf/response-error {:error "Not found"} {:status 404}) origin))))))
 
 
 (defn init [{:keys [user-routes survey-routes plans-routes property-routes apartment-routes tenant-routes payment-routes settings-routes price-routes request-routes]}]
