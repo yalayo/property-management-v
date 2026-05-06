@@ -5,6 +5,7 @@
    [clojure.edn :as edn]
    [reitit.core :as r]
    [app.worker.async :refer [js-await]]
+   [app.storage.interface :as storage]
    [goog.object]))
 
 ;; each incoming request to a worker binds the following vars
@@ -53,6 +54,7 @@
   	  (reset! ENV env)
       (reset! CTX ctx)
       (reset! DB (.-DB env))
+      (storage/set-db! (.-DB env))
       (handler (with-params url route) request env ctx))))
 
 (defn js->clj

@@ -1,5 +1,5 @@
 (ns app.plans.routes
   (:require [app.plans.handler :as handler]))
 
-(def routes
-  [["/plans" {:get {:handler handler/get-plans}}]])
+(defn make-routes [storage]
+  [["/plans" {:get {:handler (partial handler/get-plans storage)}}]])

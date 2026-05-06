@@ -2,6 +2,7 @@
   (:require [integrant.core :as ig]
             [app.worker.core :as worker]
             [app.core.interface :as core]
+            [app.storage.interface :as storage]
             [app.user.interface :as user]
             [app.survey.interface :as survey]
             [app.plans.interface :as plans]
@@ -12,12 +13,13 @@
 
 (def config
   {::core/domain      {}
-   ::user/routes      {}
-   ::survey/routes    {}
-   ::plans/routes     {}
-   ::property/routes  {}
-   ::apartment/routes {}
-   ::tenant/routes    {}
+   ::storage/d1       {}
+   ::user/routes      {:storage (ig/ref ::storage/d1)}
+   ::survey/routes    {:storage (ig/ref ::storage/d1)}
+   ::plans/routes     {:storage (ig/ref ::storage/d1)}
+   ::property/routes  {:storage (ig/ref ::storage/d1)}
+   ::apartment/routes {:storage (ig/ref ::storage/d1)}
+   ::tenant/routes    {:storage (ig/ref ::storage/d1)}
    ::payment/routes   {}
    ::worker/handler {:user-routes      (ig/ref ::user/routes)
                      :survey-routes    (ig/ref ::survey/routes)

@@ -1,13 +1,13 @@
 (ns app.plans.handler
   (:require [app.worker.async :refer [js-await]]
-            [app.worker.db :as db]
+            [app.storage.interface :as storage]
             [app.worker.cf :as cf]))
 
-(defn get-plans [{:keys [_request _env]}]
-  (js-await [{:keys [success results]} (db/query+ {:select [:*]
-                                                    :from   [:props_plans]
-                                                    :where  [:= :active 1]
-                                                    :order-by [[:sort_order :asc]]})]
+(defn get-plans [storage {:keys [_request _env]}]
+  (js-await [{:keys [success results]} (storage/query+ storage {:select   [:*]
+                                                                 :from     [:props_plans]
+                                                                 :where    [:= :active 1]
+                                                                 :order-by [[:sort_order :asc]]})]
             (if success
               (cf/response-edn {:plans results} {:status 200})
               (cf/response-error "Failed to load plans"))))

@@ -2,8 +2,5 @@
   (:require [integrant.core :as ig]
             [app.plans.routes :as routes]))
 
-(defn get-routes []
-  routes/routes)
-
-(defmethod ig/init-key ::routes [_ _]
-  routes/routes)
+(defmethod ig/init-key ::routes [_ {:keys [storage]}]
+  (routes/make-routes storage))
