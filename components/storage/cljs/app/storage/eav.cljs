@@ -5,27 +5,27 @@
 ;; PATTERN A — open a transaction, return its tx-id via last_row_id
 ;; ---------------------------------------------------------------------------
 
-(defn begin-tx+ [db tx-meta]
+(defn begin-tx+ [^js db tx-meta]
   (-> (.prepare db "INSERT INTO transactions (tx_meta) VALUES (?)")
       (.bind (core/encode-value (or tx-meta {})))
       .run
-      (.then (fn [r] (.. r -meta -last_row_id)))))
+      (.then (fn [^js r] (.. r -meta -last_row_id)))))
 
 ;; ---------------------------------------------------------------------------
 ;; PATTERN B / C — prepared statement builders (used inside transact!+)
 ;; ---------------------------------------------------------------------------
 
-(defn- assert-fact-stmt [db entity-id attr value tx-id]
+(defn- assert-fact-stmt [^js db entity-id attr value tx-id]
   (-> (.prepare db "INSERT INTO facts (entity_id, attribute, value, tx_id, added)
                     VALUES (?, ?, json(?), ?, 1)")
       (.bind entity-id (core/attr->sql attr) (core/encode-value value) tx-id)))
 
-(defn- retract-fact-stmt [db entity-id attr value tx-id]
+(defn- retract-fact-stmt [^js db entity-id attr value tx-id]
   (-> (.prepare db "INSERT INTO facts (entity_id, attribute, value, tx_id, added)
                     VALUES (?, ?, json(?), ?, 0)")
       (.bind entity-id (core/attr->sql attr) (core/encode-value value) tx-id)))
 
-(defn- upsert-entity-stmt [db entity-id entity-type tx-id]
+(defn- upsert-entity-stmt [^js db entity-id entity-type tx-id]
   (-> (.prepare db "INSERT INTO entities (entity_id, entity_type, created_tx)
                     VALUES (?, ?, ?)
                     ON CONFLICT(entity_id) DO NOTHING")
@@ -42,7 +42,7 @@
 ;; Returns Promise<{:tx-id n, :entity-ids [...]}>
 ;; ---------------------------------------------------------------------------
 
-(defn transact!+ [db tx-data tx-meta]
+(defn transact!+ [^js db tx-data tx-meta]
   (-> (begin-tx+ db tx-meta)
       (.then
        (fn [tx-id]
@@ -77,7 +77,7 @@
 ;; PATTERN D — current value of one attribute on one entity
 ;; ---------------------------------------------------------------------------
 
-(defn lookup+ [db entity-id attr]
+(defn lookup+ [^js db entity-id attr]
   (-> (.prepare db "SELECT value FROM facts
                     WHERE entity_id = ?
                       AND attribute = ?
@@ -86,18 +86,18 @@
                     LIMIT 1")
       (.bind entity-id (core/attr->sql attr))
       .all
-      (.then (fn [r]
-               (when-let [row (first (array-seq (.-results r)))]
+      (.then (fn [^js r]
+               (when-let [^js row (first (array-seq (.-results r)))]
                  (core/decode-value (.-value row)))))))
 
 ;; Pull all current facts for one entity via the current_facts view
-(defn pull-entity+ [db entity-id]
+(defn pull-entity+ [^js db entity-id]
   (-> (.prepare db "SELECT attribute, value FROM current_facts WHERE entity_id = ?")
       (.bind entity-id)
       .all
-      (.then (fn [r]
+      (.then (fn [^js r]
                (into {:db/id entity-id}
-                     (map (fn [row]
+                     (map (fn [^js row]
                             [(keyword (.-attribute row))
                              (core/decode-value (.-value row))])
                           (array-seq (.-results r))))))))
@@ -106,7 +106,7 @@
 ;; PATTERN E — time-travel: entity state as of a given tx-id
 ;; ---------------------------------------------------------------------------
 
-(defn as-of+ [db entity-id as-of-tx]
+(defn as-of+ [^js db entity-id as-of-tx]
   (-> (.prepare db "SELECT attribute, value
                     FROM (
                       SELECT attribute, value, added,
@@ -119,9 +119,9 @@
                     WHERE rn = 1 AND added = 1")
       (.bind entity-id as-of-tx)
       .all
-      (.then (fn [r]
+      (.then (fn [^js r]
                (into {:db/id entity-id}
-                     (map (fn [row]
+                     (map (fn [^js row]
                             [(keyword (.-attribute row))
                              (core/decode-value (.-value row))])
                           (array-seq (.-results r))))))))
@@ -130,20 +130,21 @@
 ;; PATTERN F — all entities of a given type
 ;; ---------------------------------------------------------------------------
 
-(defn find-by-type+ [db entity-type]
+(defn find-by-type+ [^js db entity-type]
   (-> (.prepare db "SELECT entity_id FROM entities
                     WHERE entity_type = ?
                       AND retracted_tx IS NULL")
       (.bind entity-type)
       .all
-      (.then (fn [r]
-               (mapv #(.-entity_id %) (array-seq (.-results r)))))))
+      (.then (fn [^js r]
+               (mapv (fn [^js row] (.-entity_id row))
+                     (array-seq (.-results r)))))))
 
 ;; ---------------------------------------------------------------------------
 ;; PATTERN G — AVET lookup: entities where attribute currently equals value
 ;; ---------------------------------------------------------------------------
 
-(defn find-by-attr+ [db attr value]
+(defn find-by-attr+ [^js db attr value]
   (-> (.prepare db "SELECT DISTINCT f.entity_id
                     FROM facts f
                     WHERE f.attribute  = ?
@@ -158,22 +159,23 @@
                       )")
       (.bind (core/attr->sql attr) (core/encode-value value))
       .all
-      (.then (fn [r]
-               (mapv #(.-entity_id %) (array-seq (.-results r)))))))
+      (.then (fn [^js r]
+               (mapv (fn [^js row] (.-entity_id row))
+                     (array-seq (.-results r)))))))
 
 ;; ---------------------------------------------------------------------------
 ;; History — full timeline via the fact_history view
 ;; ---------------------------------------------------------------------------
 
-(defn history+ [db entity-id]
+(defn history+ [^js db entity-id]
   (-> (.prepare db "SELECT attribute, value, added, tx_id, tx_time, tx_meta
                     FROM fact_history
                     WHERE entity_id = ?
                     ORDER BY tx_id ASC")
       (.bind entity-id)
       .all
-      (.then (fn [r]
-               (mapv (fn [row]
+      (.then (fn [^js r]
+               (mapv (fn [^js row]
                        {:db/id     entity-id
                         :attribute (keyword (.-attribute row))
                         :value     (core/decode-value (.-value row))
@@ -189,7 +191,7 @@
 ;; PATTERN H — GDPR excision (right to forget)
 ;; ---------------------------------------------------------------------------
 
-(defn excise!+ [db entity-id tx-id]
+(defn excise!+ [^js db entity-id tx-id]
   (.batch db
     (into-array
      [(-> (.prepare db "UPDATE facts
@@ -203,7 +205,7 @@
 ;; Schema registration — insert attribute definitions into db_schema
 ;; ---------------------------------------------------------------------------
 
-(defn register-attrs!+ [db attrs tx-id]
+(defn register-attrs!+ [^js db attrs tx-id]
   (let [sql   "INSERT INTO db_schema
                  (ident, value_type, cardinality, doc, unique_val, is_component, created_tx)
                VALUES (?, ?, ?, ?, ?, ?, ?)
