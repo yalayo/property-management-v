@@ -4,13 +4,15 @@
             [app.worker.async :refer [js-await]]
             [app.worker.cf :as cf]))
 
-(defn get-questions [storage _]
-  (js-await [questions (persistance/get-questions storage)]
-            (cf/response-edn questions {:status 200})))
+(defn get-questions [_]
+  (js-await [qs (persistance/get-questions)]
+            (cf/response-edn qs {:status 200})))
 
-(defn post-submit [storage {:keys [request env]}]
+(defn post-submit [{:keys [request env]}]
   (js-await [data (cf/request->edn request)]
             (let [{:keys [email responses]} data]
-              (js-await [result (persistance/save-survey-response storage email responses)]
-                        (analytics/send-event! email "survey_submitted" {:email email} (aget env "GA_SECRET"))
+              (js-await [result (persistance/save-survey-response email responses)]
+                        (analytics/send-event! email "survey_submitted"
+                                               {:email email}
+                                               (aget env "GA_SECRET"))
                         (cf/response-edn result {:status 201})))))

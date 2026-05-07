@@ -1,12 +1,12 @@
 (ns app.tenant.routes
   (:require [app.tenant.handler :as handler]))
 
-(defn make-routes [storage]
+(def routes
   [["/tenants"
-    {:get  {:handler (partial handler/get-tenants storage)}
-     :post {:handler (partial handler/create-tenant storage)}}]
+    {:get  {:handler handler/get-tenants}
+     :post {:handler handler/create-tenant}}]
    ["/tenants/:id"
-    {:put    {:handler (partial handler/update-tenant storage)}
-     :delete {:handler (partial handler/delete-tenant storage)}}]
+    {:put    {:handler handler/update-tenant}
+     :delete {:handler handler/delete-tenant}}]
    ["/tenants/by-apartment/:apartment-id"
-    {:get {:handler (partial handler/get-tenants-by-apartment storage)}}]])
+    {:get {:handler handler/get-tenants-by-apartment}}]])

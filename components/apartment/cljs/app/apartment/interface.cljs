@@ -2,5 +2,5 @@
   (:require [integrant.core :as ig]
             [app.apartment.routes :as routes]))
 
-(defmethod ig/init-key ::routes [_ {:keys [storage]}]
-  (routes/make-routes storage))
+(defmethod ig/init-key ::routes [_ _]
+  routes/routes)

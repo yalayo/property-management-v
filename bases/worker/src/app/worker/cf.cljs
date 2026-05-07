@@ -51,10 +51,6 @@
   (fn ^:async [request ^js env ctx]
     (let [url (js/URL. (.-url request))
           route (r/match-by-path router (.-pathname url))]
-  	  (reset! ENV env)
-      (reset! CTX ctx)
-      (reset! DB (.-DB env))
-      (storage/set-db! (.-DB env))
       (handler (with-params url route) request env ctx))))
 
 (defn js->clj

@@ -5,37 +5,27 @@
             [app.storage.mem :as mem]))
 
 ;; ---------------------------------------------------------------------------
+;; Module-level implementation atom.
+;; Set once by the Integrant init-key (::d1 or ::memory).
+;; All public functions delegate here — no `storage` arg needed by callers.
+;; ---------------------------------------------------------------------------
+
+(defonce ^:private impl (atom nil))
+
+;; ---------------------------------------------------------------------------
 ;; Shared helpers
 ;; ---------------------------------------------------------------------------
 
-(defn- apply-pattern
-  "Filter an entity map to the requested pull pattern.
-   Pattern can be '* or [:attr/one :attr/two ...]"
-  [entity pattern]
+(defn- apply-pattern [entity pattern]
   (cond
     (or (= pattern '*)
         (= pattern ['*])
-        (= pattern [:*]))  entity
-    (vector? pattern)      (select-keys entity (conj (set pattern) :db/id))
-    :else                  entity))
+        (= pattern [:*])) entity
+    (vector? pattern)     (select-keys entity (conj (set pattern) :db/id))
+    :else                 entity))
 
-(defn- open-tx-then
-  "Open a new transaction with tx-meta, then call (f tx-id). Returns a Promise."
-  [begin-tx+ tx-meta f]
-  (-> (begin-tx+ tx-meta)
-      (.then f)))
-
-;; ---------------------------------------------------------------------------
-;; Simplified q: find entities matching :where clauses
-;;
-;; Supported clause forms:
-;;   [?e :attr literal-val]  — AVET lookup (find-by-attr+)
-;;   [?e :attr ?var]         — ignored for filtering (no value constraint)
-;;
-;; Returns Promise<#{entity-id ...}>
-;; Multiple value clauses are intersected.
-;; ---------------------------------------------------------------------------
-
+;; Simplified q: intersect AVET lookups for all literal-value :where clauses.
+;; Clause form: [?e :attr val] — symbol in position 3 means "any value", skipped.
 (defn- q-impl [find-by-attr+ {:keys [where]}]
   (let [value-clauses (filter (fn [[_ _ v]] (not (symbol? v))) where)]
     (if (empty? value-clauses)
@@ -51,124 +41,123 @@
 
 ;; ---------------------------------------------------------------------------
 ;; Integrant — ::d1  (live Cloudflare D1 binding)
+;; The returned map is also stored in `impl` for direct public-fn access.
 ;; ---------------------------------------------------------------------------
 
 (defmethod ig/init-key ::d1 [_ {:keys [db]}]
-  {:transact!+
-   (fn [tx-data tx-meta] (eav/transact!+ db tx-data tx-meta))
+  (let [open-tx (fn [tx-meta f]
+                  (-> (eav/begin-tx+ db tx-meta) (.then f)))
+        s {:transact!
+           (fn [tx-data tx-meta] (eav/transact!+ db tx-data tx-meta))
 
-   :transact-schema!+
-   (fn [attrs tx-meta]
-     (open-tx-then (partial eav/begin-tx+ db) tx-meta
-                   (fn [tx-id]
-                     (-> (eav/register-attrs!+ db attrs tx-id)
-                         (.then (fn [_] {:tx-id tx-id}))))))
+           :transact-schema!
+           (fn [attrs tx-meta]
+             (open-tx tx-meta
+                      (fn [tx-id]
+                        (-> (eav/register-attrs!+ db attrs tx-id)
+                            (.then (fn [_] {:tx-id tx-id}))))))
 
-   :pull+
-   (fn [eid pattern]
-     (-> (eav/pull-entity+ db eid)
-         (.then #(apply-pattern % pattern))))
+           :pull
+           (fn [eid pattern]
+             (-> (eav/pull-entity+ db eid)
+                 (.then #(apply-pattern % pattern))))
 
-   :lookup+        (fn [eid attr]   (eav/lookup+       db eid attr))
-   :as-of+         (fn [eid tx-id]  (eav/as-of+        db eid tx-id))
-   :history+       (fn [eid]        (eav/history+       db eid))
-   :find-by-type+  (fn [etype]      (eav/find-by-type+  db etype))
-   :find-by-attr+  (fn [attr val]   (eav/find-by-attr+  db attr val))
-   :q+             (fn [query]      (q-impl (partial eav/find-by-attr+ db) query))
-
-   :excise!+
-   (fn [eid tx-meta]
-     (open-tx-then (partial eav/begin-tx+ db) tx-meta
-                   (fn [tx-id] (eav/excise!+ db eid tx-id))))})
+           :lookup        (fn [eid attr]   (eav/lookup+       db eid attr))
+           :as-of         (fn [eid tx-id]  (eav/as-of+        db eid tx-id))
+           :history       (fn [eid]        (eav/history+       db eid))
+           :find-by-type  (fn [etype]      (eav/find-by-type+  db etype))
+           :find-by-attr  (fn [attr val]   (eav/find-by-attr+  db attr val))
+           :q             (fn [query]      (q-impl (partial eav/find-by-attr+ db) query))
+           :excise!       (fn [eid tx-meta]
+                            (open-tx tx-meta
+                                     (fn [tx-id] (eav/excise!+ db eid tx-id))))}]
+    (reset! impl s)
+    s))
 
 ;; ---------------------------------------------------------------------------
-;; Integrant — ::memory  (in-process atom store, for tests / local dev)
-;;
-;; Optional config key:
-;;   :tx-data — initial datoms to transact on construction
+;; Integrant — ::memory  (in-process atom, for tests / local dev)
+;; Optional :tx-data key pre-seeds facts at construction time.
 ;; ---------------------------------------------------------------------------
 
 (defmethod ig/init-key ::memory [_ {:keys [tx-data]}]
   (let [state (mem/make-store)]
-    ;; Pre-seed synchronously. mem/transact!+ mutates state before returning
-    ;; the Promise, so it is safe to ignore the returned Promise here.
+    ;; mem/transact!+ mutates state synchronously before returning the Promise
     (when (seq tx-data)
       (mem/transact!+ state tx-data nil))
-    {:transact!+
-     (fn [data meta] (mem/transact!+ state data meta))
+    (let [open-tx (fn [tx-meta f]
+                    (-> (mem/transact!+ state [] tx-meta) (.then (fn [{:keys [tx-id]}] (f tx-id)))))
+          s {:transact!
+             (fn [tx-data tx-meta] (mem/transact!+ state tx-data tx-meta))
 
-     :transact-schema!+
-     (fn [attrs tx-meta]
-       (-> (mem/transact!+ state [] tx-meta)
-           (.then (fn [{:keys [tx-id]}]
-                    (-> (mem/register-attrs!+ state attrs tx-id)
-                        (.then (fn [_] {:tx-id tx-id})))))))
+             :transact-schema!
+             (fn [attrs tx-meta]
+               (open-tx tx-meta
+                        (fn [tx-id]
+                          (-> (mem/register-attrs!+ state attrs tx-id)
+                              (.then (fn [_] {:tx-id tx-id}))))))
 
-     :pull+
-     (fn [eid pattern]
-       (-> (mem/pull-entity+ state eid)
-           (.then #(apply-pattern % pattern))))
+             :pull
+             (fn [eid pattern]
+               (-> (mem/pull-entity+ state eid)
+                   (.then #(apply-pattern % pattern))))
 
-     :lookup+       (fn [eid attr]   (mem/lookup+       state eid attr))
-     :as-of+        (fn [eid tx-id]  (mem/as-of+        state eid tx-id))
-     :history+      (fn [eid]        (mem/history+       state eid))
-     :find-by-type+ (fn [etype]      (mem/find-by-type+  state etype))
-     :find-by-attr+ (fn [attr val]   (mem/find-by-attr+  state attr val))
-     :q+            (fn [query]      (q-impl (partial mem/find-by-attr+ state) query))
-
-     :excise!+
-     (fn [eid tx-meta]
-       (-> (mem/transact!+ state [] tx-meta)
-           (.then (fn [{:keys [tx-id]}]
-                    (mem/excise!+ state eid tx-id)))))}))
+             :lookup        (fn [eid attr]   (mem/lookup+       state eid attr))
+             :as-of         (fn [eid tx-id]  (mem/as-of+        state eid tx-id))
+             :history       (fn [eid]        (mem/history+       state eid))
+             :find-by-type  (fn [etype]      (mem/find-by-type+  state etype))
+             :find-by-attr  (fn [attr val]   (mem/find-by-attr+  state attr val))
+             :q             (fn [query]      (q-impl (partial mem/find-by-attr+ state) query))
+             :excise!       (fn [eid tx-meta]
+                              (open-tx tx-meta
+                                       (fn [tx-id] (mem/excise!+ state eid tx-id))))}]
+      (reset! impl s)
+      s)))
 
 ;; ---------------------------------------------------------------------------
-;; Public API — Datahike-shaped
-;;
-;; Every function takes a `storage` map (from Integrant) as first arg.
+;; Public API — Datahike-shaped, no `storage` parameter.
+;; Callers just (require [app.storage.interface :as storage]) and call directly.
 ;;
 ;; Write
-;;   (transact! storage tx-data)
-;;   (transact! storage tx-data tx-meta)
-;;   (transact-schema! storage attrs)
-;;   (transact-schema! storage attrs tx-meta)
-;;   (excise! storage entity-id)
-;;   (excise! storage entity-id tx-meta)
+;;   (storage/transact!        tx-data)
+;;   (storage/transact!        tx-data tx-meta)
+;;   (storage/transact-schema! attrs)
+;;   (storage/transact-schema! attrs tx-meta)
+;;   (storage/excise!          entity-id)
+;;   (storage/excise!          entity-id tx-meta)
 ;;
 ;; Read
-;;   (pull        storage eid pattern)
-;;   (pull-many   storage eids pattern)
-;;   (entity      storage eid)
-;;   (lookup      storage eid attr)
-;;   (as-of       storage eid tx-id)
-;;   (history     storage eid)
-;;   (find-by-type storage entity-type)
-;;   (find-by-attr storage attr value)
-;;   (q           storage query)
+;;   (storage/pull         eid pattern)   => Promise<entity-map>
+;;   (storage/pull-many    eids pattern)  => Promise<[entity-map ...]>
+;;   (storage/entity       eid)           => Promise<entity-map> (all attrs)
+;;   (storage/lookup       eid attr)      => Promise<value | nil>
+;;   (storage/as-of        eid tx-id)     => Promise<entity-map>
+;;   (storage/history      eid)           => Promise<[datom ...]>
+;;   (storage/find-by-type entity-type)   => Promise<[eid ...]>
+;;   (storage/find-by-attr attr value)    => Promise<[eid ...]>
+;;   (storage/q            query)         => Promise<#{eid ...}>
 ;; ---------------------------------------------------------------------------
 
 (defn transact!
-  ([storage tx-data]           ((:transact!+ storage) tx-data nil))
-  ([storage tx-data tx-meta]   ((:transact!+ storage) tx-data tx-meta)))
+  ([tx-data]         ((:transact! @impl) tx-data nil))
+  ([tx-data tx-meta] ((:transact! @impl) tx-data tx-meta)))
 
 (defn transact-schema!
-  ([storage attrs]             ((:transact-schema!+ storage) attrs nil))
-  ([storage attrs tx-meta]     ((:transact-schema!+ storage) attrs tx-meta)))
+  ([attrs]           ((:transact-schema! @impl) attrs nil))
+  ([attrs tx-meta]   ((:transact-schema! @impl) attrs tx-meta)))
 
-(defn pull       [storage eid pattern]   ((:pull+          storage) eid pattern))
-(defn pull-many  [storage eids pattern]
-  (-> (js/Promise.all (into-array (map #(pull storage % pattern) eids)))
+(defn pull       [eid pattern]  ((:pull         @impl) eid pattern))
+(defn pull-many  [eids pattern]
+  (-> (js/Promise.all (into-array (map #(pull % pattern) eids)))
       (.then (fn [results] (vec (array-seq results))))))
 
-(defn entity     [storage eid]           (pull storage eid '*))
-(defn lookup     [storage eid attr]      ((:lookup+        storage) eid attr))
-(defn as-of      [storage eid tx-id]     ((:as-of+         storage) eid tx-id))
-(defn history    [storage eid]           ((:history+        storage) eid))
-(defn find-by-type [storage entity-type] ((:find-by-type+   storage) entity-type))
-(defn find-by-attr [storage attr value]  ((:find-by-attr+   storage) attr value))
-
-(defn q          [storage query]         ((:q+              storage) query))
+(defn entity     [eid]          ((:pull         @impl) eid '*))
+(defn lookup     [eid attr]     ((:lookup        @impl) eid attr))
+(defn as-of      [eid tx-id]    ((:as-of         @impl) eid tx-id))
+(defn history    [eid]          ((:history        @impl) eid))
+(defn find-by-type [etype]      ((:find-by-type   @impl) etype))
+(defn find-by-attr [attr val]   ((:find-by-attr   @impl) attr val))
+(defn q          [query]        ((:q              @impl) query))
 
 (defn excise!
-  ([storage eid]           ((:excise!+ storage) eid nil))
-  ([storage eid tx-meta]   ((:excise!+ storage) eid tx-meta)))
+  ([eid]           ((:excise! @impl) eid nil))
+  ([eid tx-meta]   ((:excise! @impl) eid tx-meta)))

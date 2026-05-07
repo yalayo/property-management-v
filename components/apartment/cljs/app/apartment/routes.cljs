@@ -1,17 +1,17 @@
 (ns app.apartment.routes
   (:require [app.apartment.handler :as handler]))
 
-(defn make-routes [storage]
+(def routes
   [["/apartments"
-    {:get  {:handler (partial handler/get-apartments storage)}
-     :post {:handler (partial handler/create-apartment storage)}}]
+    {:get  {:handler handler/get-apartments}
+     :post {:handler handler/create-apartment}}]
    ["/apartments/:id"
-    {:put    {:handler (partial handler/update-apartment storage)}
-     :delete {:handler (partial handler/delete-apartment storage)}}]
+    {:put    {:handler handler/update-apartment}
+     :delete {:handler handler/delete-apartment}}]
    ["/apartments/onboarding"
-    {:get {:handler (partial handler/get-all-onboardings storage)}}]
+    {:get {:handler handler/get-all-onboardings}}]
    ["/apartments/onboard/:id"
-    {:get  {:handler (partial handler/get-onboarding storage)}
-     :post {:handler (partial handler/start-onboarding storage)}}]
+    {:get  {:handler handler/get-onboarding}
+     :post {:handler handler/start-onboarding}}]
    ["/apartments/by-property/:property-id"
-    {:get {:handler (partial handler/get-apartments-by-property storage)}}]])
+    {:get {:handler handler/get-apartments-by-property}}]])

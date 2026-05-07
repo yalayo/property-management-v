@@ -1,10 +1,10 @@
 (ns app.property.routes
   (:require [app.property.handler :as handler]))
 
-(defn make-routes [storage]
+(def routes
   [["/properties"
-    {:get  {:handler (partial handler/get-properties storage)}
-     :post {:handler (partial handler/create-property storage)}}]
+    {:get  {:handler handler/get-properties}
+     :post {:handler handler/create-property}}]
    ["/properties/:id"
-    {:put    {:handler (partial handler/update-property storage)}
-     :delete {:handler (partial handler/delete-property storage)}}]])
+    {:put    {:handler handler/update-property}
+     :delete {:handler handler/delete-property}}]])

@@ -1,63 +1,50 @@
 (ns app.tenant.handler
-  (:require [app.worker.async :refer [js-await]]
-            [app.storage.interface :as storage]
+  (:require [app.storage.interface :as storage]
+            [app.worker.async :refer [js-await]]
             [app.worker.cf :as cf]))
 
-(defn get-tenants [storage {:keys [_request _env]}]
-  (js-await [{:keys [success results]} (storage/query+ storage {:select   [:*]
-                                                                 :from     [:props_tenants]
-                                                                 :order-by [[:id :desc]]})]
-            (if success
-              (cf/response-edn {:tenants results} {:status 200})
-              (cf/response-error "Failed to load tenants"))))
+(defn get-tenants [{:keys [_request _env]}]
+  (js-await [eids    (storage/find-by-type "tenant")
+             tenants (storage/pull-many eids '[*])]
+            (cf/response-edn {:tenants tenants} {:status 200})))
 
-(defn get-tenants-by-apartment [storage {:keys [_request _env route]}]
+(defn get-tenants-by-apartment [{:keys [_request _env route]}]
   (let [apartment-id (-> route :path-params :apartment-id)]
-    (js-await [{:keys [success results]} (storage/query+ storage {:select   [:*]
-                                                                   :from     [:props_tenants]
-                                                                   :where    [:= :apartment_id (js/parseInt apartment-id 10)]
-                                                                   :order-by [[:id :asc]]})]
-              (if success
-                (cf/response-edn {:tenants results} {:status 200})
-                (cf/response-error "Failed to load tenants")))))
+    (js-await [eids    (storage/find-by-attr :tenant/apartment-id apartment-id)
+               tenants (storage/pull-many eids '[*])]
+              (cf/response-edn {:tenants tenants} {:status 200}))))
 
-(defn create-tenant [storage {:keys [request _env]}]
+(defn create-tenant [{:keys [request _env]}]
   (js-await [data (cf/request->edn request)]
             (let [{:keys [apartment-id name email phone start-date end-date]} data]
-              (js-await [result (storage/run+ storage
-                                               {:insert-into [:props_tenants]
-                                                :columns     [:apartment_id :name :email :phone :start_date :end_date]
-                                                :values      [[(js/parseInt (str apartment-id) 10)
-                                                               name
-                                                               (or email "")
-                                                               (or phone "")
-                                                               (or start-date "")
-                                                               (or end-date "")]]})]
-                        (if (:success result)
-                          (cf/response-edn {:ok true} {:status 201})
-                          (cf/response-error "Failed to create tenant"))))))
+              (js-await [{:keys [tx-id entity-ids]}
+                         (storage/transact!
+                          [{:db/type             "tenant"
+                            :tenant/apartment-id apartment-id
+                            :tenant/name         name
+                            :tenant/email        (or email "")
+                            :tenant/phone        (or phone "")
+                            :tenant/start-date   (or start-date "")
+                            :tenant/end-date     (or end-date "")}])]
+                        (cf/response-edn {:tx-id     tx-id
+                                          :tenant-id (first entity-ids)}
+                                         {:status 201})))))
 
-(defn update-tenant [storage {:keys [request _env route]}]
-  (let [id (-> route :path-params :id)]
+(defn update-tenant [{:keys [request route _env]}]
+  (let [eid (-> route :path-params :id)]
     (js-await [data (cf/request->edn request)]
               (let [{:keys [name email phone start-date end-date]} data]
-                (js-await [result (storage/run+ storage
-                                                 {:update :props_tenants
-                                                  :set    {:name       name
-                                                           :email      email
-                                                           :phone      phone
-                                                           :start_date start-date
-                                                           :end_date   end-date}
-                                                  :where  [:= :id (js/parseInt id 10)]})]
-                          (if (:success result)
-                            (cf/response-edn {:ok true} {:status 200})
-                            (cf/response-error "Failed to update tenant")))))))
+                (js-await [{:keys [tx-id]}
+                            (storage/transact!
+                             [{:db/id             eid
+                               :tenant/name       name
+                               :tenant/email      email
+                               :tenant/phone      phone
+                               :tenant/start-date start-date
+                               :tenant/end-date   end-date}])]
+                           (cf/response-edn {:tx-id tx-id} {:status 200}))))))
 
-(defn delete-tenant [storage {:keys [_env route]}]
-  (let [id (-> route :path-params :id)]
-    (js-await [result (storage/run+ storage
-                                     {:delete-from :props_tenants
-                                      :where       [:= :id (js/parseInt id 10)]})]
-              (if (:success result)
-                (cf/response-edn {:ok true} {:status 200})
-                (cf/response-error "Failed to delete tenant")))))
+(defn delete-tenant [{:keys [route _env]}]
+  (let [eid (-> route :path-params :id)]
+    (js-await [_ (storage/excise! eid)]
+              (cf/response-edn {:ok true} {:status 200}))))
