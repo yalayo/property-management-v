@@ -5,5 +5,5 @@
 (defn get-routes []
   routes/routes)
 
-(defmethod ig/init-key ::routes [_ _]
+(defmethod ig/init-key ::routes [_ {:keys [storage]}]
   routes/routes)

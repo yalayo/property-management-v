@@ -76,18 +76,19 @@
           (add-cors-response (cf/response-error {:error "Not found"} {:status 404}) origin))))))
 
 
-(defn init [{:keys [user-routes survey-routes plans-routes property-routes apartment-routes tenant-routes payment-routes settings-routes price-routes request-routes
+(defn init [{:keys [user-routes survey-routes plans-routes property-routes apartment-routes tenant-routes payment-routes settings-routes price-routes request-routes dashboard-routes
                     ]}]
-  (let [routes (into base-routes (concat user-routes 
-                                         survey-routes 
-                                         plans-routes 
-                                         property-routes 
-                                         apartment-routes 
-                                         tenant-routes 
-                                         payment-routes 
-                                         settings-routes 
-                                         price-routes 
+  (let [routes (into base-routes (concat user-routes
+                                         survey-routes
+                                         plans-routes
+                                         property-routes
+                                         apartment-routes
+                                         tenant-routes
+                                         payment-routes
+                                         settings-routes
+                                         price-routes
                                          request-routes
+                                         dashboard-routes
                                          (routes/create-routes nil nil)))
         router (r/router routes {:conflicts nil})
         handler #js {:fetch (cf/with-handler router handle-route)}]

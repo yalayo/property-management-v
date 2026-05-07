@@ -1,6 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { Facebook, Twitter, Linkedin } from "lucide-react";
+import LanguageSwitcher from "../common/LanguageSwitcher";
 
 export default function Footer() {
   const { t } = useTranslation("footer");
@@ -44,7 +45,10 @@ export default function Footer() {
             <Linkedin className="h-6 w-6" />
           </a>
         </div>
-        <p className="mt-8 text-center text-base text-gray-400">
+        <div className="mt-8 flex justify-center">
+          <LanguageSwitcher />
+        </div>
+        <p className="mt-4 text-center text-base text-gray-400">
           {t("copyright", { year: new Date().getFullYear() })}
         </p>
       </div>

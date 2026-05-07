@@ -3,4 +3,8 @@
 
 (def routes
   [["/dashboard/occupancy"
-    {:get {:handler handler/get-occupancy}}]])
+    {:get {:handler handler/get-occupancy}}]
+   ["/stats"
+    {:get {:handler handler/get-public-stats}}]
+   ["/stats/satisfaction"
+    {:post {:handler handler/post-satisfaction}}]])
