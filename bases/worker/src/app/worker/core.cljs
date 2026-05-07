@@ -3,7 +3,8 @@
             [reitit.core :as r]
             [app.worker.async :refer [js-await]]
             [app.worker.auth :as auth]
-            [app.worker.cf :as cf]))
+            [app.worker.cf :as cf]
+            [app.worker.routes :as routes]))
 
 (def allowed-origins
   #{"http://localhost:8081"
@@ -75,8 +76,19 @@
           (add-cors-response (cf/response-error {:error "Not found"} {:status 404}) origin))))))
 
 
-(defn init [{:keys [user-routes survey-routes plans-routes property-routes apartment-routes tenant-routes payment-routes settings-routes price-routes request-routes]}]
-  (let [routes (into base-routes (concat user-routes survey-routes plans-routes property-routes apartment-routes tenant-routes payment-routes settings-routes price-routes request-routes))
+(defn init [{:keys [user-routes survey-routes plans-routes property-routes apartment-routes tenant-routes payment-routes settings-routes price-routes request-routes
+                    ]}]
+  (let [routes (into base-routes (concat user-routes 
+                                         survey-routes 
+                                         plans-routes 
+                                         property-routes 
+                                         apartment-routes 
+                                         tenant-routes 
+                                         payment-routes 
+                                         settings-routes 
+                                         price-routes 
+                                         request-routes
+                                         (routes/create-routes nil nil)))
         router (r/router routes {:conflicts nil})
         handler #js {:fetch (cf/with-handler router handle-route)}]
     handler))
