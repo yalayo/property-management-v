@@ -8,6 +8,7 @@
         ;; Bricks
         poly/worker     {:local/root "../../bases/worker"}
         poly/core       {:local/root "../../components/core"}
+        poly/letter     {:local/root "../../components/letter"}
         poly/controller {:local/root "../../components/controller"}
         poly/user       {:local/root "../../components/user"}
         poly/survey     {:local/root "../../components/survey"}
