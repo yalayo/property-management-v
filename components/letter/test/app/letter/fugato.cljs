@@ -2,7 +2,6 @@
   (:require [fugato.core :as fugato]
             [clojure.test.check.generators :as gen]
             [app.letter.system :as system]
-            [app.letter.rules :as rules]
             [clojure.test.check.properties :as prop]
             [clojure.test.check.clojure-test :refer [defspec]]))
 
@@ -37,7 +36,7 @@
    :args       (fn [_state]
                  (gen/return [sample-tenant]))   ; extend with gen/fmap for fuzzing
 
-   :next-state (fn [state {[[info]] :args}]
+   :next-state (fn [state {[info] :args}]
                  (assoc state :tenant-info info))
 
    :valid?     (fn [state _cmd]
@@ -95,7 +94,6 @@
 (comment
   ;; Generate and inspect a sequence
   (let [cmds (gen/generate (fugato/commands model initial-state))]
-    (println "Commands:" cmds)
     (system/get-billing (system/run-all initial-state cmds)))
 
   ;; Build manually, step by step
