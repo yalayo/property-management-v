@@ -21,4 +21,16 @@
         poly/dashboard  {:local/root "../../components/dashboard"}}
  :paths ["src" "resources"]
  :aliases {:dev {:extra-deps {thheller/shadow-cljs {:mvn/version "3.2.1"}
-                              binaryage/devtools {:mvn/version "1.0.7"}}}}}
+                              binaryage/devtools {:mvn/version "1.0.7"}}}
+           :test {:extra-deps {org.clojure/test.check {:mvn/version "1.1.1"}
+                               polylith-kaocha/kaocha-wrapper
+                               {:git/url "https://github.com/imrekoszo/polylith-kaocha"
+                                :git/tag "v0.8.2"
+                                :git/sha "d1fcd40"
+                                :deps/root "projects/kaocha-wrapper"}
+                               io.github.vouch-opensource/fugato
+                               {:git/url "https://github.com/vouch-opensource/fugato"
+                                :git/sha "4c1f687bca84f1f7777f347acdaafd49c182eae0"}
+                               etaoin/etaoin {:mvn/version "1.1.42"}
+                               clj-test-containers/clj-test-containers {:mvn/version "0.7.4"}
+                               org.testcontainers/testcontainers {:mvn/version "1.20.4"}}}}}
