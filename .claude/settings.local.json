@@ -6,7 +6,9 @@
       "Bash(node:*)",
       "Bash(npx wrangler:*)",
       "Bash(xargs grep:*)",
-      "Bash(Get-ChildItem -Path \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\" -Recurse -Directory)"
+      "Bash(Get-ChildItem -Path \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\" -Recurse -Directory)",
+      "Bash(Get-ChildItem -Path \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\" -Recurse -Directory -Filter \"*auth*\")",
+      "Bash(Select-Object -ExpandProperty FullName)"
     ]
   }
 }
