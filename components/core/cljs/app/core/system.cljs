@@ -1,5 +1,6 @@
 (ns app.core.system
-  (:require [app.core.rules.sign-up :as sign-up]))
+  (:require [app.core.rules.sign-up :as sign-up]
+            [app.core.rules.sign-in :as sign-in]))
 
 (def command->fn {})
 
@@ -16,12 +17,14 @@
 (defn process
   "Pure command dispatcher. Takes a context map with :command :data :user :db-user.
   Returns a result map; no side effects."
-  [{:keys [command data db-user]}]
+  [{:keys [command data db-user provided-hash]}]
   (case command
     :user-sign-up (sign-up/validate {:email    (get data :email)
                                      :name     (get data :name "")
                                      :password (get data :password)
                                      :db-user  db-user})
+    :user-sign-in (sign-in/validate {:db-user       db-user
+                                     :provided-hash provided-hash})
     {:error :unknown-command}))
 
 (defn init []

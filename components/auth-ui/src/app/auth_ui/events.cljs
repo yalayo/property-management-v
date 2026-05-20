@@ -14,8 +14,8 @@
  (fn [{:keys [db]} [_ form-data]]
    {:db (assoc-in db [:user :sign-in :loading?] true)
     :http-xhrio {:method          :post
-                 :uri             (str (config/get-api-url) "/api/sign-in")
-                 :params          form-data
+                 :uri             (str (config/get-api-url) "/api/command")
+                 :params          {:command :user-sign-in :data form-data}
                  :format          (ajax-edn/edn-request-format)
                  :response-format (ajax-edn/edn-response-format)
                  :timeout         8000

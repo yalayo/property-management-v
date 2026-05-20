@@ -14,8 +14,8 @@
  (fn [{:keys [db]} [_ form-data]]
    {:db (assoc-in db [:user :sign-up :loading?] true)
     :http-xhrio {:method          :post
-                 :uri             (str (config/get-api-url) "/api/sign-up")
-                 :params          form-data
+                 :uri             (str (config/get-api-url) "/api/command")
+                 :params          {:command :user-sign-up :data form-data}
                  :format          (ajax-edn/edn-request-format)
                  :response-format (ajax-edn/edn-response-format)
                  :timeout         8000
@@ -25,15 +25,12 @@
 (re-frame/reg-event-fx
  ::signed-up
  [local-storage-interceptor]
- (fn [{:keys [db]} [_ response]]
+ (fn [{:keys [db]} [_ _response]]
    (analytics/event "sign_up_successful" {})
    {:db (-> db
             (assoc-in [:user :sign-up :loading?] false)
-            (assoc-in [:user :token] (:token response))
-            (assoc-in [:user :info] (:user response))
-            (assoc-in [:user :user-loged-in?] true)
             (assoc-in [:user :sign-up :form] nil)
-            (assoc-in [:ui :active-section] "plans"))}))
+            (assoc-in [:ui :active-section] "auth"))}))
 
 (re-frame/reg-event-fx
  ::sign-up-error
