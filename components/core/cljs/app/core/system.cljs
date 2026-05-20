@@ -1,5 +1,5 @@
 (ns app.core.system
-  #_(:require [app.core.rules.service-request :as service-request]))
+  (:require [app.core.rules.sign-up :as sign-up]))
 
 (def command->fn {})
 
@@ -13,20 +13,15 @@
                  {:command command :arg args}))))
    state commands))
 
-(defn- sign-up [{:keys [data db-user]}]
-  (if db-user
-    {:error :user-already-exists}
-    {:action    :create-user
-     :user-data {:email    (get data :email)
-                 :name     (get data :name "")
-                 :password (get data :password)}}))
-
 (defn process
   "Pure command dispatcher. Takes a context map with :command :data :user :db-user.
   Returns a result map; no side effects."
-  [{:keys [command] :as ctx}]
+  [{:keys [command data db-user]}]
   (case command
-    :user-sign-up (sign-up ctx)
+    :user-sign-up (sign-up/validate {:email    (get data :email)
+                                     :name     (get data :name "")
+                                     :password (get data :password)
+                                     :db-user  db-user})
     {:error :unknown-command}))
 
 (defn init []
