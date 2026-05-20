@@ -2,6 +2,7 @@
   (:require [integrant.core :as ig]
             [app.worker.core :as worker]
             [app.core.interface :as core]
+            [app.controller.interface :as controller]
             [app.storage.interface :as storage]))
 
 ;; ::storage/d1 receives {:db <D1-binding>} injected lazily on the first
@@ -10,8 +11,11 @@
 (def config
   {::core/domain {}
    ::storage/d1 {}
-   ::worker/handler {:core (ig/ref ::core/domain)
-                     :storage (ig/ref ::storage/d1)}})
+   ::controller/controller {:core    (ig/ref ::core/domain)
+                             :storage (ig/ref ::storage/d1)}
+   ::worker/handler {:core       (ig/ref ::core/domain)
+                     :storage    (ig/ref ::storage/d1)
+                     :controller (ig/ref ::controller/controller)}})
 
 (defonce system (atom nil))
 

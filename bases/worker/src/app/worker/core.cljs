@@ -73,8 +73,8 @@
           (add-cors-response (cf/response-error {:error "Not found"} {:status 404}) origin))))))
 
 
-(defn init [{:keys [core storage]}]
-  (let [routes (into base-routes (concat (routes/create-routes core storage)))
+(defn init [{:keys [core storage controller]}]
+  (let [routes (into base-routes (concat (routes/create-routes core storage controller)))
         router (r/router routes {:conflicts nil})
         handler #js {:fetch (cf/with-handler router handle-route)}]
     handler))

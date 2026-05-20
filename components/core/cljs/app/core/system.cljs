@@ -13,13 +13,20 @@
                  {:command command :arg args}))))
    state commands))
 
+(defn- sign-up [{:keys [data user db-user]}]
+  (if db-user
+    {:error :user-already-exists}
+    {:action    :create-user
+     :user-data {:email (:email user)
+                 :name  (get data :name "")}}))
+
 (defn process
-  "Dispatch a command through the rules engine.
-  Returns a vector of one event map ready for the storage layer."
-  [cmd data]
-  (case cmd
-    :user-sign-up nil
-    [{:type :error :data {:command cmd :reason :unknown-command}}]))
+  "Pure command dispatcher. Takes a context map with :command :data :user :db-user.
+  Returns a result map; no side effects."
+  [{:keys [command] :as ctx}]
+  (case command
+    :user-sign-up (sign-up ctx)
+    {:error :unknown-command}))
 
 (defn init []
   (let [state (atom {})]
