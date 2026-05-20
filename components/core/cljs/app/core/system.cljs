@@ -1,8 +1,7 @@
 (ns app.core.system
-  #_(:require [app.core.rules :as rules]))
+  #_(:require [app.core.rules.service-request :as service-request]))
 
-(def command->fn
-  {})
+(def command->fn {})
 
 (defn run [state commands]
   (reduce
@@ -14,15 +13,22 @@
                  {:command command :arg args}))))
    state commands))
 
+(defn process
+  "Dispatch a command through the rules engine.
+  Returns a vector of one event map ready for the storage layer."
+  [cmd data]
+  (case cmd
+    :user-sign-up nil
+    [{:type :error :data {:command cmd :reason :unknown-command}}]))
+
 (defn init []
   (let [state (atom {})]
-    ;; Optional helper for dispatching commands safely
     {:state    state
      :dispatch (fn [cmd args]
-                 (swap! state
-                        #(run % [{:command cmd :args args}])))
+                 (swap! state #(run % [{:command cmd :args args}])))
      :run      (fn [commands]
-                 (swap! state run commands))}))
+                 (swap! state run commands))
+     :process  process}))
 
 (defn stop [state]
   (reset! state {})

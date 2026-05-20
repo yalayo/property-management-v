@@ -7,10 +7,9 @@
   "Returns a Reitit route handler that dispatches {:command kw :data map}
   to the matching fn in command-handlers. Called once at Integrant init time."
   [core storage]
-  (fn [{:keys [request env]}]
+  (fn [{:keys [request env user]}]
     (js-await [body (cf/request->edn request)]
               (let [{:keys [command data]} body]
-                (println "Command: " command)
-                (println "Data: " data)
+                (println "User: " user)
                 (cf/response-edn {:ok   true}
                                  {:status 201})))))
