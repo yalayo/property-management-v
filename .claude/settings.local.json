@@ -5,7 +5,8 @@
       "Bash(python3:*)",
       "Bash(node:*)",
       "Bash(npx wrangler:*)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(Get-ChildItem -Path \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\" -Recurse -Directory)"
     ]
   }
 }
