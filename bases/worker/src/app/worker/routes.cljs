@@ -2,6 +2,6 @@
   (:require
    [app.worker.handler :as handler]))
 
-(defn create-routes [command-handlers query-handlers]
-  [["/command" {:post {:handler (handler/command command-handlers)}}]
-   ["/query" {:get {:handler (handler/command query-handlers)}}]])
+(defn create-routes [core storage]
+  [["/command" {:post {:handler (handler/command core storage)}}]
+   ["/query" {:get  {:handler (handler/command core storage)}}]])

@@ -58,38 +58,34 @@
         method (.-method request)]
     (if (= method "OPTIONS") ;; Preflight
       (add-cors-response (cf/response nil {:status 204}) origin)
-      (let [method-k (keyword (.toLowerCase method))
-            route-data (:data route)
-            handler   (get-in route-data [method-k :handler])
-            requires-auth? (get-in route-data [method-k :auth-required])]
+      (let [method-k        (keyword (.toLowerCase method))
+            route-data      (:data route)
+            handler         (get-in route-data [method-k :handler])
+            requires-auth?  (get-in route-data [method-k :auth-required])
+            requires-admin? (get-in route-data [method-k :admin-required])]
         (if (some? handler)
           (js-await
            [user (when requires-auth?
                    (authenticate request env))]
-           (if (and requires-auth? (nil? user))
+           (cond
+             (and requires-auth? (nil? user))
              (add-cors-response (cf/response-error {:error "Unauthorized"} {:status 401}) origin)
+
+             (and requires-admin? (not= "admin" (aget user "role")))
+             (add-cors-response (cf/response-error {:error "Forbidden"} {:status 403}) origin)
+
+             :else
              (-> (js/Promise.resolve (handler {:route route :request request :env env :execution-ctx ctx :user user}))
                  (.then (fn [resp] (add-cors-response resp origin)))
                  (.catch (fn [err]
                            (js/console.error "Handler error:" err)
-                           (add-cors-response (cf/response-error {:error (.-message err)} {:status 500}) origin))))))
+                           (let [status (if (= "schema-missing" (aget err "code")) 503 500)]
+                             (add-cors-response (cf/response-error {:error (.-message err)} {:status status}) origin)))))))
           (add-cors-response (cf/response-error {:error "Not found"} {:status 404}) origin))))))
 
 
-(defn init [{:keys [user-routes survey-routes plans-routes property-routes apartment-routes tenant-routes payment-routes settings-routes price-routes request-routes dashboard-routes
-                    ]}]
-  (let [routes (into base-routes (concat user-routes
-                                         survey-routes
-                                         plans-routes
-                                         property-routes
-                                         apartment-routes
-                                         tenant-routes
-                                         payment-routes
-                                         settings-routes
-                                         price-routes
-                                         request-routes
-                                         dashboard-routes
-                                         (routes/create-routes nil nil)))
+(defn init [{:keys [core storage]}]
+  (let [routes (into base-routes (concat (routes/create-routes core storage)))
         router (r/router routes {:conflicts nil})
         handler #js {:fetch (cf/with-handler router handle-route)}]
     handler))

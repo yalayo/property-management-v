@@ -6,11 +6,11 @@
 (defn command
   "Returns a Reitit route handler that dispatches {:command kw :data map}
   to the matching fn in command-handlers. Called once at Integrant init time."
-  [command-handlers]
+  [core storage]
   (fn [{:keys [request env]}]
     (js-await [body (cf/request->edn request)]
-              (let [{:keys [command data]} body
-                    handler (get command-handlers command)]
-                (if handler
-                  (handler env data)
-                  (cf/response-edn {:error "Unknown command" :command command} {:status 400}))))))
+              (let [{:keys [command data]} body]
+                (println "Command: " command)
+                (println "Data: " data)
+                (cf/response-edn {:ok   true}
+                                 {:status 201})))))

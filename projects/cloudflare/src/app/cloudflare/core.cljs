@@ -2,38 +2,16 @@
   (:require [integrant.core :as ig]
             [app.worker.core :as worker]
             [app.core.interface :as core]
-            [app.storage.interface :as storage]
-            [app.user.interface :as user]
-            [app.survey.interface :as survey]
-            [app.plans.interface :as plans]
-            [app.property.interface  :as property]
-            [app.apartment.interface :as apartment]
-            [app.tenant.interface   :as tenant]
-            [app.payment.interface :as payment]
-            [app.dashboard.interface :as dashboard]))
+            [app.storage.interface :as storage]))
 
 ;; ::storage/d1 receives {:db <D1-binding>} injected lazily on the first
 ;; incoming request (see ensure-started!), because env is only available
 ;; inside the fetch handler, not at module-load time.
 (def config
-  {::core/domain       {}
-   ::storage/d1        {}
-   ::user/routes       {:storage (ig/ref ::storage/d1)}
-   ::survey/routes     {:storage (ig/ref ::storage/d1)}
-   ::plans/routes      {:storage (ig/ref ::storage/d1)}
-   ::property/routes   {:storage (ig/ref ::storage/d1)}
-   ::apartment/routes  {:storage (ig/ref ::storage/d1)}
-   ::tenant/routes     {:storage (ig/ref ::storage/d1)}
-   ::payment/routes    {}
-   ::dashboard/routes  {:storage (ig/ref ::storage/d1)}
-   ::worker/handler    {:user-routes      (ig/ref ::user/routes)
-                        :survey-routes    (ig/ref ::survey/routes)
-                        :plans-routes     (ig/ref ::plans/routes)
-                        :property-routes  (ig/ref ::property/routes)
-                        :apartment-routes (ig/ref ::apartment/routes)
-                        :tenant-routes    (ig/ref ::tenant/routes)
-                        :payment-routes   (ig/ref ::payment/routes)
-                        :dashboard-routes (ig/ref ::dashboard/routes)}})
+  {::core/domain {}
+   ::storage/d1 {}
+   ::worker/handler {:core (ig/ref ::core/domain)
+                     :storage (ig/ref ::storage/d1)}})
 
 (defonce system (atom nil))
 
