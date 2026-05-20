@@ -10,7 +10,7 @@
   (fn [{:keys [request env user]}]
     (js-await [body (cf/request->edn request)]
               (let [{:keys [command data]} body]
-                (js-await [result (controller {:command command :data data :user user})]
+                (js-await [result (controller {:command command :data data :user user :env env})]
                           (if (:error result)
                             (cf/response-edn result {:status 400})
                             (cf/response-edn result {:status 201})))))))

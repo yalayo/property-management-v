@@ -63,7 +63,7 @@
             handler         (get-in route-data [method-k :handler])]
         (if (some? handler)
           (js-await
-           [user (authenticate request env)] 
+           [user (js->clj  (authenticate request env) :keywordize-keys true)] 
            (-> (js/Promise.resolve (handler {:route route :request request :env env :execution-ctx ctx :user user}))
                (.then (fn [resp] (add-cors-response resp origin)))
                (.catch (fn [err]

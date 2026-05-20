@@ -13,12 +13,13 @@
                  {:command command :arg args}))))
    state commands))
 
-(defn- sign-up [{:keys [data user db-user]}]
+(defn- sign-up [{:keys [data db-user]}]
   (if db-user
     {:error :user-already-exists}
     {:action    :create-user
-     :user-data {:email (:email user)
-                 :name  (get data :name "")}}))
+     :user-data {:email    (get data :email)
+                 :name     (get data :name "")
+                 :password (get data :password)}}))
 
 (defn process
   "Pure command dispatcher. Takes a context map with :command :data :user :db-user.
