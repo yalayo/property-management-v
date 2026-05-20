@@ -39,7 +39,7 @@
                    {:id         (count (:facts s))
                     :entity-id  entity-id
                     :attribute  (core/attr->sql attr)
-                    :value      value
+                    :value      (core/encode-value value)
                     :tx-id      tx-id
                     :added      added
                     :excised-at nil}))))
@@ -86,7 +86,7 @@
   (js/Promise.resolve
    (into {:db/id entity-id}
          (map (fn [[attr {:keys [value]}]]
-                [(keyword attr) value])
+                [(keyword attr) (core/decode-value value)])
               (current-facts-for state entity-id)))))
 
 (defn lookup+ [state entity-id attr]
@@ -98,7 +98,8 @@
                       (sort-by :tx-id >)
                       first)]
     (js/Promise.resolve
-     (when (and latest (= 1 (:added latest))) (:value latest)))))
+     (when (and latest (= 1 (:added latest)))
+       (core/decode-value (:value latest))))))
 
 (defn as-of+ [state entity-id as-of-tx]
   (let [facts (->> (:facts @state)
@@ -110,7 +111,7 @@
                    (filter (fn [[_ row]] (= 1 (:added row)))))]
     (js/Promise.resolve
      (into {:db/id entity-id}
-           (map (fn [[attr {:keys [value]}]] [(keyword attr) value]) facts)))))
+           (map (fn [[attr {:keys [value]}]] [(keyword attr) (core/decode-value value)]) facts)))))
 
 (defn find-by-type+ [state entity-type]
   (js/Promise.resolve
@@ -121,14 +122,15 @@
         (mapv :entity-id))))
 
 (defn find-by-attr+ [state attr value]
-  (let [attr-sql (core/attr->sql attr)]
+  (let [attr-sql   (core/attr->sql attr)
+        enc-value  (core/encode-value value)]
     (js/Promise.resolve
      (->> (:facts @state)
           (filter #(and (= (:attribute %) attr-sql) (nil? (:excised-at %))))
           (group-by :entity-id)
           (filter (fn [[_ rows]]
                     (let [latest (first (sort-by :tx-id > rows))]
-                      (and (= (:value latest) value)
+                      (and (= (:value latest) enc-value)
                            (= 1 (:added latest))))))
           (mapv first)))))
 
@@ -142,7 +144,7 @@
                   (let [tx (get txns tx-id)]
                     {:db/id     entity-id
                      :attribute (keyword attribute)
-                     :value     value
+                     :value     (core/decode-value value)
                      :added     (= 1 added)
                      :tx-id     tx-id
                      :tx-time   (:tx-time tx)
