@@ -109,6 +109,74 @@
                         "Vert.Kst" "Schlüssel" "Anteilig" "Ihr Anteil")
        :content       content})))
 
+;; ─── Storage serialization ────────────────────────────────────────────────────
+;; billing->tx-data  — convert query-billing output to EAV tx-data
+;; billing-changes   — return tx-data only when billing differs from stored state
+;;
+;; Entity IDs:
+;;   billing summary  → "billing/<tenant-id>"
+;;   cost line        → "billing/<tenant-id>/line/<name>"
+
+(defn- billing-eid [tenant-id] (str "billing/" tenant-id))
+(defn- line-eid    [tenant-id n] (str "billing/" tenant-id "/line/" n))
+
+(defn billing->tx-data
+  "Convert a query-billing result into EAV tx-data for storage/transact!
+   Produces one billing entity + one cost-line entity per content row."
+  [{:keys [tenant-id last-name street location prepayment heating-costs
+           total-costs total refund content]}]
+  (let [bid (billing-eid tenant-id)]
+    (into [{:db/id                 bid
+            :db/type               "billing"
+            :billing/tenant-id     tenant-id
+            :billing/last-name     last-name
+            :billing/street        street
+            :billing/location      location
+            :billing/prepayment    prepayment
+            :billing/heating-costs heating-costs
+            :billing/total-costs   total-costs
+            :billing/total         total
+            :billing/refund        refund}]
+          (map (fn [{n :1 t :2 p :3 k :4 s :5 sh :6}]
+                 {:db/id               (line-eid tenant-id n)
+                  :db/type             "cost-line"
+                  :cost-line/billing-id bid
+                  :cost-line/name       n
+                  :cost-line/total      t
+                  :cost-line/pct        p
+                  :cost-line/key        k
+                  :cost-line/sqm-pct    s
+                  :cost-line/share      sh})
+               content))))
+
+(defn- billing->db-shape
+  "Normalize query-billing map to namespaced keys matching a storage/pull result."
+  [{:keys [tenant-id last-name street location prepayment heating-costs
+           total-costs total refund]}]
+  {:billing/tenant-id     tenant-id
+   :billing/last-name     last-name
+   :billing/street        street
+   :billing/location      location
+   :billing/prepayment    prepayment
+   :billing/heating-costs heating-costs
+   :billing/total-costs   total-costs
+   :billing/total         total
+   :billing/refund        refund})
+
+(defn billing-changes
+  "Returns tx-data when new-billing differs from stored (a storage/pull result).
+   Returns nil when nothing changed. stored may be nil on first save.
+
+   Usage:
+     (-> (storage/pull (billing-eid tenant-id) [:billing/total-costs ...])
+         (.then #(when-let [tx (billing-changes new-billing %)]
+                   (storage/transact! tx))))"
+  [new-billing stored]
+  (let [normalized       (billing->db-shape new-billing)
+        stored-comparable (dissoc stored :db/id :db/type)]
+    (when (not= normalized stored-comparable)
+      (billing->tx-data new-billing))))
+
 (comment
   (def session (new-session))
   (def state {:tenant-info {:tenant-id "302d3365-e7fe-4875-b1f0-8b4ba52d6281",
