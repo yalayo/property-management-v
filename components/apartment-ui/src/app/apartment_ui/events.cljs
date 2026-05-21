@@ -258,6 +258,30 @@
                   (assoc-in [:apartments :assign-apt-id] nil))
     :dispatch [::update-apartment apt-id {:occupied true}]}))
 
+(re-frame/reg-event-fx
+ ::assign-existing-tenant
+ (fn [{:keys [db]} [_ apt-id tenant-id]]
+   (let [token (get-in db [:user :token] "")]
+     {:db         (assoc-in db [:apartments :saving?] true)
+      :http-xhrio {:method          :post
+                   :uri             (str (config/get-api-url) "/api/command")
+                   :params          {:command :assign-tenant-to-apartment
+                                     :data    {:tenant-id    tenant-id
+                                               :apartment-id apt-id}}
+                   :headers         {"Authorization" (str "Bearer " token)}
+                   :format          (ajax-edn/edn-request-format)
+                   :response-format (ajax-edn/edn-response-format)
+                   :timeout         8000
+                   :on-success      [::existing-tenant-assigned]
+                   :on-failure      [::apartment-save-error]}})))
+
+(re-frame/reg-event-fx
+ ::existing-tenant-assigned
+ [local-storage-interceptor]
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:apartments :saving?] false)
+    :dispatch [::load-apartments]}))
+
 ;; ── Tenant onboarding ─────────────────────────────────────────────────────
 
 (re-frame/reg-event-fx

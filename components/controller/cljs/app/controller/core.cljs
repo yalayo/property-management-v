@@ -380,33 +380,52 @@
                     (js-await [_ ((:excise! storage) eid nil)]
                               {:ok true})))))))
 
+(defn- handle-assign-tenant-to-apartment! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [{:keys [tenant-id apartment-id]} data]
+        (js-await [tenant ((:pull storage) tenant-id '*)]
+                  (if (not= (:tenant/organization-id tenant) org-id)
+                    {:error :not-found}
+                    (js-await [apartment ((:pull storage) apartment-id '*)]
+                              (if (not= (:apartment/organization-id apartment) org-id)
+                                {:error :not-found}
+                                (js-await [{:keys [tx-id]}
+                                           ((:transact! storage)
+                                            [{:db/id               tenant-id
+                                              :tenant/apartment-id  apartment-id}
+                                             {:db/id               apartment-id
+                                              :apartment/occupied   true}] nil)]
+                                          {:tx-id tx-id})))))))))
+
 ;; ---------------------------------------------------------------------------
 ;; Dispatcher
 ;; ---------------------------------------------------------------------------
 
 (defn dispatch [{:keys [core storage command data env user]}]
   (case command
-    :user-sign-up                 (handle-sign-up! core storage data env)
-    :user-sign-in                 (handle-sign-in! core storage data env)
-    :get-properties               (handle-get-properties! storage user)
-    :create-property              (handle-create-property! core storage data user)
-    :update-property              (handle-update-property! core storage data user)
-    :delete-property              (handle-delete-property! storage data user)
-    :get-apartments               (handle-get-apartments! storage user)
-    :get-apartments-by-property   (handle-get-apartments-by-property! storage data user)
-    :create-apartment             (handle-create-apartment! core storage data user)
-    :update-apartment             (handle-update-apartment! core storage data user)
-    :delete-apartment             (handle-delete-apartment! storage data user)
-    :get-onboardings              (handle-get-onboardings! storage user)
-    :get-onboarding               (handle-get-onboarding! storage data user)
-    :start-onboarding             (handle-start-onboarding! core storage data user)
-    :get-tenants                  (handle-get-tenants! storage user)
-    :get-tenants-by-apartment     (handle-get-tenants-by-apartment! storage data user)
-    :create-tenant                (handle-create-tenant! core storage data user)
-    :update-tenant                (handle-update-tenant! core storage data user)
-    :delete-tenant                (handle-delete-tenant! storage data user)
-    :get-costs                    (handle-get-costs! storage data user)
-    :create-cost                  (handle-create-cost! storage data user)
-    :update-cost                  (handle-update-cost! storage data user)
-    :delete-cost                  (handle-delete-cost! storage data user)
+    :user-sign-up                    (handle-sign-up! core storage data env)
+    :user-sign-in                    (handle-sign-in! core storage data env)
+    :get-properties                  (handle-get-properties! storage user)
+    :create-property                 (handle-create-property! core storage data user)
+    :update-property                 (handle-update-property! core storage data user)
+    :delete-property                 (handle-delete-property! storage data user)
+    :get-apartments                  (handle-get-apartments! storage user)
+    :get-apartments-by-property      (handle-get-apartments-by-property! storage data user)
+    :create-apartment                (handle-create-apartment! core storage data user)
+    :update-apartment                (handle-update-apartment! core storage data user)
+    :delete-apartment                (handle-delete-apartment! storage data user)
+    :get-onboardings                 (handle-get-onboardings! storage user)
+    :get-onboarding                  (handle-get-onboarding! storage data user)
+    :start-onboarding                (handle-start-onboarding! core storage data user)
+    :get-tenants                     (handle-get-tenants! storage user)
+    :get-tenants-by-apartment        (handle-get-tenants-by-apartment! storage data user)
+    :create-tenant                   (handle-create-tenant! core storage data user)
+    :update-tenant                   (handle-update-tenant! core storage data user)
+    :delete-tenant                   (handle-delete-tenant! storage data user)
+    :assign-tenant-to-apartment      (handle-assign-tenant-to-apartment! storage data user)
+    :get-costs                       (handle-get-costs! storage data user)
+    :create-cost                     (handle-create-cost! storage data user)
+    :update-cost                     (handle-update-cost! storage data user)
+    :delete-cost                     (handle-delete-cost! storage data user)
     {:error :unknown-command}))

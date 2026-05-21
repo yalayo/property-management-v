@@ -206,6 +206,11 @@ const resources = {
         statusLabel: "Status",
         submit: "Send Invitation",
         submitting: "Sending...",
+        inviteNew: "Invite New",
+        assignExisting: "Assign Existing",
+        searchTenants: "Search tenants...",
+        noTenantsFound: "No tenants found.",
+        since: "Since {{date}}",
         emailRequired: "Email is required.",
         emailInvalid: "Please enter a valid email address.",
         status: {
@@ -777,6 +782,11 @@ const resources = {
         statusLabel: "Status",
         submit: "Einladung senden",
         submitting: "Wird gesendet...",
+        inviteNew: "Neu einladen",
+        assignExisting: "Bestehenden zuweisen",
+        searchTenants: "Mieter suchen...",
+        noTenantsFound: "Keine Mieter gefunden.",
+        since: "Seit {{date}}",
         emailRequired: "E-Mail ist erforderlich.",
         emailInvalid: "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
         status: {

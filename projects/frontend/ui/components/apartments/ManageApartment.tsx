@@ -1,5 +1,5 @@
-import React from "react";
-import { ArrowLeft, Trash2, Loader2, DoorOpen, DoorClosed, UserPlus, Clock, CheckCircle2 } from "lucide-react";
+import React, { useState } from "react";
+import { ArrowLeft, Trash2, Loader2, DoorOpen, DoorClosed, UserPlus, Clock, CheckCircle2, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
@@ -8,7 +8,6 @@ import { Switch } from "../ui/switch";
 import { Label } from "../ui/label";
 import { Input } from "../ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
-import { useState } from "react";
 
 type Apartment = {
   id: number;
@@ -25,8 +24,18 @@ type OnboardingStatus = {
   created_at?: string;
 };
 
+type Tenant = {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  "start-date"?: string;
+  "apartment-id"?: string | number;
+};
+
 type Props = {
   apartment?: Apartment | null;
+  tenants?: Tenant[];
   isSaving?: boolean;
   isOnboarding?: boolean;
   onboardingStatus?: OnboardingStatus | null;
@@ -34,10 +43,15 @@ type Props = {
   onDelete?: (id: number) => void;
   onToggleOccupied?: (id: number, occupied: boolean) => void;
   onStartOnboarding?: (apartmentId: number, email: string) => void;
+  onAssignExistingTenant?: (apartmentId: number, tenantId: string) => void;
+  onAfterAssign?: () => void;
 };
+
+type OnboardingMode = "invite" | "assign";
 
 export default function ManageApartment({
   apartment,
+  tenants = [],
   isSaving = false,
   isOnboarding = false,
   onboardingStatus,
@@ -45,12 +59,17 @@ export default function ManageApartment({
   onDelete,
   onToggleOccupied,
   onStartOnboarding,
+  onAssignExistingTenant,
+  onAfterAssign,
 }: Props) {
   const { t } = useTranslation("apartments");
   const { t: tCommon } = useTranslation("common");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [tenantEmail, setTenantEmail] = useState("");
   const [emailError, setEmailError] = useState("");
+  const [onboardingMode, setOnboardingMode] = useState<OnboardingMode>("invite");
+  const [tenantSearch, setTenantSearch] = useState("");
+  const [localAssignedTenant, setLocalAssignedTenant] = useState<Tenant | null>(null);
 
   if (!apartment) {
     return (
@@ -87,6 +106,26 @@ export default function ManageApartment({
     onStartOnboarding?.(apartment.id, tenantEmail);
     setTenantEmail("");
   };
+
+  const currentTenant =
+    tenants.find((t) => String(t["apartment-id"]) === String(apartment?.id)) ??
+    localAssignedTenant;
+
+  const handleAssignExisting = (tenant: Tenant) => {
+    setLocalAssignedTenant(tenant);
+    onAssignExistingTenant?.(apartment!.id, tenant.id);
+    onAfterAssign?.();
+  };
+
+  const filteredTenants = tenants.filter((t) => {
+    if (t["apartment-id"]) return false;
+    const q = tenantSearch.toLowerCase();
+    return (
+      !q ||
+      t.name?.toLowerCase().includes(q) ||
+      t.email?.toLowerCase().includes(q)
+    );
+  });
 
   return (
     <>
@@ -139,7 +178,22 @@ export default function ManageApartment({
               <p className="text-sm font-medium">{t("onboarding.title")}</p>
             </div>
 
-            {onboardingStatus ? (
+            {currentTenant ? (
+              <div className="space-y-1.5 text-sm">
+                <p className="font-medium">{currentTenant.name}</p>
+                {currentTenant.email && (
+                  <p className="text-muted-foreground">{currentTenant.email}</p>
+                )}
+                {currentTenant.phone && (
+                  <p className="text-muted-foreground">{currentTenant.phone}</p>
+                )}
+                {currentTenant["start-date"] && (
+                  <p className="text-muted-foreground">
+                    {t("onboarding.since", { date: currentTenant["start-date"] })}
+                  </p>
+                )}
+              </div>
+            ) : onboardingStatus ? (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">{t("onboarding.emailLabel")}</span>
@@ -161,40 +215,99 @@ export default function ManageApartment({
               </div>
             ) : (
               <>
-                <p className="text-sm text-muted-foreground">{t("onboarding.description")}</p>
-                <div className="space-y-1">
-                  <Label htmlFor="tenant-email" className="text-sm">
-                    {t("onboarding.emailLabel")}
-                  </Label>
-                  <Input
-                    id="tenant-email"
-                    type="email"
-                    placeholder={t("onboarding.emailPlaceholder")}
-                    value={tenantEmail}
-                    onChange={(e) => {
-                      setTenantEmail(e.target.value);
-                      setEmailError("");
-                    }}
-                    disabled={isOnboarding}
-                  />
-                  {emailError && (
-                    <p className="text-xs text-destructive">{emailError}</p>
-                  )}
+                {/* Mode switcher */}
+                <div className="flex rounded-lg border overflow-hidden text-sm">
+                  <button
+                    type="button"
+                    className={`flex-1 px-3 py-1.5 transition-colors ${onboardingMode === "invite" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:bg-muted"}`}
+                    onClick={() => setOnboardingMode("invite")}
+                  >
+                    {t("onboarding.inviteNew")}
+                  </button>
+                  <button
+                    type="button"
+                    className={`flex-1 px-3 py-1.5 transition-colors ${onboardingMode === "assign" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:bg-muted"}`}
+                    onClick={() => setOnboardingMode("assign")}
+                  >
+                    {t("onboarding.assignExisting")}
+                  </button>
                 </div>
-                <Button
-                  size="sm"
-                  onClick={handleOnboarding}
-                  disabled={isOnboarding || isSaving}
-                >
-                  {isOnboarding ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {t("onboarding.submitting")}
-                    </>
-                  ) : (
-                    t("onboarding.submit")
-                  )}
-                </Button>
+
+                {onboardingMode === "invite" ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">{t("onboarding.description")}</p>
+                    <div className="space-y-1">
+                      <Label htmlFor="tenant-email" className="text-sm">
+                        {t("onboarding.emailLabel")}
+                      </Label>
+                      <Input
+                        id="tenant-email"
+                        type="email"
+                        placeholder={t("onboarding.emailPlaceholder")}
+                        value={tenantEmail}
+                        onChange={(e) => {
+                          setTenantEmail(e.target.value);
+                          setEmailError("");
+                        }}
+                        disabled={isOnboarding}
+                      />
+                      {emailError && (
+                        <p className="text-xs text-destructive">{emailError}</p>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={handleOnboarding}
+                      disabled={isOnboarding || isSaving}
+                    >
+                      {isOnboarding ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          {t("onboarding.submitting")}
+                        </>
+                      ) : (
+                        t("onboarding.submit")
+                      )}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+                      <Input
+                        placeholder={t("onboarding.searchTenants")}
+                        value={tenantSearch}
+                        onChange={(e) => setTenantSearch(e.target.value)}
+                        className="pl-8"
+                      />
+                    </div>
+                    <div className="max-h-48 overflow-y-auto rounded-lg border divide-y">
+                      {filteredTenants.length === 0 ? (
+                        <p className="py-4 text-center text-sm text-muted-foreground">
+                          {t("onboarding.noTenantsFound")}
+                        </p>
+                      ) : (
+                        filteredTenants.map((tenant) => (
+                          <button
+                            key={tenant.id}
+                            type="button"
+                            disabled={isSaving}
+                            className="w-full flex items-center justify-between px-3 py-2.5 text-left text-sm hover:bg-muted transition-colors disabled:opacity-50"
+                            onClick={() => handleAssignExisting(tenant)}
+                          >
+                            <div>
+                              <p className="font-medium">{tenant.name}</p>
+                              {tenant.email && (
+                                <p className="text-xs text-muted-foreground">{tenant.email}</p>
+                              )}
+                            </div>
+                            {isSaving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </>
+                )}
               </>
             )}
           </div>

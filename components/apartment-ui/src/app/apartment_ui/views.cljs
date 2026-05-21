@@ -16,7 +16,7 @@
 (defn component [_]
   (re-frame/dispatch [::events/load-apartments])
   (re-frame/dispatch [::events/close-assign-dialog])
-  (fn [{:keys [properties _on-go-back]}]
+  (fn [{:keys [properties tenants on-after-assign _on-go-back]}]
     (let [apartments       @(re-frame/subscribe [::subs/apartments])
           loading?         @(re-frame/subscribe [::subs/loading?])
           saving?          @(re-frame/subscribe [::subs/saving?])
@@ -31,16 +31,20 @@
           assign-apt       (when assign-apt-id (first (filter #(= (:db/id %) assign-apt-id) apartments)))]
       (if selected-id
         [manage-apartment
-         {:apartment          (clj->js selected-apt)
-          :isSaving           saving?
-          :isOnboarding       onboarding?
-          :onboardingStatus   (clj->js onboarding-status)
-          :onBack             #(re-frame/dispatch [::events/clear-selected-apartment])
-          :onDelete           (fn [id] (re-frame/dispatch [::events/delete-apartment id]))
-          :onToggleOccupied   (fn [id occupied]
-                                (re-frame/dispatch [::events/update-apartment id {:occupied occupied}]))
-          :onStartOnboarding  (fn [id email]
-                                (re-frame/dispatch [::events/start-onboarding id email]))}]
+         {:apartment               (clj->js selected-apt)
+          :tenants                 (clj->js (or tenants []))
+          :isSaving                saving?
+          :isOnboarding            onboarding?
+          :onboardingStatus        (clj->js onboarding-status)
+          :onBack                  #(re-frame/dispatch [::events/clear-selected-apartment])
+          :onDelete                (fn [id] (re-frame/dispatch [::events/delete-apartment id]))
+          :onToggleOccupied        (fn [id occupied]
+                                     (re-frame/dispatch [::events/update-apartment id {:occupied occupied}]))
+          :onStartOnboarding       (fn [id email]
+                                     (re-frame/dispatch [::events/start-onboarding id email]))
+          :onAssignExistingTenant  (fn [apt-id tenant-id]
+                                     (re-frame/dispatch [::events/assign-existing-tenant apt-id tenant-id]))
+          :onAfterAssign           on-after-assign}]
         [apartments-list
          {:apartments                     (clj->js apartments)
           :onboardingsByApartment         (clj->js onboardings-by-apt)

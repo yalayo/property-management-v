@@ -87,7 +87,9 @@
                                 :apartments         (clj->js all-apartments)
                                 :latePayments       (clj->js [])
                                 :paymentsLoading    false
-                                :apartmentsView     (r/as-element [apartment-ui/component {:properties properties}])
+                                :apartmentsView     (r/as-element [apartment-ui/component {:properties      properties
+                                                                                              :tenants         tenants
+                                                                                              :on-after-assign (fn [] (tenant-ui/load-tenants))}])
                                 :tenantsView        (r/as-element [tenant-ui/component {:apartments available-apartments}])
                                 :onAddProperty      (fn [data]
                                                       (let [d (js->clj data :keywordize-keys true)]
