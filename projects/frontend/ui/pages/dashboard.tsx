@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect } from "react";
-import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2 } from "lucide-react";
+import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2, Landmark } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../components/ui/sheet";
@@ -11,6 +11,7 @@ import FileUpload from "../components/dashboard/FileUpload";
 import UserAnalytics from "../components/dashboard/UserAnalytics";
 import DashboardSummary from "../components/dashboard/DashboardSummary";
 import LanguageSwitcher from "../components/common/LanguageSwitcher";
+import BankStatement from "../components/bank/BankStatement";
 
 function SidebarContent({ activeTab, onSelect, onLogout }) {
   const { t } = useTranslation("nav");
@@ -20,6 +21,7 @@ function SidebarContent({ activeTab, onSelect, onLogout }) {
     { id: "properties", label: t("properties"), icon: Building },
     { id: "apartments", label: t("apartments"), icon: Building2 },
     { id: "tenants",    label: t("tenants"),    icon: Users },
+    { id: "bank",       label: t("bank"),       icon: Landmark },
     { id: "documents",  label: t("documents"),  icon: FileText },
     { id: "analytics",  label: t("analytics"),  icon: BarChart2 },
   ];
@@ -73,6 +75,7 @@ export default function Dashboard(props) {
     properties: t("properties"),
     apartments: t("apartments"),
     tenants:    t("tenants"),
+    bank:       t("bank"),
     documents:  t("documents"),
     analytics:  t("analytics"),
   };
@@ -179,6 +182,13 @@ export default function Dashboard(props) {
           {activeTab === "apartments" && props.apartmentsView}
 
           {activeTab === "tenants" && props.tenantsView}
+          {activeTab === "bank" && (
+            <BankStatement
+              apartments={props.apartments}
+              isSaving={props.rentSaving}
+              onAssignPayment={props.onAssignPayment}
+            />
+          )}
           {activeTab === "documents" && <FileUpload />}
           {activeTab === "analytics" && <UserAnalytics />}
         </main>

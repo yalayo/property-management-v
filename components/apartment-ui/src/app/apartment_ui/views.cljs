@@ -21,6 +21,8 @@
   (fn [{:keys [properties tenants on-after-assign
                apt-costs apt-costs-loading? apt-costs-saving?
                on-load-apt-costs on-add-apt-cost on-update-apt-cost on-delete-apt-cost
+               rent-payments rent-loading? rent-saving?
+               on-load-rent-payments on-add-rent-payment on-update-rent-payment on-delete-rent-payment
                _on-go-back]}]
     (let [apartments       @(re-frame/subscribe [::subs/apartments])
           loading?         @(re-frame/subscribe [::subs/loading?])
@@ -56,16 +58,23 @@
 
         detail-apt-id
         [apartment-detail
-         {:apartment       (clj->js detail-apt)
-          :properties      (clj->js (or properties []))
-          :aptCosts        (clj->js (or apt-costs []))
-          :aptCostsLoading apt-costs-loading?
-          :aptCostsSaving  apt-costs-saving?
-          :onLoadAptCosts  on-load-apt-costs
-          :onAddAptCost    on-add-apt-cost
-          :onUpdateAptCost on-update-apt-cost
-          :onDeleteAptCost on-delete-apt-cost
-          :onBack          #(re-frame/dispatch [::events/clear-apartment-detail])}]
+         {:apartment           (clj->js detail-apt)
+          :properties          (clj->js (or properties []))
+          :aptCosts            (clj->js (or apt-costs []))
+          :aptCostsLoading     apt-costs-loading?
+          :aptCostsSaving      apt-costs-saving?
+          :onLoadAptCosts      on-load-apt-costs
+          :onAddAptCost        on-add-apt-cost
+          :onUpdateAptCost     on-update-apt-cost
+          :onDeleteAptCost     on-delete-apt-cost
+          :rentPayments        (clj->js (or rent-payments []))
+          :rentLoading         rent-loading?
+          :rentSaving          rent-saving?
+          :onLoadRentPayments  on-load-rent-payments
+          :onAddRentPayment    on-add-rent-payment
+          :onUpdateRentPayment on-update-rent-payment
+          :onDeleteRentPayment on-delete-rent-payment
+          :onBack              #(re-frame/dispatch [::events/clear-apartment-detail])}]
 
         :else
         [apartments-list

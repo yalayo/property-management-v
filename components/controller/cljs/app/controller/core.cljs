@@ -381,6 +381,58 @@
                               {:ok true})))))))
 
 ;; ---------------------------------------------------------------------------
+;; Rent-payment handlers
+;; ---------------------------------------------------------------------------
+
+(defn- handle-get-rent-payments! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [apartment-id (:apartment-id data)]
+        (js-await [eids  ((:q storage) {:where [['?e :rent-payment/apartment-id    apartment-id]
+                                                  ['?e :rent-payment/organization-id org-id]]})
+                   rents (pull-many+ storage (vec eids) '[*])]
+                  {:rent-payments rents})))))
+
+(defn- handle-create-rent-payment! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [{:keys [apartment-id year month value date description]} data]
+        (js-await [{:keys [tx-id entity-ids]}
+                   ((:transact! storage)
+                    [{:db/type                      "rent-payment"
+                      :rent-payment/organization-id  org-id
+                      :rent-payment/apartment-id     apartment-id
+                      :rent-payment/year             year
+                      :rent-payment/month            month
+                      :rent-payment/value            value
+                      :rent-payment/date             date
+                      :rent-payment/description      description}] nil)]
+                  {:tx-id tx-id :rent-payment-id (first entity-ids)})))))
+
+(defn- handle-update-rent-payment! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:rent-payment/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [{:keys [tx-id]}
+                               ((:transact! storage)
+                                [{:db/id               eid
+                                  :rent-payment/value  (:value data)}] nil)]
+                              {:tx-id tx-id})))))))
+
+(defn- handle-delete-rent-payment! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:rent-payment/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [_ ((:excise! storage) eid nil)]
+                              {:ok true})))))))
+
+;; ---------------------------------------------------------------------------
 ;; Apartment-cost handlers
 ;; ---------------------------------------------------------------------------
 
@@ -475,6 +527,10 @@
     :update-tenant                   (handle-update-tenant! core storage data user)
     :delete-tenant                   (handle-delete-tenant! storage data user)
     :assign-tenant-to-apartment      (handle-assign-tenant-to-apartment! storage data user)
+    :get-rent-payments               (handle-get-rent-payments! storage data user)
+    :create-rent-payment             (handle-create-rent-payment! storage data user)
+    :update-rent-payment             (handle-update-rent-payment! storage data user)
+    :delete-rent-payment             (handle-delete-rent-payment! storage data user)
     :get-apartment-costs             (handle-get-apartment-costs! storage data user)
     :create-apartment-cost           (handle-create-apartment-cost! storage data user)
     :update-apartment-cost           (handle-update-apartment-cost! storage data user)

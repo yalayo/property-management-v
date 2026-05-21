@@ -19,6 +19,8 @@
             [app.payment-ui.interface  :as payment-ui]
             [app.cost-ui.subs         :as cost-subs]
             [app.cost-ui.events       :as cost-events]
+            [app.rent-ui.subs         :as rent-subs]
+            [app.rent-ui.events       :as rent-events]
             [app.survey-ui.views :as survey]
             ;; React page imports (thin wrappers — no separate Polylith component needed)
             ["/pages/main$default"                :as main-js]
@@ -60,7 +62,10 @@
         costs-saving?        @(re-frame/subscribe [::cost-subs/saving?])
         apt-costs            @(re-frame/subscribe [::cost-subs/apartment-costs])
         apt-costs-loading?   @(re-frame/subscribe [::cost-subs/apt-costs-loading?])
-        apt-costs-saving?    @(re-frame/subscribe [::cost-subs/apt-costs-saving?])]
+        apt-costs-saving?    @(re-frame/subscribe [::cost-subs/apt-costs-saving?])
+        rent-payments        @(re-frame/subscribe [::rent-subs/rent-payments])
+        rent-loading?        @(re-frame/subscribe [::rent-subs/loading?])
+        rent-saving?         @(re-frame/subscribe [::rent-subs/saving?])]
     [main
      {:activeComponent
       (r/as-element
@@ -114,8 +119,40 @@
                                                                                              [::cost-events/update-apartment-cost
                                                                                               {:id    (:id d)
                                                                                                :value (:value d)}])))
-                                                                    :on-delete-apt-cost (fn [id]
-                                                                                          (re-frame/dispatch [::cost-events/delete-apartment-cost id]))}])
+                                                                    :on-delete-apt-cost          (fn [id]
+                                                                                                   (re-frame/dispatch [::cost-events/delete-apartment-cost id]))
+                                                                    :rent-payments               (clj->js rent-payments)
+                                                                    :rent-loading?               rent-loading?
+                                                                    :rent-saving?                rent-saving?
+                                                                    :on-load-rent-payments       (fn [apt-id]
+                                                                                                   (re-frame/dispatch [::rent-events/load-rent-payments apt-id]))
+                                                                    :on-add-rent-payment         (fn [data]
+                                                                                                   (let [d (js->clj data :keywordize-keys true)]
+                                                                                                     (re-frame/dispatch
+                                                                                                      [::rent-events/create-rent-payment
+                                                                                                       {:apartment-id (:apartmentId d)
+                                                                                                        :year         (:year d)
+                                                                                                        :month        (:month d)
+                                                                                                        :value        (:value d)}])))
+                                                                    :on-update-rent-payment      (fn [data]
+                                                                                                   (let [d (js->clj data :keywordize-keys true)]
+                                                                                                     (re-frame/dispatch
+                                                                                                      [::rent-events/update-rent-payment
+                                                                                                       {:id    (:id d)
+                                                                                                        :value (:value d)}])))
+                                                                    :on-delete-rent-payment      (fn [id]
+                                                                                                   (re-frame/dispatch [::rent-events/delete-rent-payment id]))}])
+                                :rentSaving         rent-saving?
+                                :onAssignPayment    (fn [data]
+                                                      (let [d (js->clj data :keywordize-keys true)]
+                                                        (re-frame/dispatch
+                                                         [::rent-events/create-rent-payment
+                                                          {:apartment-id (:apartmentId d)
+                                                           :year         (:year d)
+                                                           :month        (:month d)
+                                                           :value        (:value d)
+                                                           :date         (:date d)
+                                                           :description  (:description d)}])))
                                 :tenantsView        (r/as-element [tenant-ui/component {:apartments available-apartments}])
                                 :onAddProperty      (fn [data]
                                                       (let [d (js->clj data :keywordize-keys true)]
