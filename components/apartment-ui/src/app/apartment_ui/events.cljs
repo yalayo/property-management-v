@@ -215,6 +215,20 @@
    {:db       (assoc-in db [:apartments :saving?] false)
     :dispatch [::load-apartments]}))
 
+;; ── Apartment detail ──────────────────────────────────────────────────────
+
+(re-frame/reg-event-db
+ ::select-apartment-detail
+ [local-storage-interceptor]
+ (fn [db [_ id]]
+   (assoc-in db [:apartments :detail-id] id)))
+
+(re-frame/reg-event-db
+ ::clear-apartment-detail
+ [local-storage-interceptor]
+ (fn [db _]
+   (assoc-in db [:apartments :detail-id] nil)))
+
 ;; ── Assign tenant ─────────────────────────────────────────────────────────
 
 (re-frame/reg-event-db

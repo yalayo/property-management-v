@@ -380,6 +380,57 @@
                     (js-await [_ ((:excise! storage) eid nil)]
                               {:ok true})))))))
 
+;; ---------------------------------------------------------------------------
+;; Apartment-cost handlers
+;; ---------------------------------------------------------------------------
+
+(defn- handle-get-apartment-costs! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [apartment-id (:apartment-id data)]
+        (js-await [eids  ((:q storage) {:where [['?e :apartment-cost/apartment-id    apartment-id]
+                                                  ['?e :apartment-cost/organization-id org-id]]})
+                   costs (pull-many+ storage (vec eids) '[*])]
+                  {:costs costs})))))
+
+(defn- handle-create-apartment-cost! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [{:keys [apartment-id line name year value]} data]
+        (js-await [{:keys [tx-id entity-ids]}
+                   ((:transact! storage)
+                    [{:db/type                      "apartment-cost"
+                      :apartment-cost/organization-id org-id
+                      :apartment-cost/apartment-id    apartment-id
+                      :apartment-cost/line             line
+                      :apartment-cost/name             name
+                      :apartment-cost/year             year
+                      :apartment-cost/value            value}] nil)]
+                  {:tx-id tx-id :cost-id (first entity-ids)})))))
+
+(defn- handle-update-apartment-cost! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:apartment-cost/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [{:keys [tx-id]}
+                               ((:transact! storage)
+                                [{:db/id                  eid
+                                  :apartment-cost/value   (:value data)}] nil)]
+                              {:tx-id tx-id})))))))
+
+(defn- handle-delete-apartment-cost! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:apartment-cost/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [_ ((:excise! storage) eid nil)]
+                              {:ok true})))))))
+
 (defn- handle-assign-tenant-to-apartment! [storage data user]
   (with-org user
     (fn [org-id]
@@ -424,6 +475,10 @@
     :update-tenant                   (handle-update-tenant! core storage data user)
     :delete-tenant                   (handle-delete-tenant! storage data user)
     :assign-tenant-to-apartment      (handle-assign-tenant-to-apartment! storage data user)
+    :get-apartment-costs             (handle-get-apartment-costs! storage data user)
+    :create-apartment-cost           (handle-create-apartment-cost! storage data user)
+    :update-apartment-cost           (handle-update-apartment-cost! storage data user)
+    :delete-apartment-cost           (handle-delete-apartment-cost! storage data user)
     :get-costs                       (handle-get-costs! storage data user)
     :create-cost                     (handle-create-cost! storage data user)
     :update-cost                     (handle-update-cost! storage data user)

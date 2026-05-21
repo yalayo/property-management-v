@@ -6,17 +6,22 @@
             ["/components/apartments/ApartmentsList$default"  :as apartments-list-js]
             ["/components/apartments/AddApartment$default"    :as add-apartment-js]
             ["/components/apartments/ManageApartment$default" :as manage-apartment-js]
+            ["/components/apartments/ApartmentDetail$default" :as apartment-detail-js]
             ["/components/apartments/AssignTenant$default"    :as assign-tenant-js]))
 
 (def apartments-list  (r/adapt-react-class apartments-list-js))
 (def add-apartment    (r/adapt-react-class add-apartment-js))
 (def manage-apartment (r/adapt-react-class manage-apartment-js))
+(def apartment-detail (r/adapt-react-class apartment-detail-js))
 (def assign-tenant    (r/adapt-react-class assign-tenant-js))
 
 (defn component [_]
   (re-frame/dispatch [::events/load-apartments])
   (re-frame/dispatch [::events/close-assign-dialog])
-  (fn [{:keys [properties tenants on-after-assign _on-go-back]}]
+  (fn [{:keys [properties tenants on-after-assign
+               apt-costs apt-costs-loading? apt-costs-saving?
+               on-load-apt-costs on-add-apt-cost on-update-apt-cost on-delete-apt-cost
+               _on-go-back]}]
     (let [apartments       @(re-frame/subscribe [::subs/apartments])
           loading?         @(re-frame/subscribe [::subs/loading?])
           saving?          @(re-frame/subscribe [::subs/saving?])
@@ -25,11 +30,14 @@
           onboardings-by-apt    @(re-frame/subscribe [::subs/onboardings-by-apartment])
           add-dialog-open? @(re-frame/subscribe [::subs/add-dialog-open?])
           selected-id      @(re-frame/subscribe [::subs/selected-apartment-id])
+          detail-apt-id    @(re-frame/subscribe [::subs/detail-apartment-id])
           new-code         @(re-frame/subscribe [::subs/new-apartment-code])
           assign-apt-id    @(re-frame/subscribe [::subs/assign-apt-id])
           selected-apt     (when selected-id (first (filter #(= (:db/id %) selected-id) apartments)))
+          detail-apt       (when detail-apt-id (first (filter #(= (:db/id %) detail-apt-id) apartments)))
           assign-apt       (when assign-apt-id (first (filter #(= (:db/id %) assign-apt-id) apartments)))]
-      (if selected-id
+      (cond
+        selected-id
         [manage-apartment
          {:apartment               (clj->js selected-apt)
           :tenants                 (clj->js (or tenants []))
@@ -45,12 +53,28 @@
           :onAssignExistingTenant  (fn [apt-id tenant-id]
                                      (re-frame/dispatch [::events/assign-existing-tenant apt-id tenant-id]))
           :onAfterAssign           on-after-assign}]
+
+        detail-apt-id
+        [apartment-detail
+         {:apartment       (clj->js detail-apt)
+          :properties      (clj->js (or properties []))
+          :aptCosts        (clj->js (or apt-costs []))
+          :aptCostsLoading apt-costs-loading?
+          :aptCostsSaving  apt-costs-saving?
+          :onLoadAptCosts  on-load-apt-costs
+          :onAddAptCost    on-add-apt-cost
+          :onUpdateAptCost on-update-apt-cost
+          :onDeleteAptCost on-delete-apt-cost
+          :onBack          #(re-frame/dispatch [::events/clear-apartment-detail])}]
+
+        :else
         [apartments-list
          {:apartments                     (clj->js apartments)
           :onboardingsByApartment         (clj->js onboardings-by-apt)
           :isLoading                      loading?
           :isAddApartmentDialogOpen       add-dialog-open?
           :onChangeAddApartmentDialogOpen #(re-frame/dispatch [::events/open-add-dialog])
+          :onSelectApartment              (fn [id] (re-frame/dispatch [::events/select-apartment-detail id]))
           :onManageApartment              (fn [id] (re-frame/dispatch [::events/select-apartment id]))
           :onAssignTenant                 (fn [id] (re-frame/dispatch [::events/open-assign-dialog id]))
           :onCloseAssignDialog            #(re-frame/dispatch [::events/close-assign-dialog])

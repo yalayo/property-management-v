@@ -14,3 +14,15 @@
 
 (defn delete-cost [id]
   (re-frame/dispatch [::events/delete-cost id]))
+
+(defn load-apartment-costs [apartment-id]
+  (re-frame/dispatch [::events/load-apartment-costs apartment-id]))
+
+(defn create-apartment-cost [data]
+  (re-frame/dispatch [::events/create-apartment-cost data]))
+
+(defn update-apartment-cost [data]
+  (re-frame/dispatch [::events/update-apartment-cost data]))
+
+(defn delete-apartment-cost [id]
+  (re-frame/dispatch [::events/delete-apartment-cost id]))

@@ -16,11 +16,12 @@
                             (cf/response-edn result {:status 200})))))))
 
 (def ^:private entity->command
-  {:property   :get-properties
-   :apartment  :get-apartments
-   :tenant     :get-tenants
-   :onboarding :get-onboardings
-   :cost       :get-costs})
+  {:property        :get-properties
+   :apartment       :get-apartments
+   :tenant          :get-tenants
+   :onboarding      :get-onboardings
+   :cost            :get-costs
+   :apartment-cost  :get-apartment-costs})
 
 (defn query
   "Returns a Reitit route handler for POST queries.

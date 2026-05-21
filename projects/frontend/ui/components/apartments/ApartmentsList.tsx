@@ -25,6 +25,7 @@ type Props = {
   isLoading?: boolean;
   isAddApartmentDialogOpen?: boolean;
   onChangeAddApartmentDialogOpen?: () => void;
+  onSelectApartment?: (id: number) => void;
   onManageApartment?: (id: number) => void;
   onAssignTenant?: (id: number) => void;
   onCloseAssignDialog?: () => void;
@@ -40,6 +41,7 @@ export default function ApartmentsList({
   isLoading = false,
   isAddApartmentDialogOpen = false,
   onChangeAddApartmentDialogOpen,
+  onSelectApartment,
   onManageApartment,
   onAssignTenant,
   onCloseAssignDialog,
@@ -102,7 +104,13 @@ export default function ApartmentsList({
                         ) : (
                           <DoorOpen className="h-5 w-5 text-green-500" />
                         )}
-                        <span className="font-semibold text-lg">{apt.code}</span>
+                        <button
+                          type="button"
+                          className="font-semibold text-lg hover:underline hover:text-primary transition-colors text-left"
+                          onClick={() => onSelectApartment?.(apt.id)}
+                        >
+                          {apt.code}
+                        </button>
                       </div>
                       <Badge variant={isOccupied ? "secondary" : "outline"} className={isOccupied ? "" : "text-green-600 border-green-300"}>
                         {isOccupied ? t("occupied") : t("available")}

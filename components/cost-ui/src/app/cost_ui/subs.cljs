@@ -15,3 +15,18 @@
  ::saving?
  (fn [db _]
    (get-in db [:costs :saving?] false)))
+
+(re-frame/reg-sub
+ ::apartment-costs
+ (fn [db _]
+   (get-in db [:apartment-costs :list] [])))
+
+(re-frame/reg-sub
+ ::apt-costs-loading?
+ (fn [db _]
+   (get-in db [:apartment-costs :loading?] false)))
+
+(re-frame/reg-sub
+ ::apt-costs-saving?
+ (fn [db _]
+   (get-in db [:apartment-costs :saving?] false)))

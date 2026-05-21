@@ -57,7 +57,10 @@
         available-apartments (filter #(not (:apartment/occupied %)) all-apartments)
         costs                @(re-frame/subscribe [::cost-subs/costs])
         costs-loading?       @(re-frame/subscribe [::cost-subs/loading?])
-        costs-saving?        @(re-frame/subscribe [::cost-subs/saving?])]
+        costs-saving?        @(re-frame/subscribe [::cost-subs/saving?])
+        apt-costs            @(re-frame/subscribe [::cost-subs/apartment-costs])
+        apt-costs-loading?   @(re-frame/subscribe [::cost-subs/apt-costs-loading?])
+        apt-costs-saving?    @(re-frame/subscribe [::cost-subs/apt-costs-saving?])]
     [main
      {:activeComponent
       (r/as-element
@@ -87,9 +90,32 @@
                                 :apartments         (clj->js all-apartments)
                                 :latePayments       (clj->js [])
                                 :paymentsLoading    false
-                                :apartmentsView     (r/as-element [apartment-ui/component {:properties      properties
-                                                                                              :tenants         tenants
-                                                                                              :on-after-assign (fn [] (tenant-ui/load-tenants))}])
+                                :apartmentsView     (r/as-element [apartment-ui/component
+                                                                   {:properties         properties
+                                                                    :tenants            tenants
+                                                                    :on-after-assign    (fn [] (tenant-ui/load-tenants))
+                                                                    :apt-costs          (clj->js apt-costs)
+                                                                    :apt-costs-loading? apt-costs-loading?
+                                                                    :apt-costs-saving?  apt-costs-saving?
+                                                                    :on-load-apt-costs  (fn [apt-id]
+                                                                                          (re-frame/dispatch [::cost-events/load-apartment-costs apt-id]))
+                                                                    :on-add-apt-cost    (fn [data]
+                                                                                          (let [d (js->clj data :keywordize-keys true)]
+                                                                                            (re-frame/dispatch
+                                                                                             [::cost-events/create-apartment-cost
+                                                                                              {:apartment-id (:apartmentId d)
+                                                                                               :line        (:line d)
+                                                                                               :name        (:name d)
+                                                                                               :year        (:year d)
+                                                                                               :value       (:value d)}])))
+                                                                    :on-update-apt-cost (fn [data]
+                                                                                          (let [d (js->clj data :keywordize-keys true)]
+                                                                                            (re-frame/dispatch
+                                                                                             [::cost-events/update-apartment-cost
+                                                                                              {:id    (:id d)
+                                                                                               :value (:value d)}])))
+                                                                    :on-delete-apt-cost (fn [id]
+                                                                                          (re-frame/dispatch [::cost-events/delete-apartment-cost id]))}])
                                 :tenantsView        (r/as-element [tenant-ui/component {:apartments available-apartments}])
                                 :onAddProperty      (fn [data]
                                                       (let [d (js->clj data :keywordize-keys true)]
