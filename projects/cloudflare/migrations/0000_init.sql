@@ -17,7 +17,7 @@
 --    tx_meta is an arbitrary JSON blob (user ID, IP, reason, etc.)
 -- -----------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS transactions (
+CREATE TABLE IF NOT EXISTS props_transactions (
   tx_id      INTEGER PRIMARY KEY AUTOINCREMENT,
   tx_time    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   tx_meta    TEXT             -- JSON: { "user": "...", "reason": "..." }
@@ -35,12 +35,12 @@ CREATE TABLE IF NOT EXISTS transactions (
 --  excised_at — set by a GDPR/right-to-forget operation (soft physical delete)
 -- -----------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS facts (
+CREATE TABLE IF NOT EXISTS props_facts (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   entity_id   TEXT    NOT NULL,
   attribute   TEXT    NOT NULL,
   value       TEXT    NOT NULL,   -- JSON encoded: "\"Alice\"", "42", "{...}"
-  tx_id       INTEGER NOT NULL REFERENCES transactions(tx_id),
+  tx_id       INTEGER NOT NULL REFERENCES props_transactions(tx_id),
   added       INTEGER NOT NULL DEFAULT 1 CHECK (added IN (0, 1)),
   excised_at  TEXT    DEFAULT NULL   -- ISO-8601 timestamp if excised
 );
@@ -50,27 +50,27 @@ CREATE TABLE IF NOT EXISTS facts (
 -- -----------------------------------------------------------------------------
 
 -- EAVT: "all attributes of entity X, ordered by time"
-CREATE INDEX IF NOT EXISTS idx_eavt
-  ON facts (entity_id, attribute, tx_id DESC)
+CREATE INDEX IF NOT EXISTS props_idx_eavt
+  ON props_facts (entity_id, attribute, tx_id DESC)
   WHERE excised_at IS NULL;
 
 -- AEVT: "all entities that have attribute A" (column-scan / analytics)
-CREATE INDEX IF NOT EXISTS idx_aevt
-  ON facts (attribute, entity_id, tx_id DESC)
+CREATE INDEX IF NOT EXISTS props_idx_aevt
+  ON props_facts (attribute, entity_id, tx_id DESC)
   WHERE excised_at IS NULL;
 
 -- AVET: "entities where attribute A has value V"
-CREATE INDEX IF NOT EXISTS idx_avet
-  ON facts (attribute, value, tx_id DESC)
+CREATE INDEX IF NOT EXISTS props_idx_avet
+  ON props_facts (attribute, value, tx_id DESC)
   WHERE excised_at IS NULL;
 
 -- Time-travel: filtering by tx_id range
-CREATE INDEX IF NOT EXISTS idx_tx_id
-  ON facts (tx_id);
+CREATE INDEX IF NOT EXISTS props_idx_tx_id
+  ON props_facts (tx_id);
 
 -- For excision scans
-CREATE INDEX IF NOT EXISTS idx_entity_excise
-  ON facts (entity_id)
+CREATE INDEX IF NOT EXISTS props_idx_entity_excise
+  ON props_facts (entity_id)
   WHERE excised_at IS NOT NULL;
 
 
@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS db_schema (
   doc          TEXT,                     -- human-readable description
   unique_val   INTEGER NOT NULL DEFAULT 0 CHECK (unique_val IN (0, 1)),
   is_component INTEGER NOT NULL DEFAULT 0 CHECK (is_component IN (0, 1)),
-  created_tx   INTEGER NOT NULL REFERENCES transactions(tx_id)
+  created_tx   INTEGER NOT NULL REFERENCES props_transactions(tx_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_schema_ident ON db_schema (ident);
@@ -104,8 +104,8 @@ CREATE INDEX IF NOT EXISTS idx_schema_ident ON db_schema (ident);
 CREATE TABLE IF NOT EXISTS entities (
   entity_id   TEXT    PRIMARY KEY,
   entity_type TEXT    NOT NULL,   -- e.g. "user", "order", "product"
-  created_tx  INTEGER NOT NULL REFERENCES transactions(tx_id),
-  retracted_tx INTEGER DEFAULT NULL REFERENCES transactions(tx_id)
+  created_tx  INTEGER NOT NULL REFERENCES props_transactions(tx_id),
+  retracted_tx INTEGER DEFAULT NULL REFERENCES props_transactions(tx_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_entity_type ON entities (entity_type);
@@ -120,20 +120,20 @@ CREATE INDEX IF NOT EXISTS idx_entity_type ON entities (entity_type);
 --     The latest asserted (non-retracted, non-excised) value per (entity, attr)
 -- -----------------------------------------------------------------------------
 
-CREATE VIEW IF NOT EXISTS current_facts AS
+CREATE VIEW IF NOT EXISTS props_current_facts AS
 SELECT
   f.entity_id,
   f.attribute,
   f.value,
   f.tx_id,
   t.tx_time
-FROM facts f
-JOIN transactions t ON t.tx_id = f.tx_id
+FROM props_facts f
+JOIN props_transactions t ON t.tx_id = f.tx_id
 WHERE f.added = 1
   AND f.excised_at IS NULL
   AND f.id = (
     -- Latest fact id for this (entity, attribute) pair
-    SELECT id FROM facts f2
+    SELECT id FROM props_facts f2
     WHERE f2.entity_id  = f.entity_id
       AND f2.attribute  = f.attribute
       AND f2.excised_at IS NULL
@@ -147,7 +147,7 @@ WHERE f.added = 1
 --     Full timeline of every assertion and retraction for auditing
 -- -----------------------------------------------------------------------------
 
-CREATE VIEW IF NOT EXISTS fact_history AS
+CREATE VIEW IF NOT EXISTS props_fact_history AS
 SELECT
   f.id,
   f.entity_id,
@@ -157,8 +157,8 @@ SELECT
   f.tx_id,
   t.tx_time,
   t.tx_meta
-FROM facts f
-JOIN transactions t ON t.tx_id = f.tx_id
+FROM props_facts f
+JOIN props_transactions t ON t.tx_id = f.tx_id
 WHERE f.excised_at IS NULL
 ORDER BY f.entity_id, f.attribute, f.tx_id ASC;
 
@@ -236,31 +236,6 @@ ORDER BY f.entity_id, f.attribute, f.tx_id ASC;
 --   UPDATE entities SET retracted_tx = ? WHERE entity_id = ?;
 --
 -- =============================================================================
-
-
--- =============================================================================
--- BOOTSTRAP: seed the schema with built-in system attributes
--- =============================================================================
-
--- System bootstrap transaction
-INSERT INTO transactions (tx_meta)
-VALUES ('{"system": true, "reason": "bootstrap"}');
-
--- Built-in attribute definitions
-INSERT INTO db_schema (ident, value_type, cardinality, doc, created_tx) VALUES
-  ('db/ident',       'string',  'one', 'Unique name/identity of an entity or attribute', (SELECT MAX(tx_id) FROM transactions));
-
-INSERT INTO db_schema (ident, value_type, cardinality, doc, created_tx) VALUES
-  ('db/type',        'string',  'one', 'The entity type namespace, e.g. user, order',    (SELECT MAX(tx_id) FROM transactions));
-
-INSERT INTO db_schema (ident, value_type, cardinality, doc, created_tx) VALUES
-  ('db/doc',         'string',  'one', 'Human-readable documentation string',            (SELECT MAX(tx_id) FROM transactions));
-
-INSERT INTO db_schema (ident, value_type, cardinality, doc, created_tx) VALUES
-  ('db/createdAt',   'instant', 'one', 'Wall-clock time the entity was first asserted',  (SELECT MAX(tx_id) FROM transactions));
-
-INSERT INTO db_schema (ident, value_type, cardinality, doc, created_tx) VALUES
-  ('db/retractedAt', 'instant', 'one', 'Wall-clock time the entity was retracted',       (SELECT MAX(tx_id) FROM transactions));
 
 -- =============================================================================
 -- EXAMPLE QUERIES (run these to verify the setup)
