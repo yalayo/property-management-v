@@ -10,7 +10,8 @@
       "Bash(Get-ChildItem -Path \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\" -Recurse -Directory -Filter \"*auth*\")",
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(Get-ChildItem -Path \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\" -Force)",
-      "Bash(Select-Object Name, FullName)"
+      "Bash(Select-Object Name, FullName)",
+      "Bash(Select-Object Name, PSIsContainer)"
     ]
   }
 }
