@@ -44,33 +44,33 @@
 ;; The returned map is also stored in `impl` for direct public-fn access.
 ;; ---------------------------------------------------------------------------
 
-(defmethod ig/init-key ::d1 [_ {:keys [db]}]
+(defmethod ig/init-key ::d1 [_ {:keys [db prefix]}]
   (let [open-tx (fn [tx-meta f]
-                  (-> (eav/begin-tx+ db tx-meta) (.then f)))
+                  (-> (eav/begin-tx+ db prefix tx-meta) (.then f)))
         s {:transact!
-           (fn [tx-data tx-meta] (eav/transact!+ db tx-data tx-meta))
+           (fn [tx-data tx-meta] (eav/transact!+ db prefix tx-data tx-meta))
 
            :transact-schema!
            (fn [attrs tx-meta]
              (open-tx tx-meta
                       (fn [tx-id]
-                        (-> (eav/register-attrs!+ db attrs tx-id)
+                        (-> (eav/register-attrs!+ db prefix attrs tx-id)
                             (.then (fn [_] {:tx-id tx-id}))))))
 
            :pull
            (fn [eid pattern]
-             (-> (eav/pull-entity+ db eid)
+             (-> (eav/pull-entity+ db prefix eid)
                  (.then #(apply-pattern % pattern))))
 
-           :lookup        (fn [eid attr]   (eav/lookup+       db eid attr))
-           :as-of         (fn [eid tx-id]  (eav/as-of+        db eid tx-id))
-           :history       (fn [eid]        (eav/history+       db eid))
-           :find-by-type  (fn [etype]      (eav/find-by-type+  db etype))
-           :find-by-attr  (fn [attr val]   (eav/find-by-attr+  db attr val))
-           :q             (fn [query]      (q-impl (partial eav/find-by-attr+ db) query))
+           :lookup        (fn [eid attr]   (eav/lookup+       db prefix eid attr))
+           :as-of         (fn [eid tx-id]  (eav/as-of+        db prefix eid tx-id))
+           :history       (fn [eid]        (eav/history+       db prefix eid))
+           :find-by-type  (fn [etype]      (eav/find-by-type+  db prefix etype))
+           :find-by-attr  (fn [attr val]   (eav/find-by-attr+  db prefix attr val))
+           :q             (fn [query]      (q-impl (partial eav/find-by-attr+ db prefix) query))
            :excise!       (fn [eid tx-meta]
                             (open-tx tx-meta
-                                     (fn [tx-id] (eav/excise!+ db eid tx-id))))}]
+                                     (fn [tx-id] (eav/excise!+ db prefix eid tx-id))))}]
     (reset! impl s)
     s))
 

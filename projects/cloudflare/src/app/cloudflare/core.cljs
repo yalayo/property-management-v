@@ -22,7 +22,8 @@
 (defn- ensure-started! [^js env]
   (when-not @system
     (reset! system
-      (ig/init (assoc config ::storage/d1 {:db (aget env "DB")})))))
+      (ig/init (assoc config ::storage/d1 {:db     (aget env "DB")
+                                           :prefix (or (aget env "TABLE_PREFIX") "")})))))
 
 (defn stop []
   (when @system

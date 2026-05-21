@@ -3,6 +3,9 @@ main = "out/main.js"
 compatibility_date = "2025-02-04"
 compatibility_flags = ["nodejs_compat"]
 
+[vars]
+TABLE_PREFIX = "props"
+
 [observability]
 enabled = true
 
@@ -15,7 +18,7 @@ migrations_table = "local_migrations"
 
 [env.production]
 name = "props-backend-production"
-vars = { NODE_ENV = "production" }
+vars = { NODE_ENV = "production", TABLE_PREFIX = "props" }
 
 [[env.production.d1_databases]]
 binding = "DB"
