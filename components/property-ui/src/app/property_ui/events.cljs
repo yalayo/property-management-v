@@ -10,14 +10,10 @@
 (re-frame/reg-event-fx
  ::load-properties
  (fn [{:keys [db]} _]
-   (let [token   (get-in db [:user :token] "")
-         user-id (get-in db [:user :info :id] "")
-         org-id  (get-in db [:user :info :org-id] "")]
+   (let [token (get-in db [:user :token] "")]
      {:http-xhrio {:method          :post
                    :uri             (str (config/get-api-url) "/api/query")
-                   :params          {:entity  :property
-                                     :user-id user-id
-                                     :org-id  org-id}
+                   :params          {:entity :property}
                    :headers         {"Authorization" (str "Bearer " token)}
                    :format          (ajax-edn/edn-request-format)
                    :response-format (ajax-edn/edn-response-format)
@@ -71,15 +67,17 @@
 (re-frame/reg-event-fx
  ::update-property
  (fn [{:keys [db]} [_ id property-data]]
-   {:db         (assoc-in db [:properties :saving?] true)
-    :http-xhrio {:method          :put
-                 :uri             (str (config/get-api-url) "/api/properties/" id)
-                 :params          property-data
-                 :format          (ajax-edn/edn-request-format)
-                 :response-format (ajax-edn/edn-response-format)
-                 :timeout         8000
-                 :on-success      [::property-updated]
-                 :on-failure      [::property-save-error]}}))
+   (let [token (get-in db [:user :token] "")]
+     {:db         (assoc-in db [:properties :saving?] true)
+      :http-xhrio {:method          :post
+                   :uri             (str (config/get-api-url) "/api/command")
+                   :params          {:command :update-property :data (assoc property-data :id id)}
+                   :headers         {"Authorization" (str "Bearer " token)}
+                   :format          (ajax-edn/edn-request-format)
+                   :response-format (ajax-edn/edn-response-format)
+                   :timeout         8000
+                   :on-success      [::property-updated]
+                   :on-failure      [::property-save-error]}})))
 
 (re-frame/reg-event-fx
  ::property-updated
@@ -91,13 +89,17 @@
 (re-frame/reg-event-fx
  ::delete-property
  (fn [{:keys [db]} [_ id]]
-   {:db         (assoc-in db [:properties :saving?] true)
-    :http-xhrio {:method          :delete
-                 :uri             (str (config/get-api-url) "/api/properties/" id)
-                 :response-format (ajax-edn/edn-response-format)
-                 :timeout         8000
-                 :on-success      [::property-deleted]
-                 :on-failure      [::property-save-error]}}))
+   (let [token (get-in db [:user :token] "")]
+     {:db         (assoc-in db [:properties :saving?] true)
+      :http-xhrio {:method          :post
+                   :uri             (str (config/get-api-url) "/api/command")
+                   :params          {:command :delete-property :data {:id id}}
+                   :headers         {"Authorization" (str "Bearer " token)}
+                   :format          (ajax-edn/edn-request-format)
+                   :response-format (ajax-edn/edn-response-format)
+                   :timeout         8000
+                   :on-success      [::property-deleted]
+                   :on-failure      [::property-save-error]}})))
 
 (re-frame/reg-event-fx
  ::property-deleted

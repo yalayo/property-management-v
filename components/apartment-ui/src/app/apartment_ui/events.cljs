@@ -16,16 +16,18 @@
 (re-frame/reg-event-fx
  ::load-apartments
  (fn [{:keys [db]} _]
-   (let [property-id (get-in db [:apartments :property-filter :id])]
-     {:http-xhrio {:method          :get
-                   :uri             (if property-id
-                                      (str (config/get-api-url) "/api/apartments/by-property/" property-id)
-                                      (str (config/get-api-url) "/api/apartments"))
+   (let [token       (get-in db [:user :token] "")
+         property-id (get-in db [:apartments :property-filter :id])]
+     {:http-xhrio {:method          :post
+                   :uri             (str (config/get-api-url) "/api/query")
+                   :params          (cond-> {:entity :apartment}
+                                      property-id (assoc :property-id property-id))
+                   :headers         {"Authorization" (str "Bearer " token)}
+                   :format          (ajax-edn/edn-request-format)
                    :response-format (ajax-edn/edn-response-format)
                    :timeout         8000
                    :on-success      [::apartments-loaded]
                    :on-failure      [::apartments-error]}})))
-
 
 (re-frame/reg-event-fx
  ::apartments-loaded
@@ -38,13 +40,17 @@
 
 (re-frame/reg-event-fx
  ::load-all-onboardings
- (fn [_ _]
-   {:http-xhrio {:method          :get
-                 :uri             (str (config/get-api-url) "/api/apartments/onboarding")
-                 :response-format (ajax-edn/edn-response-format)
-                 :timeout         8000
-                 :on-success      [::all-onboardings-loaded]
-                 :on-failure      [::apartments-error]}}))
+ (fn [{:keys [db]} _]
+   (let [token (get-in db [:user :token] "")]
+     {:http-xhrio {:method          :post
+                   :uri             (str (config/get-api-url) "/api/query")
+                   :params          {:entity :onboarding}
+                   :headers         {"Authorization" (str "Bearer " token)}
+                   :format          (ajax-edn/edn-request-format)
+                   :response-format (ajax-edn/edn-response-format)
+                   :timeout         8000
+                   :on-success      [::all-onboardings-loaded]
+                   :on-failure      [::apartments-error]}})))
 
 (re-frame/reg-event-db
  ::all-onboardings-loaded
@@ -88,12 +94,15 @@
 (re-frame/reg-event-fx
  ::add-apartment
  (fn [{:keys [db]} _]
-   (let [code        (get-in db [:apartments :new-code])
+   (let [token       (get-in db [:user :token] "")
+         code        (get-in db [:apartments :new-code])
          property-id (get-in db [:apartments :new-property-id])]
      {:db         (assoc-in db [:apartments :saving?] true)
       :http-xhrio {:method          :post
-                   :uri             (str (config/get-api-url) "/api/apartments")
-                   :params          {:code code :property-id property-id}
+                   :uri             (str (config/get-api-url) "/api/command")
+                   :params          {:command :create-apartment
+                                     :data    {:code code :property-id property-id}}
+                   :headers         {"Authorization" (str "Bearer " token)}
                    :format          (ajax-edn/edn-request-format)
                    :response-format (ajax-edn/edn-response-format)
                    :timeout         8000
@@ -135,13 +144,18 @@
 
 (re-frame/reg-event-fx
  ::load-onboarding
- (fn [_ [_ id]]
-   {:http-xhrio {:method          :get
-                 :uri             (str (config/get-api-url) "/api/apartments/onboard/" id)
-                 :response-format (ajax-edn/edn-response-format)
-                 :timeout         8000
-                 :on-success      [::onboarding-loaded]
-                 :on-failure      [::onboarding-load-error]}}))
+ (fn [{:keys [db]} [_ apartment-id]]
+   (let [token (get-in db [:user :token] "")]
+     {:http-xhrio {:method          :post
+                   :uri             (str (config/get-api-url) "/api/command")
+                   :params          {:command :get-onboarding
+                                     :data    {:apartment-id apartment-id}}
+                   :headers         {"Authorization" (str "Bearer " token)}
+                   :format          (ajax-edn/edn-request-format)
+                   :response-format (ajax-edn/edn-response-format)
+                   :timeout         8000
+                   :on-success      [::onboarding-loaded]
+                   :on-failure      [::onboarding-load-error]}})))
 
 (re-frame/reg-event-db
  ::onboarding-loaded
@@ -157,13 +171,17 @@
 (re-frame/reg-event-fx
  ::delete-apartment
  (fn [{:keys [db]} [_ id]]
-   {:db         (assoc-in db [:apartments :saving?] true)
-    :http-xhrio {:method          :delete
-                 :uri             (str (config/get-api-url) "/api/apartments/" id)
-                 :response-format (ajax-edn/edn-response-format)
-                 :timeout         8000
-                 :on-success      [::apartment-deleted]
-                 :on-failure      [::apartment-save-error]}}))
+   (let [token (get-in db [:user :token] "")]
+     {:db         (assoc-in db [:apartments :saving?] true)
+      :http-xhrio {:method          :post
+                   :uri             (str (config/get-api-url) "/api/command")
+                   :params          {:command :delete-apartment :data {:id id}}
+                   :headers         {"Authorization" (str "Bearer " token)}
+                   :format          (ajax-edn/edn-request-format)
+                   :response-format (ajax-edn/edn-response-format)
+                   :timeout         8000
+                   :on-success      [::apartment-deleted]
+                   :on-failure      [::apartment-save-error]}})))
 
 (re-frame/reg-event-fx
  ::apartment-deleted
@@ -177,15 +195,17 @@
 (re-frame/reg-event-fx
  ::update-apartment
  (fn [{:keys [db]} [_ id data]]
-   {:db         (assoc-in db [:apartments :saving?] true)
-    :http-xhrio {:method          :put
-                 :uri             (str (config/get-api-url) "/api/apartments/" id)
-                 :params          data
-                 :format          (ajax-edn/edn-request-format)
-                 :response-format (ajax-edn/edn-response-format)
-                 :timeout         8000
-                 :on-success      [::apartment-updated]
-                 :on-failure      [::apartment-save-error]}}))
+   (let [token (get-in db [:user :token] "")]
+     {:db         (assoc-in db [:apartments :saving?] true)
+      :http-xhrio {:method          :post
+                   :uri             (str (config/get-api-url) "/api/command")
+                   :params          {:command :update-apartment :data (assoc data :id id)}
+                   :headers         {"Authorization" (str "Bearer " token)}
+                   :format          (ajax-edn/edn-request-format)
+                   :response-format (ajax-edn/edn-response-format)
+                   :timeout         8000
+                   :on-success      [::apartment-updated]
+                   :on-failure      [::apartment-save-error]}})))
 
 (re-frame/reg-event-fx
  ::apartment-updated
@@ -211,19 +231,22 @@
 (re-frame/reg-event-fx
  ::assign-tenant
  (fn [{:keys [db]} [_ apt-id {:keys [name email phone start-date]}]]
-   {:db         (assoc-in db [:apartments :saving?] true)
-    :http-xhrio {:method          :post
-                 :uri             (str (config/get-api-url) "/api/tenants")
-                 :params          {:apartment-id apt-id
-                                   :name         name
-                                   :email        email
-                                   :phone        phone
-                                   :start-date   start-date}
-                 :format          (ajax-edn/edn-request-format)
-                 :response-format (ajax-edn/edn-response-format)
-                 :timeout         8000
-                 :on-success      [::tenant-assigned apt-id]
-                 :on-failure      [::apartment-save-error]}}))
+   (let [token (get-in db [:user :token] "")]
+     {:db         (assoc-in db [:apartments :saving?] true)
+      :http-xhrio {:method          :post
+                   :uri             (str (config/get-api-url) "/api/command")
+                   :params          {:command :create-tenant
+                                     :data    {:apartment-id apt-id
+                                               :name         name
+                                               :email        email
+                                               :phone        phone
+                                               :start-date   start-date}}
+                   :headers         {"Authorization" (str "Bearer " token)}
+                   :format          (ajax-edn/edn-request-format)
+                   :response-format (ajax-edn/edn-response-format)
+                   :timeout         8000
+                   :on-success      [::tenant-assigned apt-id]
+                   :on-failure      [::apartment-save-error]}})))
 
 (re-frame/reg-event-fx
  ::tenant-assigned
@@ -239,15 +262,18 @@
 (re-frame/reg-event-fx
  ::start-onboarding
  (fn [{:keys [db]} [_ apt-id email]]
-   {:db         (assoc-in db [:apartments :onboarding?] true)
-    :http-xhrio {:method          :post
-                 :uri             (str (config/get-api-url) "/api/apartments/onboard/" apt-id)
-                 :params          {:email email}
-                 :format          (ajax-edn/edn-request-format)
-                 :response-format (ajax-edn/edn-response-format)
-                 :timeout         8000
-                 :on-success      [::onboarding-sent]
-                 :on-failure      [::onboarding-error]}}))
+   (let [token (get-in db [:user :token] "")]
+     {:db         (assoc-in db [:apartments :onboarding?] true)
+      :http-xhrio {:method          :post
+                   :uri             (str (config/get-api-url) "/api/command")
+                   :params          {:command :start-onboarding
+                                     :data    {:apartment-id apt-id :email email}}
+                   :headers         {"Authorization" (str "Bearer " token)}
+                   :format          (ajax-edn/edn-request-format)
+                   :response-format (ajax-edn/edn-response-format)
+                   :timeout         8000
+                   :on-success      [::onboarding-sent]
+                   :on-failure      [::onboarding-error]}})))
 
 (re-frame/reg-event-fx
  ::onboarding-sent

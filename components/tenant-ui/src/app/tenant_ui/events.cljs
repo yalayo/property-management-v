@@ -11,13 +11,17 @@
 
 (re-frame/reg-event-fx
  ::load-tenants
- (fn [_ _]
-   {:http-xhrio {:method          :get
-                 :uri             (str (config/get-api-url) "/api/tenants")
-                 :response-format (ajax-edn/edn-response-format)
-                 :timeout         8000
-                 :on-success      [::tenants-loaded]
-                 :on-failure      [::tenants-error]}}))
+ (fn [{:keys [db]} _]
+   (let [token (get-in db [:user :token] "")]
+     {:http-xhrio {:method          :post
+                   :uri             (str (config/get-api-url) "/api/query")
+                   :params          {:entity :tenant}
+                   :headers         {"Authorization" (str "Bearer " token)}
+                   :format          (ajax-edn/edn-request-format)
+                   :response-format (ajax-edn/edn-response-format)
+                   :timeout         8000
+                   :on-success      [::tenants-loaded]
+                   :on-failure      [::tenants-error]}})))
 
 (re-frame/reg-event-db
  ::tenants-loaded
@@ -52,19 +56,22 @@
 (re-frame/reg-event-fx
  ::add-tenant
  (fn [{:keys [db]} [_ {:keys [name email phone start-date apartment-id]}]]
-   {:db         (assoc-in db [:tenants :saving?] true)
-    :http-xhrio {:method          :post
-                 :uri             (str (config/get-api-url) "/api/tenants")
-                 :params          (cond-> {:name       name
-                                          :email      email
-                                          :phone      phone
-                                          :start-date start-date}
-                                    apartment-id (assoc :apartment-id apartment-id))
-                 :format          (ajax-edn/edn-request-format)
-                 :response-format (ajax-edn/edn-response-format)
-                 :timeout         8000
-                 :on-success      [::tenant-added]
-                 :on-failure      [::tenant-save-error]}}))
+   (let [token (get-in db [:user :token] "")]
+     {:db         (assoc-in db [:tenants :saving?] true)
+      :http-xhrio {:method          :post
+                   :uri             (str (config/get-api-url) "/api/command")
+                   :params          {:command :create-tenant
+                                     :data    (cond-> {:name       name
+                                                       :email      email
+                                                       :phone      phone
+                                                       :start-date start-date}
+                                                apartment-id (assoc :apartment-id apartment-id))}
+                   :headers         {"Authorization" (str "Bearer " token)}
+                   :format          (ajax-edn/edn-request-format)
+                   :response-format (ajax-edn/edn-response-format)
+                   :timeout         8000
+                   :on-success      [::tenant-added]
+                   :on-failure      [::tenant-save-error]}})))
 
 (re-frame/reg-event-fx
  ::tenant-added
@@ -101,15 +108,17 @@
 (re-frame/reg-event-fx
  ::update-tenant
  (fn [{:keys [db]} [_ id data]]
-   {:db         (assoc-in db [:tenants :saving?] true)
-    :http-xhrio {:method          :put
-                 :uri             (str (config/get-api-url) "/api/tenants/" id)
-                 :params          data
-                 :format          (ajax-edn/edn-request-format)
-                 :response-format (ajax-edn/edn-response-format)
-                 :timeout         8000
-                 :on-success      [::tenant-updated]
-                 :on-failure      [::tenant-save-error]}}))
+   (let [token (get-in db [:user :token] "")]
+     {:db         (assoc-in db [:tenants :saving?] true)
+      :http-xhrio {:method          :post
+                   :uri             (str (config/get-api-url) "/api/command")
+                   :params          {:command :update-tenant :data (assoc data :id id)}
+                   :headers         {"Authorization" (str "Bearer " token)}
+                   :format          (ajax-edn/edn-request-format)
+                   :response-format (ajax-edn/edn-response-format)
+                   :timeout         8000
+                   :on-success      [::tenant-updated]
+                   :on-failure      [::tenant-save-error]}})))
 
 (re-frame/reg-event-fx
  ::tenant-updated
@@ -123,13 +132,17 @@
 (re-frame/reg-event-fx
  ::delete-tenant
  (fn [{:keys [db]} [_ id]]
-   {:db         (assoc-in db [:tenants :saving?] true)
-    :http-xhrio {:method          :delete
-                 :uri             (str (config/get-api-url) "/api/tenants/" id)
-                 :response-format (ajax-edn/edn-response-format)
-                 :timeout         8000
-                 :on-success      [::tenant-deleted]
-                 :on-failure      [::tenant-save-error]}}))
+   (let [token (get-in db [:user :token] "")]
+     {:db         (assoc-in db [:tenants :saving?] true)
+      :http-xhrio {:method          :post
+                   :uri             (str (config/get-api-url) "/api/command")
+                   :params          {:command :delete-tenant :data {:id id}}
+                   :headers         {"Authorization" (str "Bearer " token)}
+                   :format          (ajax-edn/edn-request-format)
+                   :response-format (ajax-edn/edn-response-format)
+                   :timeout         8000
+                   :on-success      [::tenant-deleted]
+                   :on-failure      [::tenant-save-error]}})))
 
 (re-frame/reg-event-fx
  ::tenant-deleted

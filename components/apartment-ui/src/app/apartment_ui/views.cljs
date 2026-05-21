@@ -27,8 +27,8 @@
           selected-id      @(re-frame/subscribe [::subs/selected-apartment-id])
           new-code         @(re-frame/subscribe [::subs/new-apartment-code])
           assign-apt-id    @(re-frame/subscribe [::subs/assign-apt-id])
-          selected-apt     (when selected-id (first (filter #(= (:id %) selected-id) apartments)))
-          assign-apt       (when assign-apt-id (first (filter #(= (:id %) assign-apt-id) apartments)))]
+          selected-apt     (when selected-id (first (filter #(= (:db/id %) selected-id) apartments)))
+          assign-apt       (when assign-apt-id (first (filter #(= (:db/id %) assign-apt-id) apartments)))]
       (if selected-id
         [manage-apartment
          {:apartment          (clj->js selected-apt)
@@ -54,7 +54,7 @@
           :assignDialogContent            (when assign-apt-id
                                             (r/as-element
                                              [assign-tenant
-                                              {:apartmentCode (:code assign-apt)
+                                              {:apartmentCode (:apartment/code assign-apt)
                                                :isLoading     saving?
                                                :onClose       #(re-frame/dispatch [::events/close-assign-dialog])
                                                :onSubmit      (fn [data]

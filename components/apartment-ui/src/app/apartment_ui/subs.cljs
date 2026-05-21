@@ -60,7 +60,7 @@
  ::onboardings-by-apartment
  (fn [db _]
    (->> (get-in db [:apartments :onboardings] [])
-        (group-by :apartment_id)
+        (group-by :onboarding/apartment-id)
         (reduce (fn [acc [apt-id records]]
                   (assoc acc apt-id (first records)))
                 {}))))

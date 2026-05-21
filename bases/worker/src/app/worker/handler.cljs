@@ -13,12 +13,13 @@
                 (js-await [result (controller {:command command :data data :user user :env env})]
                           (if (:error result)
                             (cf/response-edn result {:status 400})
-                            (cf/response-edn result {:status 201})))))))
+                            (cf/response-edn result {:status 200})))))))
 
 (def ^:private entity->command
-  {:property  :get-properties
-   :apartment :get-apartments
-   :tenant    :get-tenants})
+  {:property   :get-properties
+   :apartment  :get-apartments
+   :tenant     :get-tenants
+   :onboarding :get-onboardings})
 
 (defn query
   "Returns a Reitit route handler for POST queries.
@@ -27,7 +28,9 @@
   (fn [{:keys [request user env]}]
     (js-await [body (cf/request->edn request)]
               (let [entity  (:entity body)
-                    command (get entity->command entity)]
+                    command (cond
+                              (and (= entity :apartment) (:property-id body)) :get-apartments-by-property
+                              :else (get entity->command entity))]
                 (if-not command
                   (cf/response-edn {:error :unknown-entity} {:status 400})
                   (js-await [result (controller {:command command

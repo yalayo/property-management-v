@@ -12,7 +12,10 @@
             [app.property-ui.events :as property-events]
             [app.apartment-ui.interface :as apartment-ui]
             [app.apartment-ui.subs     :as apartment-subs]
+            [app.apartment-ui.events   :as apartment-events]
             [app.tenant-ui.interface   :as tenant-ui]
+            [app.tenant-ui.subs        :as tenant-subs]
+            [app.tenant-ui.events      :as tenant-events]
             [app.payment-ui.interface  :as payment-ui]
             [app.survey-ui.views :as survey]
             ;; React page imports (thin wrappers — no separate Polylith component needed)
@@ -43,9 +46,12 @@
         current-user         @(re-frame/subscribe [::subs/current-user])
         survey-email         @(re-frame/subscribe [::subs/survey-email])
         properties           @(re-frame/subscribe [::property-subs/properties])
+        prop-loading?        @(re-frame/subscribe [::property-subs/loading?])
         prop-saving?         @(re-frame/subscribe [::property-subs/saving?])
         all-apartments       @(re-frame/subscribe [::apartment-subs/apartments])
-        available-apartments (filter #(not (:occupied %)) all-apartments)]
+        tenants              @(re-frame/subscribe [::tenant-subs/tenants])
+        tenants-loading?     @(re-frame/subscribe [::tenant-subs/loading?])
+        available-apartments (filter #(not (:apartment/occupied %)) all-apartments)]
     [main
      {:activeComponent
       (r/as-element
@@ -61,38 +67,47 @@
          "auth"               [auth/component {:id "auth"}]
          "register"           [register/component {:id "register"}]
          "dashboard"          [dashboard
-                               {:onLogout         #(re-frame/dispatch [::events/sign-out])
-                                :onLoadData       #(property-ui/load-properties)
-                                :properties       (clj->js properties)
-                                :isSaving         prop-saving?
-                                :apartmentsView   (r/as-element [apartment-ui/component {:properties properties}])
-                                :tenantsView      (r/as-element [tenant-ui/component {:apartments available-apartments}])
-                                :onAddProperty    (fn [data]
-                                                    (let [d (js->clj data :keywordize-keys true)]
-                                                      (re-frame/dispatch
-                                                       [::property-events/add-property
-                                                        {:name           (:name d)
-                                                         :address        (:address d)
-                                                         :city           (:city d)
-                                                         :postal-code    (:postalCode d)
-                                                         :units          (:units d)
-                                                         :purchase-price (:purchasePrice d)
-                                                         :current-value  (:currentValue d)}])))
-                                :onEditProperty   (fn [id data]
-                                                    (let [d (js->clj data :keywordize-keys true)]
-                                                      (re-frame/dispatch
-                                                       [::property-events/update-property id
-                                                        {:name           (:name d)
-                                                         :address        (:address d)
-                                                         :city           (:city d)
-                                                         :postal-code    (:postalCode d)
-                                                         :units          (:units d)
-                                                         :purchase-price (:purchasePrice d)
-                                                         :current-value  (:currentValue d)}])))
-                                :onDeleteProperty (fn [id]
-                                                    (re-frame/dispatch [::property-events/delete-property id]))
-                                :onViewApartments (fn [property]
-                                                    (re-frame/dispatch [::events/navigate-to-apartments (js->clj property :keywordize-keys true)]))}]
+                               {:onLogout           #(re-frame/dispatch [::events/sign-out])
+                                :onLoadData         (fn []
+                                                      (property-ui/load-properties)
+                                                      (re-frame/dispatch [::apartment-events/load-apartments])
+                                                      (re-frame/dispatch [::tenant-events/load-tenants]))
+                                :properties         (clj->js properties)
+                                :propertiesLoading  prop-loading?
+                                :isSaving           prop-saving?
+                                :tenants            (clj->js tenants)
+                                :tenantsLoading     tenants-loading?
+                                :apartments         (clj->js all-apartments)
+                                :latePayments       (clj->js [])
+                                :paymentsLoading    false
+                                :apartmentsView     (r/as-element [apartment-ui/component {:properties properties}])
+                                :tenantsView        (r/as-element [tenant-ui/component {:apartments available-apartments}])
+                                :onAddProperty      (fn [data]
+                                                      (let [d (js->clj data :keywordize-keys true)]
+                                                        (re-frame/dispatch
+                                                         [::property-events/add-property
+                                                          {:name           (:name d)
+                                                           :address        (:address d)
+                                                           :city           (:city d)
+                                                           :postal-code    (:postalCode d)
+                                                           :units          (:units d)
+                                                           :purchase-price (:purchasePrice d)
+                                                           :current-value  (:currentValue d)}])))
+                                :onEditProperty     (fn [id data]
+                                                      (let [d (js->clj data :keywordize-keys true)]
+                                                        (re-frame/dispatch
+                                                         [::property-events/update-property id
+                                                          {:name           (:name d)
+                                                           :address        (:address d)
+                                                           :city           (:city d)
+                                                           :postal-code    (:postalCode d)
+                                                           :units          (:units d)
+                                                           :purchase-price (:purchasePrice d)
+                                                           :current-value  (:currentValue d)}])))
+                                :onDeleteProperty   (fn [id]
+                                                      (re-frame/dispatch [::property-events/delete-property id]))
+                                :onViewApartments   (fn [property]
+                                                      (re-frame/dispatch [::events/navigate-to-apartments (js->clj property :keywordize-keys true)]))}]
          "onboarding"         [onboarding {}]
          "bank-accounts"      [bank-accounts {:user current-user}]
          "change-password"    [change-password {:user current-user}]

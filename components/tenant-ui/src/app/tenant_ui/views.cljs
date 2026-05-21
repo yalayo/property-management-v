@@ -19,7 +19,7 @@
           saving?          @(re-frame/subscribe [::subs/saving?])
           add-dialog-open? @(re-frame/subscribe [::subs/add-dialog-open?])
           selected-id      @(re-frame/subscribe [::subs/selected-tenant-id])
-          selected-tenant  (when selected-id (first (filter #(= (:id %) selected-id) tenants)))]
+          selected-tenant  (when selected-id (first (filter #(= (:db/id %) selected-id) tenants)))]
       (if selected-id
         [manage-tenant
          {:tenant   (clj->js selected-tenant)
@@ -32,8 +32,8 @@
                                             {:name       (:name d)
                                              :email      (:email d)
                                              :phone      (:phone d)
-                                             :start-date (:start_date d)
-                                             :end-date   (:end_date d)}])))}]
+                                             :start-date (:startDate d)
+                                             :end-date   (:endDate d)}])))}]
         [tenants-list
          {:tenants               (clj->js tenants)
           :isLoading             loading?
@@ -53,5 +53,4 @@
                                                    :email        (:email d)
                                                    :phone        (:phone d)
                                                    :start-date   (:startDate d)
-                                                   :apartment-id (when-let [id (:apartmentId d)]
-                                                                   (js/parseInt id 10))}])))}]))]))))
+                                                   :apartment-id (:apartmentId d)}])))}]))]))))

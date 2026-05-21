@@ -132,7 +132,15 @@ export default function Dashboard(props) {
         <main className="flex-1 p-4 sm:p-6">
           {activeTab === "overview" && (
             <div className="space-y-6">
-              <DashboardSummary properties={props.properties} />
+              <DashboardSummary
+                properties={props.properties}
+                propertiesLoading={props.propertiesLoading}
+                apartments={props.apartments}
+                tenants={props.tenants}
+                tenantsLoading={props.tenantsLoading}
+                latePayments={props.latePayments}
+                paymentsLoading={props.paymentsLoading}
+              />
               <TenantPayments />
             </div>
           )}

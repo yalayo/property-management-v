@@ -14,31 +14,25 @@ import {
 export default function DashboardSummary(props) {
   const { t } = useTranslation("dashboard");
 
-  const properties = props.properties;
-  const propertiesLoading = props.propertiesLoading;
-  const tenants = props.tenants;
-  const tenantsLoading = props.tenantsLoading;
-  const latePayments = props.latePayments;
-  const paymentsLoading = props.paymentsLoading;
+  const properties: any[]     = props.properties     || [];
+  const apartments: any[]     = props.apartments      || [];
+  const tenants: any[]        = props.tenants         || [];
+  const latePayments: any[]   = props.latePayments    || [];
 
-  const isLoading = propertiesLoading || tenantsLoading || paymentsLoading;
+  const isLoading =
+    props.propertiesLoading || props.tenantsLoading || props.paymentsLoading;
 
-  const currentDate = new Date();
-  const currentMonth = currentDate.toLocaleString("default", { month: "long" });
+  const currentMonth = new Date().toLocaleString("default", { month: "long" });
 
-  const propertyCount = properties?.length || 0;
-  const tenantCount = tenants?.length || 0;
-  const latePaymentCount = latePayments?.length || 0;
+  const propertyCount    = properties.length;
+  const tenantCount      = tenants.length;
+  const latePaymentCount = latePayments.length;
 
-  let totalUnits = 0;
-  let occupiedUnits = 0;
-
-  if (properties && tenants) {
-    totalUnits = properties.reduce((sum: number, property: any) => sum + (property.units || 1), 0);
-    occupiedUnits = tenants.filter((tenant: any) => tenant.active).length;
-  }
-
-  const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
+  const totalUnits    = apartments.length;
+  const occupiedUnits = apartments.filter((a: any) => a.occupied).length;
+  const occupancyRate = totalUnits > 0
+    ? Math.round((occupiedUnits / totalUnits) * 100)
+    : 0;
 
   return (
     <div className="space-y-4">
