@@ -84,6 +84,11 @@ export default function ApartmentDetail({
   const costEntryFor = (lineId: string) =>
     aptCosts.find((c: any) => c.line === lineId && Number(c.year) === year) ?? null;
 
+  const inheritedCostFor = (lineId: string) =>
+    [...aptCosts]
+      .filter((c: any) => c.line === lineId && Number(c.year) < year)
+      .sort((a: any, b: any) => Number(b.year) - Number(a.year))[0] ?? null;
+
   const openCostEdit = (lineId: string, initial: string) =>
     setCostInput(prev => ({ ...prev, [lineId]: initial }));
 
@@ -136,6 +141,7 @@ export default function ApartmentDetail({
 
   function CostRow({ line }: { line: { id: string; name: string } }) {
     const entry     = costEntryFor(line.id);
+    const inherited = !entry ? inheritedCostFor(line.id) : null;
     const isEditing = costInput[line.id] != null;
     return (
       <div className="flex items-center gap-3 px-4 py-3 text-sm border-b last:border-b-0">
@@ -161,6 +167,18 @@ export default function ApartmentDetail({
               disabled={aptCostsSaving} onClick={() => onDeleteAptCost?.(entry.id)}>
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
+          </>
+        ) : inherited ? (
+          <>
+            <div className="w-28 text-right">
+              <span className="tabular-nums text-muted-foreground">€{formatEur(Number(inherited.value))}</span>
+              <span className="block text-xs text-muted-foreground/60">{inherited.year}</span>
+            </div>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground"
+              disabled={aptCostsSaving} onClick={() => openCostEdit(line.id, String(inherited.value))}>
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <div className="w-7" />
           </>
         ) : (
           <>
