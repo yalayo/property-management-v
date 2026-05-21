@@ -63,13 +63,14 @@
             handler         (get-in route-data [method-k :handler])]
         (if (some? handler)
           (js-await
-           [user (js->clj  (authenticate request env) :keywordize-keys true)] 
-           (-> (js/Promise.resolve (handler {:route route :request request :env env :execution-ctx ctx :user user}))
+           [raw-user (authenticate request env)]
+           (let [user (when raw-user (js->clj raw-user :keywordize-keys true))]
+             (-> (js/Promise.resolve (handler {:route route :request request :env env :execution-ctx ctx :user user}))
                (.then (fn [resp] (add-cors-response resp origin)))
                (.catch (fn [err]
                          (js/console.error "Handler error:" err)
                          (let [status (if (= "schema-missing" (aget err "code")) 503 500)]
-                           (add-cors-response (cf/response-error {:error (.-message err)} {:status status}) origin))))))
+                           (add-cors-response (cf/response-error {:error (.-message err)} {:status status}) origin)))))))
           (add-cors-response (cf/response-error {:error "Not found"} {:status 404}) origin))))))
 
 

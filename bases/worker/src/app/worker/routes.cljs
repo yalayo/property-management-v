@@ -4,4 +4,4 @@
 
 (defn create-routes [core storage controller]
   [["/command" {:post {:handler (handler/command core storage controller)}}]
-   ["/query" {:get  {:handler (handler/command core storage controller)}}]])
+   ["/query"   {:post {:handler (handler/query   core storage controller)}}]])

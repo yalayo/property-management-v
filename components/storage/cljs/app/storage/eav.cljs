@@ -148,23 +148,25 @@
 ;; ---------------------------------------------------------------------------
 
 (defn find-by-attr+ [^js db prefix attr value]
-  (-> (.prepare db (str "SELECT DISTINCT f.entity_id
-                    FROM " (tbl prefix "facts") " f
-                    WHERE f.attribute  = ?
-                      AND f.value      = json(?)
-                      AND f.excised_at IS NULL
-                      AND f.added      = 1
-                      AND f.tx_id = (
-                        SELECT MAX(tx_id) FROM " (tbl prefix "facts") " f2
-                        WHERE f2.entity_id = f.entity_id
-                          AND f2.attribute = f.attribute
-                          AND f2.excised_at IS NULL
-                      )"))
-      (.bind (core/attr->sql attr) (core/encode-value value))
-      .all
-      (.then (fn [^js r]
-               (mapv (fn [^js row] (.-entity_id row))
-                     (array-seq (.-results r)))))))
+  (let [attr-sql (core/attr->sql attr)
+        val-sql  (core/encode-value value)]
+    (-> (.prepare db (str "SELECT DISTINCT f.entity_id
+                      FROM " (tbl prefix "facts") " f
+                      WHERE f.attribute  = ?
+                        AND f.value      = json(?)
+                        AND f.excised_at IS NULL
+                        AND f.added      = 1
+                        AND f.tx_id = (
+                          SELECT MAX(tx_id) FROM " (tbl prefix "facts") " f2
+                          WHERE f2.entity_id = f.entity_id
+                            AND f2.attribute = f.attribute
+                            AND f2.excised_at IS NULL
+                        )"))
+        (.bind attr-sql val-sql)
+        .all
+        (.then (fn [^js r]
+                 (let [rows (array-seq (.-results r))]
+                   (mapv (fn [^js row] (.-entity_id row)) rows)))))))
 
 ;; ---------------------------------------------------------------------------
 ;; History — full timeline via the fact_history view

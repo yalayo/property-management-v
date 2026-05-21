@@ -9,13 +9,21 @@
 
 (re-frame/reg-event-fx
  ::load-properties
- (fn [{:keys [_db]} _]
-   {:http-xhrio {:method          :get
-                 :uri             (str (config/get-api-url) "/api/properties")
-                 :response-format (ajax-edn/edn-response-format)
-                 :timeout         8000
-                 :on-success      [::properties-loaded]
-                 :on-failure      [::properties-error]}}))
+ (fn [{:keys [db]} _]
+   (let [token   (get-in db [:user :token] "")
+         user-id (get-in db [:user :info :id] "")
+         org-id  (get-in db [:user :info :org-id] "")]
+     {:http-xhrio {:method          :post
+                   :uri             (str (config/get-api-url) "/api/query")
+                   :params          {:entity  :property
+                                     :user-id user-id
+                                     :org-id  org-id}
+                   :headers         {"Authorization" (str "Bearer " token)}
+                   :format          (ajax-edn/edn-request-format)
+                   :response-format (ajax-edn/edn-response-format)
+                   :timeout         8000
+                   :on-success      [::properties-loaded]
+                   :on-failure      [::properties-error]}})))
 
 (re-frame/reg-event-db
  ::properties-loaded
@@ -34,11 +42,12 @@
 (re-frame/reg-event-fx
  ::add-property
  (fn [{:keys [db]} [_ property-data]]
-   (let [user-id (get-in db [:user :info :user_id] "")]
+   (let [token (get-in db [:user :token] "")]
      {:db         (assoc-in db [:properties :saving?] true)
       :http-xhrio {:method          :post
-                   :uri             (str (config/get-api-url) "/api/properties")
-                   :params          (assoc property-data :user-id user-id)
+                   :uri             (str (config/get-api-url) "/api/command")
+                   :params          {:command :create-property :data property-data}
+                   :headers         {"Authorization" (str "Bearer " token)}
                    :format          (ajax-edn/edn-request-format)
                    :response-format (ajax-edn/edn-response-format)
                    :timeout         8000

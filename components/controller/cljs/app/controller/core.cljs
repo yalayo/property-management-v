@@ -17,6 +17,14 @@
                         (map (fn [b] (.padStart (.toString b 16) 2 "0")))
                         (apply str))))))))
 
+(defn- with-org
+  "Guards a handler that needs an authenticated org-id.
+  Calls (f org-id) when user is authenticated, returns {:error :unauthorized} otherwise."
+  [user f]
+  (if-let [org-id (:org-id user)]
+    (f org-id)
+    {:error :unauthorized}))
+
 (defn- pull-many+ [storage eids pattern]
   (-> (js/Promise.all (into-array (map #((:pull storage) % pattern) eids)))
       (.then (fn [results] (vec (array-seq results))))))
@@ -89,220 +97,237 @@
 ;; ---------------------------------------------------------------------------
 
 (defn- handle-get-properties! [storage user]
-  (let [org-id (:org-id user)]
-    (js-await [eids       ((:find-by-attr storage) :property/organization-id org-id)
-               properties (pull-many+ storage eids '[*])]
-              {:properties properties})))
+  (with-org user
+    (fn [org-id]
+      (js-await [eids       ((:find-by-attr storage) :property/organization-id org-id)
+                 properties (pull-many+ storage eids '[*])]
+                {:properties properties}))))
 
 (defn- handle-create-property! [core storage data user]
-  (let [org-id (:org-id user)
-        result ((:process core) {:command :create-property :data data})]
-    (if (:error result)
-      result
-      (let [{:keys [name address city postal-code country units
-                    acquisition-date purchase-price current-value]} (:entity result)]
-        (js-await [{:keys [tx-id entity-ids]}
-                   ((:transact! storage)
-                    [{:db/type                   "property"
-                      :property/organization-id  org-id
-                      :property/name             name
-                      :property/address          address
-                      :property/city             city
-                      :property/postal-code      postal-code
-                      :property/country          country
-                      :property/units            units
-                      :property/acquisition-date acquisition-date
-                      :property/purchase-price   purchase-price
-                      :property/current-value    current-value}] nil)]
-                  {:tx-id tx-id :property-id (first entity-ids)})))))
+  (with-org user
+    (fn [org-id]
+      (let [result ((:process core) {:command :create-property :data data})]
+        (if (:error result)
+          result
+          (let [{:keys [name address city postal-code country units
+                        acquisition-date purchase-price current-value]} (:entity result)]
+            (js-await [{:keys [tx-id entity-ids]}
+                       ((:transact! storage)
+                        [{:db/type                   "property"
+                          :property/organization-id  org-id
+                          :property/name             name
+                          :property/address          address
+                          :property/city             city
+                          :property/postal-code      postal-code
+                          :property/country          country
+                          :property/units            units
+                          :property/acquisition-date acquisition-date
+                          :property/purchase-price   purchase-price
+                          :property/current-value    current-value}] nil)]
+                      {:tx-id tx-id :property-id (first entity-ids)})))))))
 
 (defn- handle-update-property! [core storage data user]
-  (let [eid    (:id data)
-        org-id (:org-id user)]
-    (js-await [entity ((:pull storage) eid '*)]
-              (if (not= (:property/organization-id entity) org-id)
-                {:error :not-found}
-                (let [result ((:process core) {:command :update-property :data data})]
-                  (if (:error result)
-                    result
-                    (let [{:keys [name address city postal-code country units
-                                  purchase-price current-value]} (:updates result)]
-                      (js-await [{:keys [tx-id]}
-                                 ((:transact! storage)
-                                  [{:db/id                   eid
-                                    :property/name           name
-                                    :property/address        address
-                                    :property/city           city
-                                    :property/postal-code    postal-code
-                                    :property/country        country
-                                    :property/units          units
-                                    :property/purchase-price purchase-price
-                                    :property/current-value  current-value}] nil)]
-                                {:tx-id tx-id}))))))))
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:property/organization-id entity) org-id)
+                    {:error :not-found}
+                    (let [result ((:process core) {:command :update-property :data data})]
+                      (if (:error result)
+                        result
+                        (let [{:keys [name address city postal-code country units
+                                      purchase-price current-value]} (:updates result)]
+                          (js-await [{:keys [tx-id]}
+                                     ((:transact! storage)
+                                      [{:db/id                   eid
+                                        :property/name           name
+                                        :property/address        address
+                                        :property/city           city
+                                        :property/postal-code    postal-code
+                                        :property/country        country
+                                        :property/units          units
+                                        :property/purchase-price purchase-price
+                                        :property/current-value  current-value}] nil)]
+                                    {:tx-id tx-id}))))))))))
 
 (defn- handle-delete-property! [storage data user]
-  (let [eid    (:id data)
-        org-id (:org-id user)]
-    (js-await [entity ((:pull storage) eid '*)]
-              (if (not= (:property/organization-id entity) org-id)
-                {:error :not-found}
-                (js-await [_ ((:excise! storage) eid nil)]
-                          {:ok true})))))
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:property/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [_ ((:excise! storage) eid nil)]
+                              {:ok true})))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Apartment handlers
 ;; ---------------------------------------------------------------------------
 
 (defn- handle-get-apartments! [storage user]
-  (let [org-id (:org-id user)]
-    (js-await [eids       ((:find-by-attr storage) :apartment/organization-id org-id)
-               apartments (pull-many+ storage eids '[*])]
-              {:apartments apartments})))
+  (with-org user
+    (fn [org-id]
+      (js-await [eids       ((:find-by-attr storage) :apartment/organization-id org-id)
+                 apartments (pull-many+ storage eids '[*])]
+                {:apartments apartments}))))
 
 (defn- handle-get-apartments-by-property! [storage data user]
-  (let [property-id (:property-id data)
-        org-id      (:org-id user)]
-    (js-await [eids       ((:q storage) {:where [['?e :apartment/property-id property-id]
-                                                  ['?e :apartment/organization-id org-id]]})
-               apartments (pull-many+ storage (vec eids) '[*])]
-              {:apartments apartments})))
+  (with-org user
+    (fn [org-id]
+      (let [property-id (:property-id data)]
+        (js-await [eids       ((:q storage) {:where [['?e :apartment/property-id property-id]
+                                                      ['?e :apartment/organization-id org-id]]})
+                   apartments (pull-many+ storage (vec eids) '[*])]
+                  {:apartments apartments})))))
 
 (defn- handle-create-apartment! [core storage data user]
-  (let [org-id (:org-id user)
-        result ((:process core) {:command :create-apartment :data data})]
-    (if (:error result)
-      result
-      (let [{:keys [property-id code]} (:entity result)]
-        (js-await [{:keys [tx-id entity-ids]}
-                   ((:transact! storage)
-                    [{:db/type                   "apartment"
-                      :apartment/organization-id org-id
-                      :apartment/property-id     property-id
-                      :apartment/code            code
-                      :apartment/occupied        false}] nil)]
-                  {:tx-id tx-id :apartment-id (first entity-ids)})))))
+  (with-org user
+    (fn [org-id]
+      (let [result ((:process core) {:command :create-apartment :data data})]
+        (if (:error result)
+          result
+          (let [{:keys [property-id code]} (:entity result)]
+            (js-await [{:keys [tx-id entity-ids]}
+                       ((:transact! storage)
+                        [{:db/type                   "apartment"
+                          :apartment/organization-id org-id
+                          :apartment/property-id     property-id
+                          :apartment/code            code
+                          :apartment/occupied        false}] nil)]
+                      {:tx-id tx-id :apartment-id (first entity-ids)})))))))
 
 (defn- handle-update-apartment! [core storage data user]
-  (let [eid    (:id data)
-        org-id (:org-id user)]
-    (js-await [entity ((:pull storage) eid '*)]
-              (if (not= (:apartment/organization-id entity) org-id)
-                {:error :not-found}
-                (let [result ((:process core) {:command :update-apartment :data data})]
-                  (if (:error result)
-                    result
-                    (let [{:keys [code occupied]} (:updates result)]
-                      (js-await [{:keys [tx-id]}
-                                 ((:transact! storage)
-                                  [{:db/id              eid
-                                    :apartment/code     code
-                                    :apartment/occupied (boolean occupied)}] nil)]
-                                {:tx-id tx-id}))))))))
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:apartment/organization-id entity) org-id)
+                    {:error :not-found}
+                    (let [result ((:process core) {:command :update-apartment :data data})]
+                      (if (:error result)
+                        result
+                        (let [{:keys [code occupied]} (:updates result)]
+                          (js-await [{:keys [tx-id]}
+                                     ((:transact! storage)
+                                      [{:db/id              eid
+                                        :apartment/code     code
+                                        :apartment/occupied (boolean occupied)}] nil)]
+                                    {:tx-id tx-id}))))))))))
 
 (defn- handle-delete-apartment! [storage data user]
-  (let [eid    (:id data)
-        org-id (:org-id user)]
-    (js-await [entity ((:pull storage) eid '*)]
-              (if (not= (:apartment/organization-id entity) org-id)
-                {:error :not-found}
-                (js-await [_ ((:excise! storage) eid nil)]
-                          {:ok true})))))
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:apartment/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [_ ((:excise! storage) eid nil)]
+                              {:ok true})))))))
 
 (defn- handle-get-onboardings! [storage user]
-  (let [org-id (:org-id user)]
-    (js-await [eids        ((:find-by-attr storage) :onboarding/organization-id org-id)
-               onboardings (pull-many+ storage eids '[*])]
-              {:onboardings onboardings})))
+  (with-org user
+    (fn [org-id]
+      (js-await [eids        ((:find-by-attr storage) :onboarding/organization-id org-id)
+                 onboardings (pull-many+ storage eids '[*])]
+                {:onboardings onboardings}))))
 
 (defn- handle-get-onboarding! [storage data user]
-  (let [apartment-id (:apartment-id data)
-        org-id       (:org-id user)]
-    (js-await [eids ((:q storage) {:where [['?e :onboarding/apartment-id apartment-id]
-                                            ['?e :onboarding/organization-id org-id]]})]
-              (if-let [eid (first eids)]
-                (js-await [onboarding ((:pull storage) eid '*)]
-                          {:onboarding onboarding})
-                {:onboarding nil}))))
+  (with-org user
+    (fn [org-id]
+      (let [apartment-id (:apartment-id data)]
+        (js-await [eids ((:q storage) {:where [['?e :onboarding/apartment-id apartment-id]
+                                                ['?e :onboarding/organization-id org-id]]})]
+                  (if-let [eid (first eids)]
+                    (js-await [onboarding ((:pull storage) eid '*)]
+                              {:onboarding onboarding})
+                    {:onboarding nil}))))))
 
 (defn- handle-start-onboarding! [core storage data user]
-  (let [org-id (:org-id user)
-        result ((:process core) {:command :start-onboarding :data data})]
-    (if (:error result)
-      result
-      (let [{:keys [apartment-id email]} (:entity result)]
-        (js-await [{:keys [tx-id entity-ids]}
-                   ((:transact! storage)
-                    [{:db/type                    "onboarding"
-                      :onboarding/organization-id org-id
-                      :onboarding/apartment-id    apartment-id
-                      :onboarding/email           email
-                      :onboarding/status          "pending"}] nil)]
-                  {:tx-id tx-id :onboarding-id (first entity-ids)})))))
+  (with-org user
+    (fn [org-id]
+      (let [result ((:process core) {:command :start-onboarding :data data})]
+        (if (:error result)
+          result
+          (let [{:keys [apartment-id email]} (:entity result)]
+            (js-await [{:keys [tx-id entity-ids]}
+                       ((:transact! storage)
+                        [{:db/type                    "onboarding"
+                          :onboarding/organization-id org-id
+                          :onboarding/apartment-id    apartment-id
+                          :onboarding/email           email
+                          :onboarding/status          "pending"}] nil)]
+                      {:tx-id tx-id :onboarding-id (first entity-ids)})))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Tenant handlers
 ;; ---------------------------------------------------------------------------
 
 (defn- handle-get-tenants! [storage user]
-  (let [org-id (:org-id user)]
-    (js-await [eids    ((:find-by-attr storage) :tenant/organization-id org-id)
-               tenants (pull-many+ storage eids '[*])]
-              {:tenants tenants})))
+  (with-org user
+    (fn [org-id]
+      (js-await [eids    ((:find-by-attr storage) :tenant/organization-id org-id)
+                 tenants (pull-many+ storage eids '[*])]
+                {:tenants tenants}))))
 
 (defn- handle-get-tenants-by-apartment! [storage data user]
-  (let [apartment-id (:apartment-id data)
-        org-id       (:org-id user)]
-    (js-await [eids    ((:q storage) {:where [['?e :tenant/apartment-id apartment-id]
-                                               ['?e :tenant/organization-id org-id]]})
-               tenants (pull-many+ storage (vec eids) '[*])]
-              {:tenants tenants})))
+  (with-org user
+    (fn [org-id]
+      (let [apartment-id (:apartment-id data)]
+        (js-await [eids    ((:q storage) {:where [['?e :tenant/apartment-id apartment-id]
+                                                   ['?e :tenant/organization-id org-id]]})
+                   tenants (pull-many+ storage (vec eids) '[*])]
+                  {:tenants tenants})))))
 
 (defn- handle-create-tenant! [core storage data user]
-  (let [org-id (:org-id user)
-        result ((:process core) {:command :create-tenant :data data})]
-    (if (:error result)
-      result
-      (let [{:keys [apartment-id name email phone start-date end-date]} (:entity result)]
-        (js-await [{:keys [tx-id entity-ids]}
-                   ((:transact! storage)
-                    [{:db/type                  "tenant"
-                      :tenant/organization-id   org-id
-                      :tenant/apartment-id      apartment-id
-                      :tenant/name              name
-                      :tenant/email             email
-                      :tenant/phone             phone
-                      :tenant/start-date        start-date
-                      :tenant/end-date          end-date}] nil)]
-                  {:tx-id tx-id :tenant-id (first entity-ids)})))))
+  (with-org user
+    (fn [org-id]
+      (let [result ((:process core) {:command :create-tenant :data data})]
+        (if (:error result)
+          result
+          (let [{:keys [apartment-id name email phone start-date end-date]} (:entity result)]
+            (js-await [{:keys [tx-id entity-ids]}
+                       ((:transact! storage)
+                        [{:db/type                  "tenant"
+                          :tenant/organization-id   org-id
+                          :tenant/apartment-id      apartment-id
+                          :tenant/name              name
+                          :tenant/email             email
+                          :tenant/phone             phone
+                          :tenant/start-date        start-date
+                          :tenant/end-date          end-date}] nil)]
+                      {:tx-id tx-id :tenant-id (first entity-ids)})))))))
 
 (defn- handle-update-tenant! [core storage data user]
-  (let [eid    (:id data)
-        org-id (:org-id user)]
-    (js-await [entity ((:pull storage) eid '*)]
-              (if (not= (:tenant/organization-id entity) org-id)
-                {:error :not-found}
-                (let [result ((:process core) {:command :update-tenant :data data})]
-                  (if (:error result)
-                    result
-                    (let [{:keys [name email phone start-date end-date]} (:updates result)]
-                      (js-await [{:keys [tx-id]}
-                                 ((:transact! storage)
-                                  [{:db/id             eid
-                                    :tenant/name       name
-                                    :tenant/email      email
-                                    :tenant/phone      phone
-                                    :tenant/start-date start-date
-                                    :tenant/end-date   end-date}] nil)]
-                                {:tx-id tx-id}))))))))
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:tenant/organization-id entity) org-id)
+                    {:error :not-found}
+                    (let [result ((:process core) {:command :update-tenant :data data})]
+                      (if (:error result)
+                        result
+                        (let [{:keys [name email phone start-date end-date]} (:updates result)]
+                          (js-await [{:keys [tx-id]}
+                                     ((:transact! storage)
+                                      [{:db/id             eid
+                                        :tenant/name       name
+                                        :tenant/email      email
+                                        :tenant/phone      phone
+                                        :tenant/start-date start-date
+                                        :tenant/end-date   end-date}] nil)]
+                                    {:tx-id tx-id}))))))))))
 
 (defn- handle-delete-tenant! [storage data user]
-  (let [eid    (:id data)
-        org-id (:org-id user)]
-    (js-await [entity ((:pull storage) eid '*)]
-              (if (not= (:tenant/organization-id entity) org-id)
-                {:error :not-found}
-                (js-await [_ ((:excise! storage) eid nil)]
-                          {:ok true})))))
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:tenant/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [_ ((:excise! storage) eid nil)]
+                              {:ok true})))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Dispatcher
