@@ -49,6 +49,7 @@
         prop-loading?        @(re-frame/subscribe [::property-subs/loading?])
         prop-saving?         @(re-frame/subscribe [::property-subs/saving?])
         all-apartments       @(re-frame/subscribe [::apartment-subs/apartments])
+        apts-loading?        @(re-frame/subscribe [::apartment-subs/loading?])
         tenants              @(re-frame/subscribe [::tenant-subs/tenants])
         tenants-loading?     @(re-frame/subscribe [::tenant-subs/loading?])
         available-apartments (filter #(not (:apartment/occupied %)) all-apartments)]
@@ -74,6 +75,7 @@
                                                       (re-frame/dispatch [::tenant-events/load-tenants]))
                                 :properties         (clj->js properties)
                                 :propertiesLoading  prop-loading?
+                                :apartmentsLoading  apts-loading?
                                 :isSaving           prop-saving?
                                 :tenants            (clj->js tenants)
                                 :tenantsLoading     tenants-loading?

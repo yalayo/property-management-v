@@ -89,6 +89,8 @@ const resources = {
     },
     dashboard: {
       title: "Dashboard",
+      propertyOccupancy: "Property Occupancy",
+      noApartmentsRecorded: "No apartments recorded",
       summary: {
         properties: "Properties",
         propertiesDesc: "Total managed properties",
@@ -115,6 +117,7 @@ const resources = {
       noProperties: "No properties found. Add your first property to get started.",
       deleteConfirm: "Are you sure you want to delete {{name}}? This action cannot be undone.",
       units: "Units: {{count}}",
+      occupancy: "Occupancy",
       fields: {
         name: "Property Name",
         address: "Address",
@@ -642,6 +645,8 @@ const resources = {
     },
     dashboard: {
       title: "Dashboard",
+      propertyOccupancy: "Belegung nach Immobilien",
+      noApartmentsRecorded: "Keine Wohnungen erfasst",
       summary: {
         properties: "Immobilien",
         propertiesDesc: "Verwaltete Immobilien gesamt",
@@ -668,6 +673,7 @@ const resources = {
       noProperties: "Keine Immobilien gefunden. Fügen Sie Ihre erste Immobilie hinzu.",
       deleteConfirm: "Sind Sie sicher, dass Sie {{name}} löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
       units: "Einheiten: {{count}}",
+      occupancy: "Belegung",
       fields: {
         name: "Immobilienname",
         address: "Adresse",

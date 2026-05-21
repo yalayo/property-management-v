@@ -24,6 +24,7 @@ type PropertyFormValues = {
 
 type Props = {
   properties?: any[];
+  apartments?: any[];
   isSaving?: boolean;
   onAddProperty?: (data: any) => void;
   onEditProperty?: (id: number, data: any) => void;
@@ -113,7 +114,7 @@ const emptyDefaults = {
   name: "", address: "", city: "", postalCode: "", units: "1", purchasePrice: "", currentValue: "",
 };
 
-export default function PropertyList({ properties = [], isSaving = false, onAddProperty, onEditProperty, onDeleteProperty, onViewApartments, onGoBack }: Props) {
+export default function PropertyList({ properties = [], apartments = [], isSaving = false, onAddProperty, onEditProperty, onDeleteProperty, onViewApartments, onGoBack }: Props) {
   const { t } = useTranslation("properties");
   const { t: tCommon } = useTranslation("common");
   const { toast } = useToast();
@@ -219,6 +220,26 @@ export default function PropertyList({ properties = [], isSaving = false, onAddP
                       <span className="font-medium">€{(property.current_value || property.currentValue).toLocaleString()}</span>
                     )}
                   </div>
+                  {(() => {
+                    const propApts = apartments.filter((a: any) => a["property-id"] === property.id);
+                    if (propApts.length === 0) return null;
+                    const occupied = propApts.filter((a: any) => a.occupied).length;
+                    const pct = Math.round((occupied / propApts.length) * 100);
+                    return (
+                      <div className="mt-2">
+                        <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                          <span>{t("occupancy")}: {occupied}/{propApts.length}</span>
+                          <span>{pct}%</span>
+                        </div>
+                        <div className="w-full bg-gray-100 rounded-full h-1.5">
+                          <div
+                            className={`h-1.5 rounded-full ${pct === 100 ? "bg-green-500" : pct > 50 ? "bg-blue-500" : "bg-amber-400"}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })()}
                   {onViewApartments && (
                     <Button
                       variant="outline"

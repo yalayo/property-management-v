@@ -20,7 +20,7 @@ export default function DashboardSummary(props) {
   const latePayments: any[]   = props.latePayments    || [];
 
   const isLoading =
-    props.propertiesLoading || props.tenantsLoading || props.paymentsLoading;
+    props.propertiesLoading || props.apartmentsLoading || props.tenantsLoading || props.paymentsLoading;
 
   const currentMonth = new Date().toLocaleString("default", { month: "long" });
 
@@ -39,20 +39,23 @@ export default function DashboardSummary(props) {
       <h2 className="text-2xl font-bold tracking-tight">{t("title")}</h2>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader className="pb-2">
-                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-              </CardHeader>
-              <CardContent>
-                <div className="h-8 bg-gray-200 rounded w-1/3 mb-2"></div>
-                <div className="h-4 bg-gray-200 rounded w-full"></div>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <Card key={i} className="animate-pulse">
+                <CardHeader className="pb-2">
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-8 bg-gray-200 rounded w-1/3 mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-full"></div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       ) : (
+        <>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -116,6 +119,42 @@ export default function DashboardSummary(props) {
             </CardContent>
           </Card>
         </div>
+
+        {properties.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-base font-semibold">{t("propertyOccupancy")}</h3>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {properties.map((property: any) => {
+                const propApts = apartments.filter((a: any) => a["property-id"] === property.id);
+                const occupied = propApts.filter((a: any) => a.occupied).length;
+                const total    = propApts.length;
+                const pct      = total > 0 ? Math.round((occupied / total) * 100) : 0;
+                return (
+                  <Card key={property.id}>
+                    <CardContent className="pt-4">
+                      <p className="font-medium truncate">{property.name}</p>
+                      <p className="text-sm text-muted-foreground mb-2 truncate">{property.address}</p>
+                      {total > 0 ? (
+                        <>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-muted-foreground">{occupied}/{total}</span>
+                            <span className={`font-medium ${pct === 100 ? "text-green-600" : pct > 50 ? "text-blue-600" : "text-amber-500"}`}>
+                              {pct}%
+                            </span>
+                          </div>
+                          <Progress value={pct} className="h-1.5" />
+                        </>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">{t("noApartmentsRecorded")}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        </>
       )}
     </div>
   );

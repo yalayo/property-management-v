@@ -18,7 +18,8 @@
  (fn [{:keys [db]} _]
    (let [token       (get-in db [:user :token] "")
          property-id (get-in db [:apartments :property-filter :id])]
-     {:http-xhrio {:method          :post
+     {:db         (assoc-in db [:apartments :loading?] true)
+      :http-xhrio {:method          :post
                    :uri             (str (config/get-api-url) "/api/query")
                    :params          (cond-> {:entity :apartment}
                                       property-id (assoc :property-id property-id))
@@ -60,9 +61,9 @@
 
 (re-frame/reg-event-fx
  ::apartments-error
- (fn [_ [_ error]]
+ (fn [{:keys [db]} [_ error]]
    (js/console.error "Failed to load apartments:" error)
-   {}))
+   {:db (assoc-in db [:apartments :loading?] false)}))
 
 (re-frame/reg-event-db
  ::open-add-dialog

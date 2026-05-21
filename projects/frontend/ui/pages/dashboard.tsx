@@ -136,6 +136,7 @@ export default function Dashboard(props) {
                 properties={props.properties}
                 propertiesLoading={props.propertiesLoading}
                 apartments={props.apartments}
+                apartmentsLoading={props.apartmentsLoading}
                 tenants={props.tenants}
                 tenantsLoading={props.tenantsLoading}
                 latePayments={props.latePayments}
@@ -148,6 +149,7 @@ export default function Dashboard(props) {
           {activeTab === "properties" && (
             <PropertyList
               properties={props.properties}
+              apartments={props.apartments}
               isSaving={props.isSaving}
               onAddProperty={props.onAddProperty}
               onEditProperty={props.onEditProperty}
