@@ -21,6 +21,7 @@
             [app.cost-ui.events       :as cost-events]
             [app.rent-ui.subs         :as rent-subs]
             [app.rent-ui.events       :as rent-events]
+            [app.letter.billing       :as billing]
             [app.survey-ui.views :as survey]
             ;; React page imports (thin wrappers — no separate Polylith component needed)
             ["/pages/main$default"                :as main-js]
@@ -175,9 +176,28 @@
                                                            :postal-code    (:postalCode d)
                                                            :units          (:units d)
                                                            :purchase-price (:purchasePrice d)
-                                                           :current-value  (:currentValue d)}])))
+                                                           :current-value  (:currentValue d)
+                                                           :iban           (:iban d)
+                                                           :bank-name      (:bankName d)}])))
                                 :onDeleteProperty   (fn [id]
                                                       (re-frame/dispatch [::property-events/delete-property id]))
+                                :aptCosts           (clj->js apt-costs)
+                                :aptCostsLoading    apt-costs-loading?
+                                :rentPayments       (clj->js rent-payments)
+                                :rentLoading        rent-loading?
+                                :onLoadAptCosts     (fn [apt-id]
+                                                      (re-frame/dispatch [::cost-events/load-apartment-costs apt-id]))
+                                :onLoadRentPayments (fn [apt-id]
+                                                      (re-frame/dispatch [::rent-events/load-rent-payments apt-id]))
+                                :computeReadiness   (fn [data]
+                                                      (let [d (js->clj data :keywordize-keys true)]
+                                                        (when-let [r (billing/check-readiness
+                                                                       {:has-tenant?    (:hasTenant d)
+                                                                        :has-all-costs? (:hasAllCosts d)
+                                                                        :has-payments?  (:hasPayments d)
+                                                                        :has-iban?      (:hasIban d)})]
+                                                          (clj->js {:ready   (:ready? r)
+                                                                    :missing (vec (:missing r))}))))
                                 :onViewApartments   (fn [property]
                                                       (re-frame/dispatch [::events/navigate-to-apartments (js->clj property :keywordize-keys true)]))
                                 :costs              (clj->js costs)

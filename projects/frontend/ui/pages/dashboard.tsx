@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect } from "react";
-import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2, Landmark } from "lucide-react";
+import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2, Landmark, Receipt } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../components/ui/sheet";
@@ -12,18 +12,20 @@ import UserAnalytics from "../components/dashboard/UserAnalytics";
 import DashboardSummary from "../components/dashboard/DashboardSummary";
 import LanguageSwitcher from "../components/common/LanguageSwitcher";
 import BankStatement from "../components/bank/BankStatement";
+import NebenkostenAbrechnung from "../components/billing/NebenkostenAbrechnung";
 
 function SidebarContent({ activeTab, onSelect, onLogout }) {
   const { t } = useTranslation("nav");
 
   const NAV_ITEMS = [
-    { id: "overview",   label: t("overview"),   icon: Home },
-    { id: "properties", label: t("properties"), icon: Building },
-    { id: "apartments", label: t("apartments"), icon: Building2 },
-    { id: "tenants",    label: t("tenants"),    icon: Users },
-    { id: "bank",       label: t("bank"),       icon: Landmark },
-    { id: "documents",  label: t("documents"),  icon: FileText },
-    { id: "analytics",  label: t("analytics"),  icon: BarChart2 },
+    { id: "overview",    label: t("overview"),    icon: Home },
+    { id: "properties",  label: t("properties"),  icon: Building },
+    { id: "apartments",  label: t("apartments"),  icon: Building2 },
+    { id: "tenants",     label: t("tenants"),     icon: Users },
+    { id: "bank",        label: t("bank"),        icon: Landmark },
+    { id: "abrechnung",  label: t("abrechnung"),  icon: Receipt },
+    { id: "documents",   label: t("documents"),   icon: FileText },
+    { id: "analytics",   label: t("analytics"),   icon: BarChart2 },
   ];
 
   return (
@@ -76,6 +78,7 @@ export default function Dashboard(props) {
     apartments: t("apartments"),
     tenants:    t("tenants"),
     bank:       t("bank"),
+    abrechnung: t("abrechnung"),
     documents:  t("documents"),
     analytics:  t("analytics"),
   };
@@ -187,6 +190,25 @@ export default function Dashboard(props) {
               apartments={props.apartments}
               isSaving={props.rentSaving}
               onAssignPayment={props.onAssignPayment}
+            />
+          )}
+          {activeTab === "abrechnung" && (
+            <NebenkostenAbrechnung
+              properties={props.properties}
+              apartments={props.apartments}
+              tenants={props.tenants}
+              costs={props.costs}
+              aptCosts={props.aptCosts}
+              rentPayments={props.rentPayments}
+              costsLoading={props.costsLoading}
+              aptCostsLoading={props.aptCostsLoading}
+              rentLoading={props.rentLoading}
+              propertySaving={props.isSaving}
+              computeReadiness={props.computeReadiness}
+              onLoadCosts={props.onLoadCosts}
+              onLoadAptCosts={props.onLoadAptCosts}
+              onLoadRentPayments={props.onLoadRentPayments}
+              onEditProperty={props.onEditProperty}
             />
           )}
           {activeTab === "documents" && <FileUpload />}

@@ -137,18 +137,20 @@
                       (if (:error result)
                         result
                         (let [{:keys [name address city postal-code country units
-                                      purchase-price current-value]} (:updates result)]
+                                      purchase-price current-value iban bank-name]} (:updates result)]
                           (js-await [{:keys [tx-id]}
                                      ((:transact! storage)
-                                      [{:db/id                   eid
-                                        :property/name           name
-                                        :property/address        address
-                                        :property/city           city
-                                        :property/postal-code    postal-code
-                                        :property/country        country
-                                        :property/units          units
-                                        :property/purchase-price purchase-price
-                                        :property/current-value  current-value}] nil)]
+                                      [(cond-> {:db/id                   eid
+                                                :property/name           name
+                                                :property/address        address
+                                                :property/city           city
+                                                :property/postal-code    postal-code
+                                                :property/country        country
+                                                :property/units          units
+                                                :property/purchase-price purchase-price
+                                                :property/current-value  current-value}
+                                         iban      (assoc :property/iban      iban)
+                                         bank-name (assoc :property/bank-name bank-name))] nil)]
                                     {:tx-id tx-id}))))))))))
 
 (defn- handle-delete-property! [storage data user]

@@ -53,7 +53,9 @@
                :country          (get data :country)
                :units            (get data :units)
                :purchase-price   (get data :purchase-price)
-               :current-value    (get data :current-value)}}
+               :current-value    (get data :current-value)
+               :iban             (get data :iban)
+               :bank-name        (get data :bank-name)}}
 
     :create-apartment
     (let [{:keys [property-id code]} data]
