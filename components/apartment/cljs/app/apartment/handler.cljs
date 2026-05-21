@@ -1,73 +1,69 @@
 (ns app.apartment.handler
-  (:require [app.storage.interface :as storage]
-            [app.worker.async :refer [js-await]]
+  (:require [app.worker.async :refer [js-await]]
             [app.worker.cf :as cf]))
 
-(defn get-apartments [{:keys [_request _env]}]
-  (js-await [eids       (storage/find-by-type "apartment")
-             apartments (storage/pull-many eids '[*])]
-            (cf/response-edn {:apartments apartments} {:status 200})))
+(defn get-apartments [controller]
+  (fn [{:keys [_request _env user]}]
+    (js-await [result (controller {:command :get-apartments :user user})]
+              (cf/response-edn result {:status 200}))))
 
-(defn get-apartments-by-property [{:keys [_request _env route]}]
-  (let [property-id (-> route :path-params :property-id)]
-    (js-await [eids       (storage/find-by-attr :apartment/property-id property-id)
-               apartments (storage/pull-many eids '[*])]
-              (cf/response-edn {:apartments apartments} {:status 200}))))
+(defn get-apartments-by-property [controller]
+  (fn [{:keys [_request _env route user]}]
+    (let [property-id (-> route :path-params :property-id)]
+      (js-await [result (controller {:command :get-apartments-by-property
+                                     :data    {:property-id property-id}
+                                     :user    user})]
+                (cf/response-edn result {:status 200})))))
 
-(defn create-apartment [{:keys [request _env]}]
-  (js-await [data (cf/request->edn request)]
-            (let [{:keys [property-id code]} data]
-              (js-await [{:keys [tx-id entity-ids]}
-                         (storage/transact!
-                          [{:db/type               "apartment"
-                            :apartment/property-id property-id
-                            :apartment/code        code
-                            :apartment/occupied    false}])]
-                        (cf/response-edn {:tx-id        tx-id
-                                          :apartment-id (first entity-ids)}
-                                         {:status 201})))))
+(defn create-apartment [controller]
+  (fn [{:keys [request _env user]}]
+    (js-await [data   (cf/request->edn request)
+               result (controller {:command :create-apartment :data data :user user})]
+              (if (:error result)
+                (cf/response-edn result {:status 400})
+                (cf/response-edn result {:status 201})))))
 
-(defn update-apartment [{:keys [request route _env]}]
-  (let [eid (-> route :path-params :id)]
-    (js-await [data (cf/request->edn request)]
-              (let [{:keys [code occupied]} data]
-                (js-await [{:keys [tx-id]}
-                            (storage/transact!
-                             [{:db/id              eid
-                               :apartment/code     code
-                               :apartment/occupied (boolean occupied)}])]
-                           (cf/response-edn {:tx-id tx-id} {:status 200}))))))
+(defn update-apartment [controller]
+  (fn [{:keys [request route _env user]}]
+    (let [id (-> route :path-params :id)]
+      (js-await [data   (cf/request->edn request)
+                 result (controller {:command :update-apartment
+                                     :data    (assoc data :id id)
+                                     :user    user})]
+                (if (:error result)
+                  (cf/response-edn result {:status 404})
+                  (cf/response-edn result {:status 200}))))))
 
-(defn delete-apartment [{:keys [route _env]}]
-  (let [eid (-> route :path-params :id)]
-    (js-await [_ (storage/excise! eid)]
-              (cf/response-edn {:ok true} {:status 200}))))
+(defn delete-apartment [controller]
+  (fn [{:keys [route _env user]}]
+    (let [id (-> route :path-params :id)]
+      (js-await [result (controller {:command :delete-apartment
+                                     :data    {:id id}
+                                     :user    user})]
+                (if (:error result)
+                  (cf/response-edn result {:status 404})
+                  (cf/response-edn result {:status 200}))))))
 
-(defn get-all-onboardings [_]
-  (js-await [eids        (storage/find-by-type "onboarding")
-             onboardings (storage/pull-many eids '[*])]
-            (cf/response-edn {:onboardings onboardings} {:status 200})))
+(defn get-all-onboardings [controller]
+  (fn [{:keys [_request _env user]}]
+    (js-await [result (controller {:command :get-onboardings :user user})]
+              (cf/response-edn result {:status 200}))))
 
-(defn get-onboarding [{:keys [route _env]}]
-  (let [apartment-id (-> route :path-params :id)]
-    (js-await [eids (storage/find-by-attr :onboarding/apartment-id apartment-id)]
-              (if-let [eid (first eids)]
-                (js-await [onboarding (storage/entity eid)]
-                          (cf/response-edn {:onboarding onboarding} {:status 200}))
-                (cf/response-edn {:onboarding nil} {:status 200})))))
+(defn get-onboarding [controller]
+  (fn [{:keys [route _env user]}]
+    (let [apartment-id (-> route :path-params :id)]
+      (js-await [result (controller {:command :get-onboarding
+                                     :data    {:apartment-id apartment-id}
+                                     :user    user})]
+                (cf/response-edn result {:status 200})))))
 
-(defn start-onboarding [{:keys [request route _env]}]
-  (let [apartment-id (-> route :path-params :id)]
-    (js-await [data (cf/request->edn request)]
-              (let [{:keys [email]} data]
-                (if (or (nil? email) (empty? email))
-                  (cf/response-error "Email is required" {:status 400})
-                  (js-await [{:keys [tx-id entity-ids]}
-                              (storage/transact!
-                               [{:db/type                  "onboarding"
-                                 :onboarding/apartment-id  apartment-id
-                                 :onboarding/email         email
-                                 :onboarding/status        "pending"}])]
-                             (cf/response-edn {:tx-id        tx-id
-                                               :onboarding-id (first entity-ids)}
-                                              {:status 201})))))))
+(defn start-onboarding [controller]
+  (fn [{:keys [request route _env user]}]
+    (let [apartment-id (-> route :path-params :id)]
+      (js-await [data   (cf/request->edn request)
+                 result (controller {:command :start-onboarding
+                                     :data    (assoc data :apartment-id apartment-id)
+                                     :user    user})]
+                (if (:error result)
+                  (cf/response-edn result {:status 400})
+                  (cf/response-edn result {:status 201}))))))

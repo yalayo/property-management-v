@@ -15,16 +15,87 @@
    state commands))
 
 (defn process
-  "Pure command dispatcher. Takes a context map with :command :data :user :db-user.
+  "Pure command dispatcher. Takes a context map with :command :data :db-user :provided-hash.
   Returns a result map; no side effects."
   [{:keys [command data db-user provided-hash]}]
   (case command
-    :user-sign-up (sign-up/validate {:email    (get data :email)
-                                     :name     (get data :name "")
-                                     :password (get data :password)
-                                     :db-user  db-user})
-    :user-sign-in (sign-in/validate {:db-user       db-user
-                                     :provided-hash provided-hash})
+    :user-sign-up
+    (sign-up/validate {:email    (get data :email)
+                       :name     (get data :name "")
+                       :password (get data :password)
+                       :db-user  db-user})
+
+    :user-sign-in
+    (sign-in/validate {:db-user       db-user
+                       :provided-hash provided-hash})
+
+    :create-property
+    (let [{:keys [name address]} data]
+      (if (or (nil? name) (nil? address))
+        {:error :missing-required-fields}
+        {:action :create-property
+         :entity {:name             name
+                  :address          address
+                  :city             (get data :city)
+                  :postal-code      (get data :postal-code)
+                  :country          (or (get data :country) "Germany")
+                  :units            (or (get data :units) 1)
+                  :acquisition-date (get data :acquisition-date)
+                  :purchase-price   (get data :purchase-price)
+                  :current-value    (get data :current-value)}}))
+
+    :update-property
+    {:action  :update-property
+     :updates {:name             (get data :name)
+               :address          (get data :address)
+               :city             (get data :city)
+               :postal-code      (get data :postal-code)
+               :country          (get data :country)
+               :units            (get data :units)
+               :purchase-price   (get data :purchase-price)
+               :current-value    (get data :current-value)}}
+
+    :create-apartment
+    (let [{:keys [property-id code]} data]
+      (if (or (nil? property-id) (nil? code))
+        {:error :missing-required-fields}
+        {:action :create-apartment
+         :entity {:property-id property-id
+                  :code        code}}))
+
+    :update-apartment
+    {:action  :update-apartment
+     :updates {:code     (get data :code)
+               :occupied (get data :occupied)}}
+
+    :create-tenant
+    (let [{:keys [apartment-id name]} data]
+      (if (or (nil? apartment-id) (nil? name))
+        {:error :missing-required-fields}
+        {:action :create-tenant
+         :entity {:apartment-id apartment-id
+                  :name         name
+                  :email        (or (get data :email) "")
+                  :phone        (or (get data :phone) "")
+                  :start-date   (or (get data :start-date) "")
+                  :end-date     (or (get data :end-date) "")}}))
+
+    :update-tenant
+    {:action  :update-tenant
+     :updates {:name       (get data :name)
+               :email      (get data :email)
+               :phone      (get data :phone)
+               :start-date (get data :start-date)
+               :end-date   (get data :end-date)}}
+
+    :start-onboarding
+    (let [{:keys [apartment-id email]} data]
+      (if (or (nil? apartment-id) (nil? email) (empty? email))
+        {:error :missing-required-fields}
+        {:action :start-onboarding
+         :entity {:apartment-id apartment-id
+                  :email        email}}))
+
     {:error :unknown-command}))
 
 (defn init []

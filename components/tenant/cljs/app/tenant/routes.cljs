@@ -1,12 +1,12 @@
 (ns app.tenant.routes
   (:require [app.tenant.handler :as handler]))
 
-(def routes
+(defn create-routes [controller]
   [["/tenants"
-    {:get  {:handler handler/get-tenants}
-     :post {:handler handler/create-tenant}}]
+    {:get  {:handler (handler/get-tenants controller)}
+     :post {:handler (handler/create-tenant controller)}}]
    ["/tenants/:id"
-    {:put    {:handler handler/update-tenant}
-     :delete {:handler handler/delete-tenant}}]
+    {:put    {:handler (handler/update-tenant controller)}
+     :delete {:handler (handler/delete-tenant controller)}}]
    ["/tenants/by-apartment/:apartment-id"
-    {:get {:handler handler/get-tenants-by-apartment}}]])
+    {:get {:handler (handler/get-tenants-by-apartment controller)}}]])

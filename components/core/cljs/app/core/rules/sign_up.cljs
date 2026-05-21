@@ -11,7 +11,7 @@
      [::signup :signup/user-exists? false]
      :then
      (o/insert! ::result ::outcome
-                {:action    :create-user
+                {:action    :create-account-with-org
                  :user-data {:email    email
                              :name     name
                              :password password}})]
