@@ -81,7 +81,7 @@ CREATE INDEX IF NOT EXISTS props_idx_entity_excise
 --    This mirrors Datahike's approach of making the schema introspectable.
 -- -----------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS db_schema (
+CREATE TABLE IF NOT EXISTS props_db_schema (
   attr_id      INTEGER PRIMARY KEY AUTOINCREMENT,
   ident        TEXT    NOT NULL UNIQUE,  -- e.g. "user/name"
   value_type   TEXT    NOT NULL,         -- "string" | "integer" | "float" | "boolean" | "uuid" | "instant" | "json"
@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS db_schema (
   created_tx   INTEGER NOT NULL REFERENCES props_transactions(tx_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_schema_ident ON db_schema (ident);
+CREATE INDEX IF NOT EXISTS idx_schema_ident ON props_db_schema (ident);
 
 
 -- -----------------------------------------------------------------------------
@@ -101,14 +101,14 @@ CREATE INDEX IF NOT EXISTS idx_schema_ident ON db_schema (ident);
 --    Equivalent to Datahike's :db/ident on entities.
 -- -----------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS entities (
+CREATE TABLE IF NOT EXISTS props_entities (
   entity_id   TEXT    PRIMARY KEY,
   entity_type TEXT    NOT NULL,   -- e.g. "user", "order", "product"
   created_tx  INTEGER NOT NULL REFERENCES props_transactions(tx_id),
   retracted_tx INTEGER DEFAULT NULL REFERENCES props_transactions(tx_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_entity_type ON entities (entity_type);
+CREATE INDEX IF NOT EXISTS idx_entity_type ON props_entities (entity_type);
 
 
 -- =============================================================================
