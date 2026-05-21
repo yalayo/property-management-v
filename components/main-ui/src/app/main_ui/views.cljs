@@ -17,6 +17,8 @@
             [app.tenant-ui.subs        :as tenant-subs]
             [app.tenant-ui.events      :as tenant-events]
             [app.payment-ui.interface  :as payment-ui]
+            [app.cost-ui.subs         :as cost-subs]
+            [app.cost-ui.events       :as cost-events]
             [app.survey-ui.views :as survey]
             ;; React page imports (thin wrappers — no separate Polylith component needed)
             ["/pages/main$default"                :as main-js]
@@ -52,7 +54,10 @@
         apts-loading?        @(re-frame/subscribe [::apartment-subs/loading?])
         tenants              @(re-frame/subscribe [::tenant-subs/tenants])
         tenants-loading?     @(re-frame/subscribe [::tenant-subs/loading?])
-        available-apartments (filter #(not (:apartment/occupied %)) all-apartments)]
+        available-apartments (filter #(not (:apartment/occupied %)) all-apartments)
+        costs                @(re-frame/subscribe [::cost-subs/costs])
+        costs-loading?       @(re-frame/subscribe [::cost-subs/loading?])
+        costs-saving?        @(re-frame/subscribe [::cost-subs/saving?])]
     [main
      {:activeComponent
       (r/as-element
@@ -109,7 +114,29 @@
                                 :onDeleteProperty   (fn [id]
                                                       (re-frame/dispatch [::property-events/delete-property id]))
                                 :onViewApartments   (fn [property]
-                                                      (re-frame/dispatch [::events/navigate-to-apartments (js->clj property :keywordize-keys true)]))}]
+                                                      (re-frame/dispatch [::events/navigate-to-apartments (js->clj property :keywordize-keys true)]))
+                                :costs              (clj->js costs)
+                                :costsLoading       costs-loading?
+                                :costsSaving        costs-saving?
+                                :onLoadCosts        (fn [property-id]
+                                                      (re-frame/dispatch [::cost-events/load-costs property-id]))
+                                :onAddCost          (fn [data]
+                                                      (let [d (js->clj data :keywordize-keys true)]
+                                                        (re-frame/dispatch
+                                                         [::cost-events/create-cost
+                                                          {:property-id (:propertyId d)
+                                                           :line        (:line d)
+                                                           :name        (:name d)
+                                                           :year        (:year d)
+                                                           :value       (:value d)}])))
+                                :onUpdateCost       (fn [data]
+                                                      (let [d (js->clj data :keywordize-keys true)]
+                                                        (re-frame/dispatch
+                                                         [::cost-events/update-cost
+                                                          {:id    (:id d)
+                                                           :value (:value d)}])))
+                                :onDeleteCost       (fn [id]
+                                                      (re-frame/dispatch [::cost-events/delete-cost id]))}]
          "onboarding"         [onboarding {}]
          "bank-accounts"      [bank-accounts {:user current-user}]
          "change-password"    [change-password {:user current-user}]

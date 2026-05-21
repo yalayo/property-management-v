@@ -330,6 +330,57 @@
                               {:ok true})))))))
 
 ;; ---------------------------------------------------------------------------
+;; Cost handlers
+;; ---------------------------------------------------------------------------
+
+(defn- handle-get-costs! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [property-id (:property-id data)]
+        (js-await [eids  ((:q storage) {:where [['?e :cost/property-id    property-id]
+                                                  ['?e :cost/organization-id org-id]]})
+                   costs (pull-many+ storage (vec eids) '[*])]
+                  {:costs costs})))))
+
+(defn- handle-create-cost! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [{:keys [property-id line name year value]} data]
+        (js-await [{:keys [tx-id entity-ids]}
+                   ((:transact! storage)
+                    [{:db/type              "cost"
+                      :cost/organization-id  org-id
+                      :cost/property-id      property-id
+                      :cost/line             line
+                      :cost/name             name
+                      :cost/year             year
+                      :cost/value            value}] nil)]
+                  {:tx-id tx-id :cost-id (first entity-ids)})))))
+
+(defn- handle-update-cost! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:cost/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [{:keys [tx-id]}
+                               ((:transact! storage)
+                                [{:db/id      eid
+                                  :cost/value (:value data)}] nil)]
+                              {:tx-id tx-id})))))))
+
+(defn- handle-delete-cost! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:cost/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [_ ((:excise! storage) eid nil)]
+                              {:ok true})))))))
+
+;; ---------------------------------------------------------------------------
 ;; Dispatcher
 ;; ---------------------------------------------------------------------------
 
@@ -354,4 +405,8 @@
     :create-tenant                (handle-create-tenant! core storage data user)
     :update-tenant                (handle-update-tenant! core storage data user)
     :delete-tenant                (handle-delete-tenant! storage data user)
+    :get-costs                    (handle-get-costs! storage data user)
+    :create-cost                  (handle-create-cost! storage data user)
+    :update-cost                  (handle-update-cost! storage data user)
+    :delete-cost                  (handle-delete-cost! storage data user)
     {:error :unknown-command}))

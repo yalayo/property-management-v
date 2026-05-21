@@ -30,6 +30,7 @@ type Props = {
   onEditProperty?: (id: number, data: any) => void;
   onDeleteProperty?: (id: number) => void;
   onViewApartments?: (property: any) => void;
+  onSelectProperty?: (property: any) => void;
   onGoBack?: () => void;
 };
 
@@ -114,7 +115,7 @@ const emptyDefaults = {
   name: "", address: "", city: "", postalCode: "", units: "1", purchasePrice: "", currentValue: "",
 };
 
-export default function PropertyList({ properties = [], apartments = [], isSaving = false, onAddProperty, onEditProperty, onDeleteProperty, onViewApartments, onGoBack }: Props) {
+export default function PropertyList({ properties = [], apartments = [], isSaving = false, onAddProperty, onEditProperty, onDeleteProperty, onViewApartments, onSelectProperty, onGoBack }: Props) {
   const { t } = useTranslation("properties");
   const { t: tCommon } = useTranslation("common");
   const { toast } = useToast();
@@ -201,7 +202,12 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
                 <div className="p-4">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-semibold text-lg">{property.name}</h3>
+                      <button
+                        className="font-semibold text-lg hover:underline text-left"
+                        onClick={() => onSelectProperty?.(property)}
+                      >
+                        {property.name}
+                      </button>
                       <p className="text-sm text-gray-500 mt-1">{property.address}</p>
                       <p className="text-sm text-gray-500">{property.city}, {property.postal_code || property.postalCode}</p>
                     </div>

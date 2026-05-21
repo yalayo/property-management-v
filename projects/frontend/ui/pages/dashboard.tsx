@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../components/ui/sheet";
 import PropertyList from "../components/dashboard/PropertyList";
+import PropertyDetail from "../components/dashboard/PropertyDetail";
 import TenantPayments from "../components/dashboard/TenantPayments";
 import FileUpload from "../components/dashboard/FileUpload";
 import UserAnalytics from "../components/dashboard/UserAnalytics";
@@ -61,6 +62,7 @@ export default function Dashboard(props) {
   const { t } = useTranslation("nav");
   const [activeTab, setActiveTab] = useState("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [selectedProperty, setSelectedProperty] = useState<any | null>(null);
 
   useEffect(() => {
     if (props.onLoadData) props.onLoadData();
@@ -78,6 +80,7 @@ export default function Dashboard(props) {
   const handleSelect = (id: string) => {
     setActiveTab(id);
     setSidebarOpen(false);
+    if (id !== "properties") setSelectedProperty(null);
   };
 
   const handleViewApartments = (property: any) => {
@@ -147,15 +150,30 @@ export default function Dashboard(props) {
           )}
 
           {activeTab === "properties" && (
-            <PropertyList
-              properties={props.properties}
-              apartments={props.apartments}
-              isSaving={props.isSaving}
-              onAddProperty={props.onAddProperty}
-              onEditProperty={props.onEditProperty}
-              onDeleteProperty={props.onDeleteProperty}
-              onViewApartments={handleViewApartments}
-            />
+            selectedProperty ? (
+              <PropertyDetail
+                property={selectedProperty}
+                costs={props.costs}
+                costsLoading={props.costsLoading}
+                costsSaving={props.costsSaving}
+                onLoadCosts={props.onLoadCosts}
+                onAddCost={props.onAddCost}
+                onUpdateCost={props.onUpdateCost}
+                onDeleteCost={props.onDeleteCost}
+                onBack={() => setSelectedProperty(null)}
+              />
+            ) : (
+              <PropertyList
+                properties={props.properties}
+                apartments={props.apartments}
+                isSaving={props.isSaving}
+                onAddProperty={props.onAddProperty}
+                onEditProperty={props.onEditProperty}
+                onDeleteProperty={props.onDeleteProperty}
+                onViewApartments={handleViewApartments}
+                onSelectProperty={setSelectedProperty}
+              />
+            )
           )}
 
           {activeTab === "apartments" && props.apartmentsView}

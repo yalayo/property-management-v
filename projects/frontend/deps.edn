@@ -9,6 +9,7 @@
         poly/apartment-ui  {:local/root "../../components/apartment-ui"}
         poly/tenant-ui     {:local/root "../../components/tenant-ui"}
         poly/payment-ui    {:local/root "../../components/payment-ui"}
+        poly/cost-ui       {:local/root "../../components/cost-ui"}
 
         org.clojure/clojure {:mvn/version "1.12.2"}
         org.clojure/clojurescript {:mvn/version "1.12.42"}
