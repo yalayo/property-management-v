@@ -30,7 +30,6 @@
         nav-to-home      #(re-frame/dispatch [::events/navigate :landing])
         nav-to-auth      #(re-frame/dispatch [::events/navigate :auth])
         nav-to-register  #(re-frame/dispatch [::events/navigate :register])]
-    (println section)
     (case section
       :landing          [landing-page {:on-login-click          nav-to-auth
                                        :on-create-account-click nav-to-auth}]
