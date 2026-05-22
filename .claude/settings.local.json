@@ -23,7 +23,9 @@
       "PowerShell(ls -Recurse \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\\\\bases\\\\worker\\\\\" -File | Where-Object { $_.Extension -match \"\\\\.\\(clj|cljs|cljc\\)$\" } | Select-Object FullName | Select-Object -First 10)",
       "Bash(Get-ChildItem -Recurse -Path \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\\\\components\\\\\" | Select-Object FullName | ConvertTo-Csv -NoTypeInformation | Select-Object -Skip 1)",
       "PowerShell(Get-ChildItem -Recurse -Path \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\\\\projects\\\\frontend\\\\ui\\\\components\\\\\" | Select-Object FullName | ForEach-Object { $_.FullName })",
-      "Bash(Get-ChildItem -Path \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\\\\components\\\\property-ui\" -Recurse -Filter \"events.cljs\")"
+      "Bash(Get-ChildItem -Path \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\\\\components\\\\property-ui\" -Recurse -Filter \"events.cljs\")",
+      "Bash(Get-ChildItem -Recurse -Filter \"*.cljs\")",
+      "Bash(Select-Object -First 20 FullName)"
     ]
   }
 }
