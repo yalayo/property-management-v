@@ -40,9 +40,21 @@
      :when
      (and (not ?auth)
           (not= ?intent :auth)
+          (not= ?intent :register)
           (not= ?intent :service-request))
      :then
      (o/insert! ::nav ::current-section :landing)]
+
+    ;; Explicit register intent while unauthenticated and not submitting → show register
+    ::set-section-register
+    [:what
+     [::session ::authenticated? ?auth]
+     [::nav     ::intent         :register]
+     [::nav     ::submitting?    false]
+     :when
+     (not ?auth)
+     :then
+     (o/insert! ::nav ::current-section :register)]
 
     ;; Service request form — accessible regardless of auth state
     ::set-section-service-request
