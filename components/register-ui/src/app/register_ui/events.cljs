@@ -1,26 +1,19 @@
 (ns app.register-ui.events
   (:require [re-frame.core :as re-frame :refer [after]]
-            [cljs.reader]
-            [app.register-ui.config :as config]
             [app.register-ui.db :as db]
-            [app.register-ui.analytics :as analytics]
-            [day8.re-frame.http-fx]
-            [ajax.edn :as ajax-edn]))
+            [app.register-ui.analytics :as analytics]))
 
 (def local-storage-interceptor (after db/db->local-store))
 
 (re-frame/reg-event-fx
  ::sign-up
  (fn [{:keys [db]} [_ form-data]]
-   {:db (assoc-in db [:user :sign-up :loading?] true)
-    :http-xhrio {:method          :post
-                 :uri             (str (config/get-api-url) "/api/command")
-                 :params          {:command :user-sign-up :data form-data}
-                 :format          (ajax-edn/edn-request-format)
-                 :response-format (ajax-edn/edn-response-format)
-                 :timeout         8000
-                 :on-success      [::signed-up]
-                 :on-failure      [::sign-up-error]}}))
+   {:db       (assoc-in db [:user :sign-up :loading?] true)
+    :dispatch [:app.core-ui.events/command
+               :user-sign-up
+               form-data
+               [::signed-up]
+               [::sign-up-error]]}))
 
 (re-frame/reg-event-fx
  ::signed-up

@@ -25,7 +25,7 @@
         :preferredTime :preferred-time})
       (dissoc :previousIssue)))
 
-(defn component [{:keys [landing-page auth-page register-page]}]
+(defn component [{:keys [landing-page auth-page register-page main-page]}]
   (let [section          (rules/current-section)
         nav-to-home      #(re-frame/dispatch [::events/navigate :landing])
         nav-to-auth      #(re-frame/dispatch [::events/navigate :auth])
@@ -40,4 +40,5 @@
                                         :on-go-home              nav-to-home
                                         :on-submit               #(re-frame/dispatch [::events/submit :register (camel->form-data %)])}]
       :submitting       [submitting]
+      :dashboard        [main-page {}]
       [not-found])))

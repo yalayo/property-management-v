@@ -12,7 +12,7 @@
      [::session ::authenticated? true]
      [::user    ::role           :admin]
      :then
-     (o/insert! ::nav ::current-section :admin-dashboard)]
+     (o/insert! ::nav ::current-section :dashboard)]
 
     ;; Authenticated dispatcher also goes to the dashboard
     ::set-section-authenticated-dispatcher
@@ -20,7 +20,16 @@
      [::session ::authenticated? true]
      [::user    ::role           :dispatcher]
      :then
-     (o/insert! ::nav ::current-section :admin-dashboard)]
+     (o/insert! ::nav ::current-section :dashboard)]
+
+    ;; Explicit dashboard intent while authenticated → show dashboard
+    ::set-section-dashboard
+    [:what
+     [::session ::authenticated? true]
+     [::nav     ::intent         :dashboard]
+     [::nav     ::submitting?    false]
+     :then
+     (o/insert! ::nav ::current-section :dashboard)]
 
     ;; Any other authenticated role returns to landing
     ::set-section-authenticated-other
@@ -152,7 +161,11 @@
 
 (defmethod form-command :auth [_]
   {:data-path [:auth :form]
-   :cmd-type  (if (= (current-auth-mode) "login") :sign-in :sign-up)})
+   :cmd-type  :user-sign-in})
+
+(defmethod form-command :register [_]
+  {:data-path [:register :form]
+   :cmd-type  :user-sign-up})
 
 (defmethod form-command :service-request [_]
   {:data-path [:service-request :form]
@@ -168,11 +181,19 @@
   (let [role (keyword (get user :role "client"))]
     (swap! session
            #(-> %
-                (o/insert ::session ::authenticated? true)
-                (o/insert ::user    ::role           role)
-                (o/insert ::nav     ::intent         :none)
-                (o/insert ::nav     ::submitting?    false)
+                (o/insert ::session ::authenticated?   true)
+                (o/insert ::user    ::role             role)
+                (o/insert ::nav     ::current-section :dashboard)
+                (o/insert ::nav     ::intent          :none)
+                (o/insert ::nav     ::submitting?     false)
                 o/fire-rules))))
+
+(defmethod on-success! :register [_ _]
+  ;; Registration succeeded — send user to sign-in so the rules navigate them to the dashboard.
+  (swap! session #(-> %
+                      (o/insert ::nav ::intent    :auth)
+                      (o/insert ::nav ::submitting? false)
+                      o/fire-rules)))
 
 (defmethod on-success! :service-request [_ _]
   ;; Navigation stays on :service-request; the form shows its own success state (step=99).
@@ -186,6 +207,9 @@
 (defmethod on-failure! :auth [_ _]
   (swap! session #(-> % (o/insert ::nav ::submitting? false) o/fire-rules)))
 
+(defmethod on-failure! :register [_ _]
+  (swap! session #(-> % (o/insert ::nav ::submitting? false) o/fire-rules)))
+
 (defmethod on-failure! :service-request [_ _]
   (swap! session #(-> % (o/insert ::nav ::submitting? false) o/fire-rules)))
 
@@ -196,10 +220,17 @@
 (defmethod success-db-update :auth [_]
   (fn [db {:keys [token user]}]
     (-> db
+        (assoc    :current-section :dashboard)
         (assoc-in [:user :logged-in?] true)
         (assoc-in [:user :token] token)
         (assoc-in [:user :info] user)
         (assoc-in [:auth :error] nil))))
+
+(defmethod success-db-update :register [_]
+  (fn [db _]
+    (-> db
+        (assoc-in [:register :form] nil)
+        (assoc-in [:register :error] nil))))
 
 (defmethod success-db-update :service-request [_]
   (fn [db {:keys [id]}]
@@ -217,6 +248,12 @@
     (assoc-in db [:auth :error]
               (or (get-in error [:response :error])
                   "Authentication failed"))))
+
+(defmethod failure-db-update :register [_]
+  (fn [db error]
+    (assoc-in db [:register :error]
+              (or (get-in error [:response :error])
+                  "Registration failed"))))
 
 (defmethod failure-db-update :service-request [_]
   (fn [db _]

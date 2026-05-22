@@ -4,15 +4,18 @@
             [app.core-ui.interface :as core]
             [app.landing-ui.interface :as landing]
             [app.auth-ui.interface :as auth]
-            [app.register-ui.interface :as register]))
+            [app.register-ui.interface :as register]
+            [app.main-ui.interface :as main]))
 
 (def config
   {::landing/component {}
    ::auth/component {}
    ::register/component {}
-   ::core/component {:landing-page (ig/ref ::landing/component)
-                     :auth-page (ig/ref ::auth/component)
-                     :register-page (ig/ref ::register/component)}
+   ::main/component {}
+   ::core/component {:landing-page   (ig/ref ::landing/component)
+                     :auth-page      (ig/ref ::auth/component)
+                     :register-page  (ig/ref ::register/component)
+                     :main-page (ig/ref ::main/component)}
    ::web/entry-point {:core-ui (ig/ref ::core/component)}})
 
 (defonce system (atom nil))

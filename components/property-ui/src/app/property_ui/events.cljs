@@ -1,25 +1,16 @@
 (ns app.property-ui.events
   (:require [re-frame.core :as re-frame :refer [after]]
-            [day8.re-frame.http-fx]
-            [ajax.edn :as ajax-edn]
-            [app.property-ui.db :as db]
-            [app.property-ui.config :as config]))
+            [app.property-ui.db :as db]))
 
 (def local-storage-interceptor (after db/db->local-store))
 
 (re-frame/reg-event-fx
  ::load-properties
- (fn [{:keys [db]} _]
-   (let [token (get-in db [:user :token] "")]
-     {:http-xhrio {:method          :post
-                   :uri             (str (config/get-api-url) "/api/query")
-                   :params          {:entity :property}
-                   :headers         {"Authorization" (str "Bearer " token)}
-                   :format          (ajax-edn/edn-request-format)
-                   :response-format (ajax-edn/edn-response-format)
-                   :timeout         8000
-                   :on-success      [::properties-loaded]
-                   :on-failure      [::properties-error]}})))
+ (fn [_ _]
+   {:dispatch [:app.core-ui.events/query
+               {:entity :property}
+               [::properties-loaded]
+               [::properties-error]]}))
 
 (re-frame/reg-event-db
  ::properties-loaded
@@ -38,17 +29,12 @@
 (re-frame/reg-event-fx
  ::add-property
  (fn [{:keys [db]} [_ property-data]]
-   (let [token (get-in db [:user :token] "")]
-     {:db         (assoc-in db [:properties :saving?] true)
-      :http-xhrio {:method          :post
-                   :uri             (str (config/get-api-url) "/api/command")
-                   :params          {:command :create-property :data property-data}
-                   :headers         {"Authorization" (str "Bearer " token)}
-                   :format          (ajax-edn/edn-request-format)
-                   :response-format (ajax-edn/edn-response-format)
-                   :timeout         8000
-                   :on-success      [::property-added]
-                   :on-failure      [::property-save-error]}})))
+   {:db       (assoc-in db [:properties :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :create-property
+               property-data
+               [::property-added]
+               [::property-save-error]]}))
 
 (re-frame/reg-event-fx
  ::property-added
@@ -67,17 +53,12 @@
 (re-frame/reg-event-fx
  ::update-property
  (fn [{:keys [db]} [_ id property-data]]
-   (let [token (get-in db [:user :token] "")]
-     {:db         (assoc-in db [:properties :saving?] true)
-      :http-xhrio {:method          :post
-                   :uri             (str (config/get-api-url) "/api/command")
-                   :params          {:command :update-property :data (assoc property-data :id id)}
-                   :headers         {"Authorization" (str "Bearer " token)}
-                   :format          (ajax-edn/edn-request-format)
-                   :response-format (ajax-edn/edn-response-format)
-                   :timeout         8000
-                   :on-success      [::property-updated]
-                   :on-failure      [::property-save-error]}})))
+   {:db       (assoc-in db [:properties :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :update-property
+               (assoc property-data :id id)
+               [::property-updated]
+               [::property-save-error]]}))
 
 (re-frame/reg-event-fx
  ::property-updated
@@ -89,17 +70,12 @@
 (re-frame/reg-event-fx
  ::delete-property
  (fn [{:keys [db]} [_ id]]
-   (let [token (get-in db [:user :token] "")]
-     {:db         (assoc-in db [:properties :saving?] true)
-      :http-xhrio {:method          :post
-                   :uri             (str (config/get-api-url) "/api/command")
-                   :params          {:command :delete-property :data {:id id}}
-                   :headers         {"Authorization" (str "Bearer " token)}
-                   :format          (ajax-edn/edn-request-format)
-                   :response-format (ajax-edn/edn-response-format)
-                   :timeout         8000
-                   :on-success      [::property-deleted]
-                   :on-failure      [::property-save-error]}})))
+   {:db       (assoc-in db [:properties :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :delete-property
+               {:id id}
+               [::property-deleted]
+               [::property-save-error]]}))
 
 (re-frame/reg-event-fx
  ::property-deleted

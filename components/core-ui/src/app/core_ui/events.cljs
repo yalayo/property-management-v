@@ -75,18 +75,46 @@
 
 (re-frame/reg-event-fx ::submit
   (fn [{:keys [db]} [_ form-id data]]
-    (let [{:keys [data-path cmd-type]} (rules/form-command form-id)]
-      {:db                      (assoc-in db data-path data)
-       :rules/set-submitting    true
-       :analytics/form-submit   {:form-id form-id :cmd-type cmd-type}
-       :http-xhrio {:method          :post
+    (let [{:keys [data-path cmd-type]} (rules/form-command form-id)
+          token                        (get-in db [:user :token] "")]
+      {:db                    (assoc-in db data-path data)
+       :rules/set-submitting  true
+       :analytics/form-submit {:form-id form-id :cmd-type cmd-type}
+       :http-xhrio            {:method          :post
+                               :uri             (str (api-url) "/api/command")
+                               :params          {:command cmd-type :data data}
+                               :headers         {"Authorization" (str "Bearer " token)}
+                               :format          (ajax-edn/edn-request-format)
+                               :response-format (ajax-edn/edn-response-format)
+                               :timeout         8000
+                               :on-success      [::on-success form-id]
+                               :on-failure      [::on-failure form-id]}})))
+
+(re-frame/reg-event-fx ::command
+  (fn [{:keys [db]} [_ cmd-type data on-success on-failure]]
+    (let [token (get-in db [:user :token] "")]
+      {:http-xhrio {:method          :post
                     :uri             (str (api-url) "/api/command")
                     :params          {:command cmd-type :data data}
+                    :headers         {"Authorization" (str "Bearer " token)}
                     :format          (ajax-edn/edn-request-format)
                     :response-format (ajax-edn/edn-response-format)
                     :timeout         8000
-                    :on-success      [::on-success form-id]
-                    :on-failure      [::on-failure form-id]}})))
+                    :on-success      on-success
+                    :on-failure      on-failure}})))
+
+(re-frame/reg-event-fx ::query
+  (fn [{:keys [db]} [_ params on-success on-failure]]
+    (let [token (get-in db [:user :token] "")]
+      {:http-xhrio {:method          :post
+                    :uri             (str (api-url) "/api/query")
+                    :params          params
+                    :headers         {"Authorization" (str "Bearer " token)}
+                    :format          (ajax-edn/edn-request-format)
+                    :response-format (ajax-edn/edn-response-format)
+                    :timeout         8000
+                    :on-success      on-success
+                    :on-failure      on-failure}})))
 
 (re-frame/reg-event-fx ::on-success
   [->local-store]
