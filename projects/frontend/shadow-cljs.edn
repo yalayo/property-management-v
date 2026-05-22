@@ -3,7 +3,7 @@
           {:target :browser
            :output-dir "./resources/public/js"
            :asset-path "/"
-           :modules {:app {:init-fn app.web.core/home}}
+           :modules {:app {:init-fn app.frontend.core/init}}
            :js-options {:resolve {"pdfjs-dist" {:target :global :global "pdfjsLib"}}}
            :devtools {:preloads [day8.re-frame-10x.preload]
                       :watch-dir "./resources/public"

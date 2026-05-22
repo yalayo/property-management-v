@@ -2,8 +2,7 @@
   (:require [re-frame.core :as re-frame]
             [clojure.set :as set]
             [app.core-ui.rules :as rules]
-            [app.core-ui.events :as events]
-            [app.core-ui.admin-dashboard :as admin]))
+            [app.core-ui.events :as events]))
 
 (defn not-found [] [:div "404 — page not found"])
 
@@ -26,15 +25,20 @@
         :preferredTime :preferred-time})
       (dissoc :previousIssue)))
 
-(defn component [{:keys [landing-page]}]
+(defn component [{:keys [landing-page auth-page register-page]}]
   (let [section          (rules/current-section)
+        nav-to-home      #(re-frame/dispatch [::events/navigate :landing])
         nav-to-auth      #(re-frame/dispatch [::events/navigate :auth])
-        submit-sr        #(re-frame/dispatch [::events/submit :service-request (camel->form-data %)])]
+        nav-to-register  #(re-frame/dispatch [::events/navigate :register])]
+    (println section)
     (case section
       :landing          [landing-page {:on-login-click          nav-to-auth
-                                       :on-create-account-click nav-to-auth
-                                       :on-submit               submit-sr}]
-      :auth             [admin/login-form]
-      :admin-dashboard  [admin/dashboard]
+                                       :on-create-account-click nav-to-auth}]
+      :auth             [auth-page {:on-create-account-click nav-to-register
+                                    :on-go-home              nav-to-home
+                                    :on-submit               #(re-frame/dispatch [::events/submit :auth (camel->form-data %)])}]
+      :register         [register-page {:on-login-click          nav-to-auth
+                                        :on-go-home              nav-to-home
+                                        :on-submit               #(re-frame/dispatch [::events/submit :register (camel->form-data %)])}]
       :submitting       [submitting]
       [not-found])))

@@ -1,6 +1,6 @@
-(ns app.auth-ui.interface
+(ns app.landing-ui.interface
   (:require [integrant.core :as ig]
-            [app.auth-ui.views :as views]))
+            [app.landing-ui.views :as views]))
 
 (defmethod ig/init-key ::component [_ _]
   views/component)

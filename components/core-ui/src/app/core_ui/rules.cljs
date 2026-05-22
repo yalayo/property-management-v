@@ -102,6 +102,7 @@
 
 (defn navigate-to! [intent]
   (swap! session #(-> %
+                      (o/retract ::nav ::intent)
                       (o/insert ::nav ::intent intent)
                       o/fire-rules)))
 

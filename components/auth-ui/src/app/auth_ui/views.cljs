@@ -2,16 +2,14 @@
   (:require [reagent.core  :as r]
             [re-frame.core :as re-frame]
             [app.auth-ui.subs :as subs]
-            [app.auth-ui.events :as events]
             ["/pages/login$default" :as login-js]))
 
 (def login (r/adapt-react-class login-js))
 
-(defn component [id]
+(defn component [{:keys [on-create-account-click on-go-home on-submit]}]
   [login
-   {:id        id
-    :user      @(re-frame/subscribe [::subs/current-user])
-    :isLoading @(re-frame/subscribe [::subs/sign-in-loading])
-    :onSubmit  (fn [data] (re-frame/dispatch [::events/sign-in (js->clj data :keywordize-keys true)]))
-    :showSignUp #(re-frame/dispatch [::events/show-sign-up])
-    :onGoHome  #(re-frame/dispatch [::events/go-home])}])
+   {:user       @(re-frame/subscribe [::subs/current-user])
+    :isLoading  @(re-frame/subscribe [::subs/sign-in-loading])
+    :onSubmit   on-submit
+    :showSignUp on-create-account-click
+    :onGoHome   on-go-home}])

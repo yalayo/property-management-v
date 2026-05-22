@@ -11,7 +11,7 @@
 (def interceptors [->local-store])
 
 (defn- api-url []
-  (if goog.DEBUG "http://localhost:8888" "https://api.sikleon.com"))
+  (if goog.DEBUG "http://localhost:8888" "https://immo-api.busqandote.com"))
 
 ;; ── Cofx ─────────────────────────────────────────────────────────────────────
 
