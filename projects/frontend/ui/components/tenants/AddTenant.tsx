@@ -22,6 +22,7 @@ type Apartment = { id: number; code: string };
 
 type Props = {
   apartments?: Apartment[];
+  tenants?: any[];
   isLoading?: boolean;
   onClose?: () => void;
   onSubmit?: (data: TenantFormValues) => void;
@@ -29,6 +30,7 @@ type Props = {
 
 export default function AddTenant({
   apartments = [],
+  tenants = [],
   isLoading = false,
   onClose,
   onSubmit,
@@ -50,6 +52,11 @@ export default function AddTenant({
   });
 
   const handleSubmit = (data: TenantFormValues) => {
+    const nameTaken = tenants.some(ten => ten.name?.toLowerCase() === data.name.toLowerCase());
+    if (nameTaken) {
+      form.setError("name", { message: t("validation.nameTaken") });
+      return;
+    }
     onSubmit?.(data);
     form.reset();
   };

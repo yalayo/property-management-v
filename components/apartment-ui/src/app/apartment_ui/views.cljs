@@ -122,6 +122,7 @@
             [add-apartment
              {:id                              "add-apartment"
               :properties                      (clj->js properties)
+              :apartments                      (clj->js apartments)
               :isLoading                       saving?
               :code                            new-code
               :onChangeAddApartmentDialogClose #(re-frame/dispatch [::events/close-add-dialog])

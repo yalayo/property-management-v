@@ -44,6 +44,7 @@
            (r/as-element
             [add-tenant
              {:apartments (clj->js (or apartments []))
+              :tenants    (clj->js tenants)
               :isLoading  saving?
               :onClose    #(re-frame/dispatch [::events/close-add-dialog])
               :onSubmit   (fn [data]

@@ -32,7 +32,11 @@
       "Bash(Get-ChildItem -Path \"D:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\" -Recurse -Filter \"*Apartment*.tsx\")",
       "Bash(Select-Object -First 20)",
       "Bash(Get-ChildItem \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\\\\components\\\\controller\" -Recurse -Filter \"*.clj\")",
-      "Bash(Get-ChildItem -Path \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\" -Directory)"
+      "Bash(Get-ChildItem -Path \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\" -Directory)",
+      "Bash(Get-ChildItem -Path \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\\\\projects\\\\frontend\\\\ui\\\\components\" -Recurse -Filter \"*.tsx\")",
+      "Bash(python /tmp/patch_controller.py)",
+      "Bash(python patch_ctrl.py)",
+      "Bash(del patch_ctrl.py)"
     ]
   }
 }

@@ -111,20 +111,24 @@
           result
           (let [{:keys [name address city postal-code country units
                         acquisition-date purchase-price current-value]} (:entity result)]
-            (js-await [{:keys [tx-id entity-ids]}
-                       ((:transact! storage)
-                        [{:db/type                   "property"
-                          :property/organization-id  org-id
-                          :property/name             name
-                          :property/address          address
-                          :property/city             city
-                          :property/postal-code      postal-code
-                          :property/country          country
-                          :property/units            units
-                          :property/acquisition-date acquisition-date
-                          :property/purchase-price   purchase-price
-                          :property/current-value    current-value}] nil)]
-                      {:tx-id tx-id :property-id (first entity-ids)})))))))
+            (js-await [dups ((:q storage) {:where [['?e :property/organization-id org-id]
+                                                    ['?e :property/name name]]})]
+                      (if (seq dups)
+                        {:error :duplicate-name}
+                        (js-await [{:keys [tx-id entity-ids]}
+                                   ((:transact! storage)
+                                    [{:db/type                   "property"
+                                      :property/organization-id  org-id
+                                      :property/name             name
+                                      :property/address          address
+                                      :property/city             city
+                                      :property/postal-code      postal-code
+                                      :property/country          country
+                                      :property/units            units
+                                      :property/acquisition-date acquisition-date
+                                      :property/purchase-price   purchase-price
+                                      :property/current-value    current-value}] nil)]
+                                  {:tx-id tx-id :property-id (first entity-ids)})))))))
 
 (defn- handle-update-property! [core storage data user]
   (with-org user
@@ -138,20 +142,25 @@
                         result
                         (let [{:keys [name address city postal-code country units
                                       purchase-price current-value iban bank-name]} (:updates result)]
-                          (js-await [{:keys [tx-id]}
-                                     ((:transact! storage)
-                                      [(cond-> {:db/id                   eid
-                                                :property/name           name
-                                                :property/address        address
-                                                :property/city           city
-                                                :property/postal-code    postal-code
-                                                :property/country        country
-                                                :property/units          units
-                                                :property/purchase-price purchase-price
-                                                :property/current-value  current-value}
-                                         iban      (assoc :property/iban      iban)
-                                         bank-name (assoc :property/bank-name bank-name))] nil)]
-                                    {:tx-id tx-id}))))))))))
+                          (js-await [dups ((:q storage) {:where [['?e :property/organization-id org-id]
+                                                                   ['?e :property/name name]]})]
+                                    (let [conflicts (filter #(not= % eid) (vec dups))]
+                                      (if (seq conflicts)
+                                        {:error :duplicate-name}
+                                        (js-await [{:keys [tx-id]}
+                                                   ((:transact! storage)
+                                                    [(cond-> {:db/id                   eid
+                                                              :property/name           name
+                                                              :property/address        address
+                                                              :property/city           city
+                                                              :property/postal-code    postal-code
+                                                              :property/country        country
+                                                              :property/units          units
+                                                              :property/purchase-price purchase-price
+                                                              :property/current-value  current-value}
+                                                       iban      (assoc :property/iban      iban)
+                                                       bank-name (assoc :property/bank-name bank-name))] nil)]
+                                                  {:tx-id tx-id})))))))))
 
 (defn- handle-delete-property! [storage data user]
   (with-org user
@@ -190,14 +199,18 @@
         (if (:error result)
           result
           (let [{:keys [property-id code]} (:entity result)]
-            (js-await [{:keys [tx-id entity-ids]}
-                       ((:transact! storage)
-                        [{:db/type                   "apartment"
-                          :apartment/organization-id org-id
-                          :apartment/property-id     property-id
-                          :apartment/code            code
-                          :apartment/occupied        false}] nil)]
-                      {:tx-id tx-id :apartment-id (first entity-ids)})))))))
+            (js-await [dups ((:q storage) {:where [['?e :apartment/property-id property-id]
+                                                    ['?e :apartment/code code]]})]
+                      (if (seq dups)
+                        {:error :duplicate-code}
+                        (js-await [{:keys [tx-id entity-ids]}
+                                   ((:transact! storage)
+                                    [{:db/type                   "apartment"
+                                      :apartment/organization-id org-id
+                                      :apartment/property-id     property-id
+                                      :apartment/code            code
+                                      :apartment/occupied        false}] nil)]
+                                  {:tx-id tx-id :apartment-id (first entity-ids)})))))))
 
 (defn- handle-update-apartment! [core storage data user]
   (with-org user
@@ -289,17 +302,21 @@
         (if (:error result)
           result
           (let [{:keys [apartment-id name email phone start-date end-date]} (:entity result)]
-            (js-await [{:keys [tx-id entity-ids]}
-                       ((:transact! storage)
-                        [{:db/type                  "tenant"
-                          :tenant/organization-id   org-id
-                          :tenant/apartment-id      apartment-id
-                          :tenant/name              name
-                          :tenant/email             email
-                          :tenant/phone             phone
-                          :tenant/start-date        start-date
-                          :tenant/end-date          end-date}] nil)]
-                      {:tx-id tx-id :tenant-id (first entity-ids)})))))))
+            (js-await [dups ((:q storage) {:where [['?e :tenant/organization-id org-id]
+                                                    ['?e :tenant/name name]]})]
+                      (if (seq dups)
+                        {:error :duplicate-name}
+                        (js-await [{:keys [tx-id entity-ids]}
+                                   ((:transact! storage)
+                                    [{:db/type                  "tenant"
+                                      :tenant/organization-id   org-id
+                                      :tenant/apartment-id      apartment-id
+                                      :tenant/name              name
+                                      :tenant/email             email
+                                      :tenant/phone             phone
+                                      :tenant/start-date        start-date
+                                      :tenant/end-date          end-date}] nil)]
+                                  {:tx-id tx-id :tenant-id (first entity-ids)})))))))
 
 (defn- handle-update-tenant! [core storage data user]
   (with-org user

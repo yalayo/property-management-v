@@ -161,6 +161,7 @@ const resources = {
       },
       validation: {
         nameRequired: "Property name is required",
+        nameTaken: "A property with this name already exists",
         addressRequired: "Address is required",
         cityRequired: "City is required",
         postalCodeRequired: "Valid postal code is required",
@@ -199,6 +200,7 @@ const resources = {
       },
       validation: {
         nameRequired: "Name is required",
+        nameTaken: "A tenant with this name already exists",
         emailInvalid: "Invalid email address",
       },
     },
@@ -256,6 +258,9 @@ const resources = {
       },
       placeholders: {
         code: "E.g., A1, 2B, Top-Left",
+      },
+      validation: {
+        codeTaken: "An apartment with this code already exists in this property",
       },
     },
     payments: {
@@ -852,6 +857,7 @@ const resources = {
       },
       validation: {
         nameRequired: "Immobilienname ist erforderlich",
+        nameTaken: "Eine Immobilie mit diesem Namen existiert bereits",
         addressRequired: "Adresse ist erforderlich",
         cityRequired: "Stadt ist erforderlich",
         postalCodeRequired: "Gültige Postleitzahl ist erforderlich",
@@ -890,6 +896,7 @@ const resources = {
       },
       validation: {
         nameRequired: "Name ist erforderlich",
+        nameTaken: "Ein Mieter mit diesem Namen existiert bereits",
         emailInvalid: "Ungültige E-Mail-Adresse",
       },
     },
@@ -947,6 +954,9 @@ const resources = {
       },
       placeholders: {
         code: "z.B. A1, 2B, OG-Links",
+      },
+      validation: {
+        codeTaken: "Eine Wohnung mit diesem Code existiert bereits in dieser Immobilie",
       },
     },
     payments: {

@@ -166,6 +166,11 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
   const editForm = useForm<PropertyFormValues>({ resolver: zodResolver(propertyFormSchema), defaultValues: emptyDefaults });
 
   const handleAdd = (data: PropertyFormValues) => {
+    const nameTaken = properties.some(p => p.name?.toLowerCase() === (data.name as string).toLowerCase());
+    if (nameTaken) {
+      addForm.setError("name", { message: t("validation.nameTaken") });
+      return;
+    }
     if (onAddProperty) {
       onAddProperty(data);
     } else {
@@ -189,6 +194,13 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
   };
 
   const handleEdit = (data: PropertyFormValues) => {
+    const nameTaken = properties.some(
+      p => p.id !== editingProperty?.id && p.name?.toLowerCase() === (data.name as string).toLowerCase()
+    );
+    if (nameTaken) {
+      editForm.setError("name", { message: t("validation.nameTaken") });
+      return;
+    }
     if (onEditProperty && editingProperty) {
       onEditProperty(editingProperty.id, data);
     }
