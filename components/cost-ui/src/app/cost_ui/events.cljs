@@ -135,6 +135,71 @@
  (fn [db _]
    (assoc-in db [:apartment-costs :saving?] false)))
 
+;; ── Org-wide queries (analytics / accounting) ────────────────────────────
+
+(re-frame/reg-event-fx
+ ::load-all-costs
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:all-costs :loading?] true)
+    :dispatch [:app.core-ui.events/query
+               {:entity :cost}
+               [::all-costs-loaded]
+               [::all-costs-error]]}))
+
+(re-frame/reg-event-db
+ ::all-costs-loaded
+ (fn [db [_ {:keys [costs]}]]
+   (-> db
+       (assoc-in [:all-costs :list] costs)
+       (assoc-in [:all-costs :loading?] false))))
+
+(re-frame/reg-event-db
+ ::all-costs-error
+ (fn [db _]
+   (assoc-in db [:all-costs :loading?] false)))
+
+(re-frame/reg-event-fx
+ ::load-all-apt-costs
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:all-apt-costs :loading?] true)
+    :dispatch [:app.core-ui.events/query
+               {:entity :apartment-cost}
+               [::all-apt-costs-loaded]
+               [::all-apt-costs-error]]}))
+
+(re-frame/reg-event-db
+ ::all-apt-costs-loaded
+ (fn [db [_ {:keys [costs]}]]
+   (-> db
+       (assoc-in [:all-apt-costs :list] costs)
+       (assoc-in [:all-apt-costs :loading?] false))))
+
+(re-frame/reg-event-db
+ ::all-apt-costs-error
+ (fn [db _]
+   (assoc-in db [:all-apt-costs :loading?] false)))
+
+(re-frame/reg-event-fx
+ ::load-all-rent-payments
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:all-rent-payments :loading?] true)
+    :dispatch [:app.core-ui.events/query
+               {:entity :rent-payment}
+               [::all-rent-payments-loaded]
+               [::all-rent-payments-error]]}))
+
+(re-frame/reg-event-db
+ ::all-rent-payments-loaded
+ (fn [db [_ {:keys [rent-payments]}]]
+   (-> db
+       (assoc-in [:all-rent-payments :list] rent-payments)
+       (assoc-in [:all-rent-payments :loading?] false))))
+
+(re-frame/reg-event-db
+ ::all-rent-payments-error
+ (fn [db _]
+   (assoc-in db [:all-rent-payments :loading?] false)))
+
 ;; ── Expense types ─────────────────────────────────────────────────────────
 
 (re-frame/reg-event-fx

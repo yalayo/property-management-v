@@ -33,7 +33,13 @@
     (js-await [body (cf/request->edn request)]
               (let [entity  (:entity body)
                     command (cond
-                              (and (= entity :apartment) (:property-id body)) :get-apartments-by-property
+                              (and (= entity :apartment)      (:property-id body))  :get-apartments-by-property
+                              (and (= entity :cost)           (:property-id body))  :get-costs
+                              (= entity :cost)                                       :get-all-costs
+                              (and (= entity :apartment-cost) (:apartment-id body)) :get-apartment-costs
+                              (= entity :apartment-cost)                             :get-all-apartment-costs
+                              (and (= entity :rent-payment)   (:apartment-id body)) :get-rent-payments
+                              (= entity :rent-payment)                               :get-all-rent-payments
                               :else (get entity->command entity))]
                 (if-not command
                   (cf/response-edn {:error :unknown-entity} {:status 400})

@@ -20,3 +20,8 @@
  ::selected-property
  (fn [db _]
    (get-in db [:ui :selected-property])))
+
+(re-frame/reg-sub
+ ::dashboard-tab
+ (fn [db _]
+   (get-in db [:ui :dashboard-tab] "overview")))

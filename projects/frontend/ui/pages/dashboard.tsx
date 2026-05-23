@@ -65,13 +65,20 @@ function SidebarContent({ activeTab, onSelect, onLogout }) {
 
 export default function Dashboard(props) {
   const { t } = useTranslation("nav");
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState<string>(() => props.activeTab || "overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<any | null>(null);
 
   useEffect(() => {
     if (props.onLoadData) props.onLoadData();
   }, []);
+
+  // Sync activeTab when restored from localStorage on first mount
+  useEffect(() => {
+    if (props.activeTab && props.activeTab !== activeTab) {
+      setActiveTab(props.activeTab);
+    }
+  }, [props.activeTab]);
 
   const NAV_LABELS: Record<string, string> = {
     overview:   t("overview"),
@@ -87,6 +94,7 @@ export default function Dashboard(props) {
 
   const handleSelect = (id: string) => {
     setActiveTab(id);
+    props.onChangeTab?.(id);
     setSidebarOpen(false);
     if (id !== "properties") setSelectedProperty(null);
   };
@@ -216,7 +224,16 @@ export default function Dashboard(props) {
           )}
           {activeTab === "expenses" && props.expensesView}
           {activeTab === "documents" && <FileUpload />}
-          {activeTab === "analytics" && <UserAnalytics />}
+          {activeTab === "analytics" && (
+            <UserAnalytics
+              properties={props.properties}
+              apartments={props.apartments}
+              tenants={props.tenants}
+              allCosts={props.allCosts}
+              allAptCosts={props.allAptCosts}
+              allRentPayments={props.allRentPayments}
+            />
+          )}
         </main>
       </div>
     </div>

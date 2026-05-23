@@ -32,6 +32,21 @@
    (get-in db [:apartment-costs :saving?] false)))
 
 (re-frame/reg-sub
+ ::all-costs
+ (fn [db _]
+   (get-in db [:all-costs :list] [])))
+
+(re-frame/reg-sub
+ ::all-apt-costs
+ (fn [db _]
+   (get-in db [:all-apt-costs :list] [])))
+
+(re-frame/reg-sub
+ ::all-rent-payments
+ (fn [db _]
+   (get-in db [:all-rent-payments :list] [])))
+
+(re-frame/reg-sub
  ::expense-types
  (fn [db _]
    (get-in db [:expense-types :list] [])))

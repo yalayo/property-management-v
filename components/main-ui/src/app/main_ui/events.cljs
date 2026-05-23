@@ -110,6 +110,12 @@
        (assoc-in [:user :sign-out :loading?] false)
        (assoc-in [:ui :active-section] "auth"))))
 
+(re-frame/reg-event-db
+ ::set-dashboard-tab
+ [local-storage-interceptor]
+ (fn [db [_ tab]]
+   (assoc-in db [:ui :dashboard-tab] tab)))
+
 (re-frame/reg-event-fx
  ::navigate-to-apartments
  [local-storage-interceptor]

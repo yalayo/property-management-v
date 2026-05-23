@@ -533,6 +533,27 @@
                     (js-await [_ ((:excise! storage) eid nil)]
                               {:ok true})))))))
 
+(defn- handle-get-all-costs! [storage user]
+  (with-org user
+    (fn [org-id]
+      (js-await [eids  ((:find-by-attr storage) :cost/organization-id org-id)
+                 costs (pull-many+ storage eids '[*])]
+                {:costs costs}))))
+
+(defn- handle-get-all-apartment-costs! [storage user]
+  (with-org user
+    (fn [org-id]
+      (js-await [eids  ((:find-by-attr storage) :apartment-cost/organization-id org-id)
+                 costs (pull-many+ storage eids '[*])]
+                {:costs costs}))))
+
+(defn- handle-get-all-rent-payments! [storage user]
+  (with-org user
+    (fn [org-id]
+      (js-await [eids  ((:find-by-attr storage) :rent-payment/organization-id org-id)
+                 rents (pull-many+ storage eids '[*])]
+                {:rent-payments rents}))))
+
 (defn- handle-assign-tenant-to-apartment! [storage data user]
   (with-org user
     (fn [org-id]
@@ -593,4 +614,7 @@
     :create-expense-type             (handle-create-expense-type! storage data user)
     :update-expense-type             (handle-update-expense-type! storage data user)
     :delete-expense-type             (handle-delete-expense-type! storage data user)
+    :get-all-costs                   (handle-get-all-costs! storage user)
+    :get-all-apartment-costs         (handle-get-all-apartment-costs! storage user)
+    :get-all-rent-payments           (handle-get-all-rent-payments! storage user)
     {:error :unknown-command}))

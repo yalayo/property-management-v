@@ -72,7 +72,11 @@
         rent-saving?         @(re-frame/subscribe [::rent-subs/saving?])
         expense-types        @(re-frame/subscribe [::cost-subs/expense-types])
         expense-types-loading? @(re-frame/subscribe [::cost-subs/expense-types-loading?])
-        expense-types-saving?  @(re-frame/subscribe [::cost-subs/expense-types-saving?])]
+        expense-types-saving?  @(re-frame/subscribe [::cost-subs/expense-types-saving?])
+        dashboard-tab        @(re-frame/subscribe [::subs/dashboard-tab])
+        all-costs            @(re-frame/subscribe [::cost-subs/all-costs])
+        all-apt-costs        @(re-frame/subscribe [::cost-subs/all-apt-costs])
+        all-rent-payments    @(re-frame/subscribe [::cost-subs/all-rent-payments])]
     [main
      {:activeComponent
       (r/as-element
@@ -100,11 +104,16 @@
          "payment"            [payment-ui/component {}]
          [dashboard
           {:onLogout           #(re-frame/dispatch [::events/sign-out])
+           :activeTab          dashboard-tab
+           :onChangeTab        #(re-frame/dispatch [::events/set-dashboard-tab %])
            :onLoadData         (fn []
                                  (property-ui/load-properties)
                                  (re-frame/dispatch [::apartment-events/load-apartments])
                                  (re-frame/dispatch [::tenant-events/load-tenants])
-                                 (re-frame/dispatch [::cost-events/load-expense-types]))
+                                 (re-frame/dispatch [::cost-events/load-expense-types])
+                                 (re-frame/dispatch [::cost-events/load-all-costs])
+                                 (re-frame/dispatch [::cost-events/load-all-apt-costs])
+                                 (re-frame/dispatch [::cost-events/load-all-rent-payments]))
            :properties         (clj->js properties)
            :propertiesLoading  prop-loading?
            :apartmentsLoading  apts-loading?
@@ -266,4 +275,7 @@
                                      {:id    (:id d)
                                       :value (:value d)}])))
            :onDeleteCost       (fn [id]
-                                 (re-frame/dispatch [::cost-events/delete-cost id]))}]))}]))
+                                 (re-frame/dispatch [::cost-events/delete-cost id]))
+           :allCosts           (clj->js all-costs)
+           :allAptCosts        (clj->js all-apt-costs)
+           :allRentPayments    (clj->js all-rent-payments)}]))}]))
