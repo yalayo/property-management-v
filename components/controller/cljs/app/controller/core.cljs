@@ -209,12 +209,13 @@
                     (let [result ((:process core) {:command :update-apartment :data data})]
                       (if (:error result)
                         result
-                        (let [{:keys [code occupied]} (:updates result)]
+                        (let [{:keys [code occupied]} (:updates result)
+                              facts (cond-> {:db/id eid}
+                                      (some? code)     (assoc :apartment/code code)
+                                      (some? occupied) (assoc :apartment/occupied (boolean occupied)))]
                           (js-await [{:keys [tx-id]}
                                      ((:transact! storage)
-                                      [{:db/id              eid
-                                        :apartment/code     code
-                                        :apartment/occupied (boolean occupied)}] nil)]
+                                      [facts] nil)]
                                     {:tx-id tx-id}))))))))))
 
 (defn- handle-delete-apartment! [storage data user]
