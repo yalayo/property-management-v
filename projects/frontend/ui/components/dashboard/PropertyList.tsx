@@ -1,6 +1,6 @@
 import React from "react";
-import { useState } from "react";
-import { Plus, Edit, Trash2, Building2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Edit, Trash2, Building2, Search } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -11,6 +11,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
 import { Input } from "../ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../ui/form";
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "../ui/pagination";
+
+const PAGE_SIZE = 9;
+
+function getPageNumbers(current: number, total: number): (number | "ellipsis")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: (number | "ellipsis")[] = [1];
+  if (current > 3) pages.push("ellipsis");
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) pages.push(i);
+  if (current < total - 2) pages.push("ellipsis");
+  pages.push(total);
+  return pages;
+}
 
 type PropertyFormValues = {
   name: string;
@@ -122,6 +135,22 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<any | null>(null);
   const [deletingProperty, setDeletingProperty] = useState<any | null>(null);
+  const [page, setPage] = useState(1);
+  const [filterText, setFilterText] = useState("");
+
+  useEffect(() => { setPage(1); }, [properties, filterText]);
+
+  const filteredProperties = filterText
+    ? properties.filter((p: any) => {
+        const q = filterText.toLowerCase();
+        return p.name?.toLowerCase().includes(q) ||
+               p.address?.toLowerCase().includes(q) ||
+               p.city?.toLowerCase().includes(q);
+      })
+    : properties;
+
+  const totalPages = Math.max(1, Math.ceil(filteredProperties.length / PAGE_SIZE));
+  const pagedProperties = filteredProperties.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const propertyFormSchema = z.object({
     name: z.string().min(1, t("validation.nameRequired")),
@@ -195,9 +224,19 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
       </CardHeader>
 
       <CardContent>
+        <div className="relative mb-4">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder={tCommon("search")}
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+            className="pl-8"
+          />
+        </div>
         {properties.length > 0 ? (
+          <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {properties.map((property: any) => (
+            {pagedProperties.map((property: any) => (
               <Card key={property.id} className="overflow-hidden">
                 <div className="p-4">
                   <div className="flex justify-between items-start">
@@ -261,6 +300,28 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
               </Card>
             ))}
           </div>
+          {totalPages > 1 && (
+            <Pagination className="mt-4">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); if (page > 1) setPage(page - 1); }} aria-disabled={page === 1} className={page === 1 ? "pointer-events-none opacity-50" : ""} />
+                </PaginationItem>
+                {getPageNumbers(page, totalPages).map((p, i) =>
+                  p === "ellipsis" ? (
+                    <PaginationItem key={`el-${i}`}><PaginationEllipsis /></PaginationItem>
+                  ) : (
+                    <PaginationItem key={p}>
+                      <PaginationLink href="#" isActive={p === page} onClick={(e) => { e.preventDefault(); setPage(p as number); }}>{p}</PaginationLink>
+                    </PaginationItem>
+                  )
+                )}
+                <PaginationItem>
+                  <PaginationNext href="#" onClick={(e) => { e.preventDefault(); if (page < totalPages) setPage(page + 1); }} aria-disabled={page === totalPages} className={page === totalPages ? "pointer-events-none opacity-50" : ""} />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
+          </>
         ) : (
           <div className="text-center p-8">
             <p className="text-gray-500">{t("noProperties")}</p>

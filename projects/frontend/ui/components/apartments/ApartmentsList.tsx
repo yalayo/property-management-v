@@ -1,11 +1,25 @@
-import React from "react";
-import { Plus, Settings, UserPlus, DoorOpen, DoorClosed, ArrowLeft, Clock } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Plus, Settings, UserPlus, DoorOpen, DoorClosed, ArrowLeft, Clock, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Dialog, DialogContent } from "../ui/dialog";
 import { Skeleton } from "../ui/skeleton";
+import { Input } from "../ui/input";
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "../ui/pagination";
+
+const PAGE_SIZE = 9;
+
+function getPageNumbers(current: number, total: number): (number | "ellipsis")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: (number | "ellipsis")[] = [1];
+  if (current > 3) pages.push("ellipsis");
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) pages.push(i);
+  if (current < total - 2) pages.push("ellipsis");
+  pages.push(total);
+  return pages;
+}
 
 type Apartment = {
   id: number;
@@ -56,6 +70,17 @@ export default function ApartmentsList({
   const safeApartments: Apartment[] = apartments ?? [];
   const occupied = safeApartments.filter((a) => a.occupied).length;
   const empty = safeApartments.length - occupied;
+  const [page, setPage] = useState(1);
+  const [filterText, setFilterText] = useState("");
+
+  useEffect(() => { setPage(1); }, [apartments, filterText]);
+
+  const filteredApartments = filterText
+    ? safeApartments.filter((a) => a.code?.toLowerCase().includes(filterText.toLowerCase()))
+    : safeApartments;
+
+  const totalPages = Math.max(1, Math.ceil(filteredApartments.length / PAGE_SIZE));
+  const pagedApartments = filteredApartments.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <Card>
@@ -83,6 +108,15 @@ export default function ApartmentsList({
       </CardHeader>
 
       <CardContent>
+        <div className="relative mb-4">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder={tCommon("search")}
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+            className="pl-8"
+          />
+        </div>
         {isLoading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => (
@@ -90,8 +124,9 @@ export default function ApartmentsList({
             ))}
           </div>
         ) : safeApartments.length > 0 ? (
+          <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {safeApartments.map((apt) => {
+            {pagedApartments.map((apt) => {
               const isOccupied = !!apt.occupied;
               const onboarding = onboardingsByApartment[apt.id];
               return (
@@ -151,6 +186,28 @@ export default function ApartmentsList({
               );
             })}
           </div>
+          {totalPages > 1 && (
+            <Pagination className="mt-4">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); if (page > 1) setPage(page - 1); }} aria-disabled={page === 1} className={page === 1 ? "pointer-events-none opacity-50" : ""} />
+                </PaginationItem>
+                {getPageNumbers(page, totalPages).map((p, i) =>
+                  p === "ellipsis" ? (
+                    <PaginationItem key={`el-${i}`}><PaginationEllipsis /></PaginationItem>
+                  ) : (
+                    <PaginationItem key={p}>
+                      <PaginationLink href="#" isActive={p === page} onClick={(e) => { e.preventDefault(); setPage(p as number); }}>{p}</PaginationLink>
+                    </PaginationItem>
+                  )
+                )}
+                <PaginationItem>
+                  <PaginationNext href="#" onClick={(e) => { e.preventDefault(); if (page < totalPages) setPage(page + 1); }} aria-disabled={page === totalPages} className={page === totalPages ? "pointer-events-none opacity-50" : ""} />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
+          </>
         ) : (
           <div className="text-center py-12">
             <DoorOpen className="h-10 w-10 text-muted-foreground mx-auto mb-3" />

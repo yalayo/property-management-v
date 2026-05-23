@@ -26,3 +26,15 @@
 
 (defn delete-apartment-cost [id]
   (re-frame/dispatch [::events/delete-apartment-cost id]))
+
+(defn load-expense-types []
+  (re-frame/dispatch [::events/load-expense-types]))
+
+(defn create-expense-type [data]
+  (re-frame/dispatch [::events/create-expense-type data]))
+
+(defn update-expense-type [data]
+  (re-frame/dispatch [::events/update-expense-type data]))
+
+(defn delete-expense-type [id]
+  (re-frame/dispatch [::events/delete-expense-type id]))

@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect } from "react";
-import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2, Landmark, Receipt } from "lucide-react";
+import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2, Landmark, Receipt, Tags } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../components/ui/sheet";
@@ -24,6 +24,7 @@ function SidebarContent({ activeTab, onSelect, onLogout }) {
     { id: "tenants",     label: t("tenants"),     icon: Users },
     { id: "bank",        label: t("bank"),        icon: Landmark },
     { id: "abrechnung",  label: t("abrechnung"),  icon: Receipt },
+    { id: "expenses",    label: t("expenses"),    icon: Tags },
     { id: "documents",   label: t("documents"),   icon: FileText },
     { id: "analytics",   label: t("analytics"),   icon: BarChart2 },
   ];
@@ -79,6 +80,7 @@ export default function Dashboard(props) {
     tenants:    t("tenants"),
     bank:       t("bank"),
     abrechnung: t("abrechnung"),
+    expenses:   t("expenses"),
     documents:  t("documents"),
     analytics:  t("analytics"),
   };
@@ -159,6 +161,7 @@ export default function Dashboard(props) {
             selectedProperty ? (
               <PropertyDetail
                 property={selectedProperty}
+                expenseTypes={props.expenseTypes}
                 costs={props.costs}
                 costsLoading={props.costsLoading}
                 costsSaving={props.costsSaving}
@@ -211,6 +214,7 @@ export default function Dashboard(props) {
               onEditProperty={props.onEditProperty}
             />
           )}
+          {activeTab === "expenses" && props.expensesView}
           {activeTab === "documents" && <FileUpload />}
           {activeTab === "analytics" && <UserAnalytics />}
         </main>

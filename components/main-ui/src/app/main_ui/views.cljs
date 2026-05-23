@@ -33,7 +33,8 @@
             ["/pages/subscription-tiers$default"  :as subscription-tiers-js]
             ["/pages/waiting-list$default"        :as waiting-list-js]
             ["/pages/features-pricing$default"    :as features-pricing-js]
-            ["/pages/not-found$default"           :as not-found-js]))
+            ["/pages/not-found$default"           :as not-found-js]
+            ["/components/settings/ExpenseTypes$default" :as expense-types-js]))
 
 (def main              (r/adapt-react-class main-js))
 (def home              (r/adapt-react-class home-js))
@@ -45,6 +46,7 @@
 (def waiting-list      (r/adapt-react-class waiting-list-js))
 (def features-pricing  (r/adapt-react-class features-pricing-js))
 (def not-found         (r/adapt-react-class not-found-js))
+(def expense-types-comp (r/adapt-react-class expense-types-js))
 
 (defn component [{:keys []}]
   (let [active               @(re-frame/subscribe [::subs/active-section])
@@ -57,6 +59,7 @@
         apts-loading?        @(re-frame/subscribe [::apartment-subs/loading?])
         tenants              @(re-frame/subscribe [::tenant-subs/tenants])
         tenants-loading?     @(re-frame/subscribe [::tenant-subs/loading?])
+        tenants-saving?      @(re-frame/subscribe [::tenant-subs/saving?])
         available-apartments (filter #(not (:apartment/occupied %)) all-apartments)
         costs                @(re-frame/subscribe [::cost-subs/costs])
         costs-loading?       @(re-frame/subscribe [::cost-subs/loading?])
@@ -66,7 +69,10 @@
         apt-costs-saving?    @(re-frame/subscribe [::cost-subs/apt-costs-saving?])
         rent-payments        @(re-frame/subscribe [::rent-subs/rent-payments])
         rent-loading?        @(re-frame/subscribe [::rent-subs/loading?])
-        rent-saving?         @(re-frame/subscribe [::rent-subs/saving?])]
+        rent-saving?         @(re-frame/subscribe [::rent-subs/saving?])
+        expense-types        @(re-frame/subscribe [::cost-subs/expense-types])
+        expense-types-loading? @(re-frame/subscribe [::cost-subs/expense-types-loading?])
+        expense-types-saving?  @(re-frame/subscribe [::cost-subs/expense-types-saving?])]
     [main
      {:activeComponent
       (r/as-element
@@ -97,7 +103,8 @@
            :onLoadData         (fn []
                                  (property-ui/load-properties)
                                  (re-frame/dispatch [::apartment-events/load-apartments])
-                                 (re-frame/dispatch [::tenant-events/load-tenants]))
+                                 (re-frame/dispatch [::tenant-events/load-tenants])
+                                 (re-frame/dispatch [::cost-events/load-expense-types]))
            :properties         (clj->js properties)
            :propertiesLoading  prop-loading?
            :apartmentsLoading  apts-loading?
@@ -110,7 +117,18 @@
            :apartmentsView     (r/as-element [apartment-ui/component
                                               {:properties         properties
                                                :tenants            tenants
+                                               :expense-types      expense-types
                                                :on-after-assign    (fn [] (tenant-ui/load-tenants))
+                                               :on-update-tenant   (fn [id data]
+                                                                     (let [d (js->clj data :keywordize-keys true)]
+                                                                       (re-frame/dispatch
+                                                                        [::tenant-events/update-tenant id
+                                                                         {:name       (:name d)
+                                                                          :email      (:email d)
+                                                                          :phone      (:phone d)
+                                                                          :start-date (:startDate d)
+                                                                          :end-date   (:endDate d)}])))
+                                               :tenants-saving?    tenants-saving?
                                                :apt-costs          (clj->js apt-costs)
                                                :apt-costs-loading? apt-costs-loading?
                                                :apt-costs-saving?  apt-costs-saving?
@@ -166,6 +184,21 @@
                                       :date         (:date d)
                                       :description  (:description d)}])))
            :tenantsView        (r/as-element [tenant-ui/component {:apartments available-apartments}])
+           :expensesView       (r/as-element [expense-types-comp
+                                              {:expenseTypes (clj->js expense-types)
+                                               :isLoading    expense-types-loading?
+                                               :isSaving     expense-types-saving?
+                                               :onLoad       #(re-frame/dispatch [::cost-events/load-expense-types])
+                                               :onAdd        (fn [data]
+                                                               (let [d (js->clj data :keywordize-keys true)]
+                                                                 (re-frame/dispatch [::cost-events/create-expense-type
+                                                                                    {:key  (:key d)
+                                                                                     :name (:name d)}])))
+                                               :onUpdate     (fn [id name]
+                                                               (re-frame/dispatch [::cost-events/update-expense-type
+                                                                                  {:id id :name name}]))
+                                               :onDelete     (fn [id]
+                                                               (re-frame/dispatch [::cost-events/delete-expense-type id]))}])
            :onAddProperty      (fn [data]
                                  (let [d (js->clj data :keywordize-keys true)]
                                    (re-frame/dispatch
@@ -212,6 +245,7 @@
            :onViewApartments   (fn [property]
                                  (re-frame/dispatch [::events/navigate-to-apartments (js->clj property :keywordize-keys true)]))
            :costs              (clj->js costs)
+           :expenseTypes       (clj->js expense-types)
            :costsLoading       costs-loading?
            :costsSaving        costs-saving?
            :onLoadCosts        (fn [property-id]

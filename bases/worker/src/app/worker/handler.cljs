@@ -22,7 +22,8 @@
    :onboarding      :get-onboardings
    :cost            :get-costs
    :apartment-cost  :get-apartment-costs
-   :rent-payment    :get-rent-payments})
+   :rent-payment    :get-rent-payments
+   :expense-type    :get-expense-types})
 
 (defn query
   "Returns a Reitit route handler for POST queries.

@@ -30,3 +30,18 @@
  ::apt-costs-saving?
  (fn [db _]
    (get-in db [:apartment-costs :saving?] false)))
+
+(re-frame/reg-sub
+ ::expense-types
+ (fn [db _]
+   (get-in db [:expense-types :list] [])))
+
+(re-frame/reg-sub
+ ::expense-types-loading?
+ (fn [db _]
+   (get-in db [:expense-types :loading?] false)))
+
+(re-frame/reg-sub
+ ::expense-types-saving?
+ (fn [db _]
+   (get-in db [:expense-types :saving?] false)))

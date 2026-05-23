@@ -311,15 +311,16 @@
                     (let [result ((:process core) {:command :update-tenant :data data})]
                       (if (:error result)
                         result
-                        (let [{:keys [name email phone start-date end-date]} (:updates result)]
+                        (let [{:keys [name email phone start-date end-date]} (:updates result)
+                              facts (cond-> {:db/id eid}
+                                      (some? name)       (assoc :tenant/name name)
+                                      (some? email)      (assoc :tenant/email email)
+                                      (some? phone)      (assoc :tenant/phone phone)
+                                      (some? start-date) (assoc :tenant/start-date start-date)
+                                      (some? end-date)   (assoc :tenant/end-date end-date))]
                           (js-await [{:keys [tx-id]}
                                      ((:transact! storage)
-                                      [{:db/id             eid
-                                        :tenant/name       name
-                                        :tenant/email      email
-                                        :tenant/phone      phone
-                                        :tenant/start-date start-date
-                                        :tenant/end-date   end-date}] nil)]
+                                      [facts] nil)]
                                     {:tx-id tx-id}))))))))))
 
 (defn- handle-delete-tenant! [storage data user]
@@ -486,6 +487,52 @@
                     (js-await [_ ((:excise! storage) eid nil)]
                               {:ok true})))))))
 
+;; ---------------------------------------------------------------------------
+;; Expense-type handlers
+;; ---------------------------------------------------------------------------
+
+(defn- handle-get-expense-types! [storage user]
+  (with-org user
+    (fn [org-id]
+      (js-await [eids          ((:find-by-attr storage) :expense-type/organization-id org-id)
+                 expense-types (pull-many+ storage eids '[*])]
+                {:expense-types expense-types}))))
+
+(defn- handle-create-expense-type! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [{:keys [key name]} data]
+        (js-await [{:keys [tx-id entity-ids]}
+                   ((:transact! storage)
+                    [{:db/type                      "expense-type"
+                      :expense-type/organization-id org-id
+                      :expense-type/key             key
+                      :expense-type/name            name}] nil)]
+                  {:tx-id tx-id :expense-type-id (first entity-ids)})))))
+
+(defn- handle-update-expense-type! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:expense-type/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [{:keys [tx-id]}
+                               ((:transact! storage)
+                                [{:db/id             eid
+                                  :expense-type/name (:name data)}] nil)]
+                              {:tx-id tx-id})))))))
+
+(defn- handle-delete-expense-type! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:expense-type/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [_ ((:excise! storage) eid nil)]
+                              {:ok true})))))))
+
 (defn- handle-assign-tenant-to-apartment! [storage data user]
   (with-org user
     (fn [org-id]
@@ -542,4 +589,8 @@
     :create-cost                     (handle-create-cost! storage data user)
     :update-cost                     (handle-update-cost! storage data user)
     :delete-cost                     (handle-delete-cost! storage data user)
+    :get-expense-types               (handle-get-expense-types! storage user)
+    :create-expense-type             (handle-create-expense-type! storage data user)
+    :update-expense-type             (handle-update-expense-type! storage data user)
+    :delete-expense-type             (handle-delete-expense-type! storage data user)
     {:error :unknown-command}))

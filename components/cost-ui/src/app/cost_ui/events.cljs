@@ -134,3 +134,67 @@
  ::apt-cost-error
  (fn [db _]
    (assoc-in db [:apartment-costs :saving?] false)))
+
+;; ── Expense types ─────────────────────────────────────────────────────────
+
+(re-frame/reg-event-fx
+ ::load-expense-types
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:expense-types :loading?] true)
+    :dispatch [:app.core-ui.events/query
+               {:entity :expense-type}
+               [::expense-types-loaded]
+               [::expense-types-error]]}))
+
+(re-frame/reg-event-db
+ ::expense-types-loaded
+ (fn [db [_ {:keys [expense-types]}]]
+   (-> db
+       (assoc-in [:expense-types :list] expense-types)
+       (assoc-in [:expense-types :loading?] false))))
+
+(re-frame/reg-event-db
+ ::expense-types-error
+ (fn [db _]
+   (assoc-in db [:expense-types :loading?] false)))
+
+(re-frame/reg-event-fx
+ ::create-expense-type
+ (fn [{:keys [db]} [_ data]]
+   {:db       (assoc-in db [:expense-types :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :create-expense-type
+               data
+               [::expense-type-mutated]
+               [::expense-type-error]]}))
+
+(re-frame/reg-event-fx
+ ::update-expense-type
+ (fn [{:keys [db]} [_ data]]
+   {:db       (assoc-in db [:expense-types :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :update-expense-type
+               data
+               [::expense-type-mutated]
+               [::expense-type-error]]}))
+
+(re-frame/reg-event-fx
+ ::delete-expense-type
+ (fn [{:keys [db]} [_ id]]
+   {:db       (assoc-in db [:expense-types :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :delete-expense-type
+               {:id id}
+               [::expense-type-mutated]
+               [::expense-type-error]]}))
+
+(re-frame/reg-event-fx
+ ::expense-type-mutated
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:expense-types :saving?] false)
+    :dispatch [::load-expense-types]}))
+
+(re-frame/reg-event-db
+ ::expense-type-error
+ (fn [db _]
+   (assoc-in db [:expense-types :saving?] false)))

@@ -4,6 +4,10 @@
 
 (def local-storage-interceptor (after db/db->local-store))
 
+(re-frame/reg-fx
+ :call-fn
+ (fn [f] (when (fn? f) (f))))
+
 (re-frame/reg-event-db
  ::set-property-filter
  [local-storage-interceptor]
@@ -213,7 +217,7 @@
 
 (re-frame/reg-event-fx
  ::assign-tenant
- (fn [{:keys [db]} [_ apt-id {:keys [name email phone start-date]}]]
+ (fn [{:keys [db]} [_ apt-id {:keys [name email phone start-date end-date]} on-after]]
    {:db       (assoc-in db [:apartments :saving?] true)
     :dispatch [:app.core-ui.events/command
                :create-tenant
@@ -221,18 +225,20 @@
                 :name         name
                 :email        email
                 :phone        phone
-                :start-date   start-date}
-               [::tenant-assigned apt-id]
+                :start-date   start-date
+                :end-date     end-date}
+               [::tenant-assigned apt-id on-after]
                [::apartment-save-error]]}))
 
 (re-frame/reg-event-fx
  ::tenant-assigned
  [local-storage-interceptor]
- (fn [{:keys [db]} [_ apt-id]]
+ (fn [{:keys [db]} [_ apt-id on-after]]
    {:db       (-> db
                   (assoc-in [:apartments :saving?] false)
                   (assoc-in [:apartments :assign-apt-id] nil))
-    :dispatch [::update-apartment apt-id {:occupied true}]}))
+    :dispatch [::update-apartment apt-id {:occupied true}]
+    :call-fn  on-after}))
 
 (re-frame/reg-event-fx
  ::assign-existing-tenant
