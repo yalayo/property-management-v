@@ -211,6 +211,7 @@ export default function Dashboard(props) {
               costs={props.costs}
               aptCosts={props.aptCosts}
               rentPayments={props.rentPayments}
+              expenseTypes={props.expenseTypes}
               costsLoading={props.costsLoading}
               aptCostsLoading={props.aptCostsLoading}
               rentLoading={props.rentLoading}

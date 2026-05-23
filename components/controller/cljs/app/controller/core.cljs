@@ -501,13 +501,14 @@
 (defn- handle-create-expense-type! [storage data user]
   (with-org user
     (fn [org-id]
-      (let [{:keys [key name]} data]
+      (let [{:keys [key name-en name-de]} data]
         (js-await [{:keys [tx-id entity-ids]}
                    ((:transact! storage)
                     [{:db/type                      "expense-type"
                       :expense-type/organization-id org-id
                       :expense-type/key             key
-                      :expense-type/name            name}] nil)]
+                      :expense-type/name-en         name-en
+                      :expense-type/name-de         name-de}] nil)]
                   {:tx-id tx-id :expense-type-id (first entity-ids)})))))
 
 (defn- handle-update-expense-type! [storage data user]
@@ -519,8 +520,9 @@
                     {:error :not-found}
                     (js-await [{:keys [tx-id]}
                                ((:transact! storage)
-                                [{:db/id             eid
-                                  :expense-type/name (:name data)}] nil)]
+                                [(cond-> {:db/id eid}
+                                   (:name-en data) (assoc :expense-type/name-en (:name-en data))
+                                   (:name-de data) (assoc :expense-type/name-de (:name-de data)))] nil)]
                               {:tx-id tx-id})))))))
 
 (defn- handle-delete-expense-type! [storage data user]

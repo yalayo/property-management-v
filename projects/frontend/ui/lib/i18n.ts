@@ -46,11 +46,13 @@ const resources = {
       fields: {
         key: "Identifier",
         keyHint: "A short, unique key (e.g. strom, versicherung). Cannot be changed after creation.",
-        name: "Display Name",
+        nameEn: "Name (English)",
+        nameDe: "Name (German)",
       },
       placeholders: {
         key: "e.g. strom",
-        name: "e.g. Allgemeinstrom",
+        nameEn: "e.g. General electricity",
+        nameDe: "e.g. Allgemeinstrom",
       },
     },
     auth: {
@@ -356,6 +358,7 @@ const resources = {
       netPayment: "Nachzahlung",
       refund: "Guthaben",
       pdfDownloaded: "PDF generated",
+      noCostLines: "No cost entries found for this property. Add costs in the property detail view first.",
     },
     bank: {
       title: "Bank Statement Import",
@@ -734,11 +737,13 @@ const resources = {
       fields: {
         key: "Bezeichner",
         keyHint: "Ein kurzer, eindeutiger Schlüssel (z.B. strom, versicherung). Kann nach der Erstellung nicht geändert werden.",
-        name: "Anzeigename",
+        nameEn: "Name (Englisch)",
+        nameDe: "Name (Deutsch)",
       },
       placeholders: {
         key: "z.B. strom",
-        name: "z.B. Allgemeinstrom",
+        nameEn: "z.B. General electricity",
+        nameDe: "z.B. Allgemeinstrom",
       },
     },
     auth: {
@@ -1044,6 +1049,7 @@ const resources = {
       netPayment: "Nachzahlung",
       refund: "Guthaben",
       pdfDownloaded: "PDF erstellt",
+      noCostLines: "Keine Kostenpositionen für diese Immobilie gefunden. Fügen Sie zuerst Kosten in der Immobiliendetailansicht ein.",
     },
     bank: {
       title: "Kontoauszug importieren",

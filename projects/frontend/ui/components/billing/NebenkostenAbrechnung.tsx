@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, FileText, Pencil, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "../ui/button";
@@ -6,16 +6,6 @@ import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
 import { generateBillingPdf, downloadPdf } from "./pdfGenerator";
 import type { CostLineItem } from "./pdfGenerator";
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const COST_LINES = [
-  { id: "strom",        name: "Allgemeinstrom" },
-  { id: "versicherung", name: "Versicherung" },
-  { id: "grundsteuer",  name: "Grundsteuer" },
-  { id: "muell",        name: "Müllabfuhr" },
-  { id: "trinkwasser",  name: "Trinkwasser" },
-] as const;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -28,6 +18,7 @@ type Props = {
   costs?: any[];
   aptCosts?: any[];
   rentPayments?: any[];
+  expenseTypes?: any[];
   costsLoading?: boolean;
   aptCostsLoading?: boolean;
   rentLoading?: boolean;
@@ -50,20 +41,20 @@ function formatEur(v: number) {
   return v.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function costEntryFor(costs: any[], lineId: string, year: number) {
-  return costs.find((c: any) => c.line === lineId && Number(c.year) === year) ?? null;
+function costEntryFor(costs: any[], lineKey: string, year: number) {
+  return costs.find((c: any) => c.line === lineKey && Number(c.year) === year) ?? null;
 }
 
-function inheritedCostFor(costs: any[], lineId: string, year: number) {
+function inheritedCostFor(costs: any[], lineKey: string, year: number) {
   return [...costs]
-    .filter((c: any) => c.line === lineId && Number(c.year) < year)
+    .filter((c: any) => c.line === lineKey && Number(c.year) < year)
     .sort((a: any, b: any) => Number(b.year) - Number(a.year))[0] ?? null;
 }
 
-function effectiveCostValue(costs: any[], lineId: string, year: number): number | null {
-  const exact = costEntryFor(costs, lineId, year);
+function effectiveCostValue(costs: any[], lineKey: string, year: number): number | null {
+  const exact = costEntryFor(costs, lineKey, year);
   if (exact) return Number(exact.value);
-  const inherited = inheritedCostFor(costs, lineId, year);
+  const inherited = inheritedCostFor(costs, lineKey, year);
   return inherited ? Number(inherited.value) : null;
 }
 
@@ -76,6 +67,7 @@ export default function NebenkostenAbrechnung({
   costs = [],
   aptCosts = [],
   rentPayments = [],
+  expenseTypes = [],
   costsLoading,
   aptCostsLoading,
   rentLoading,
@@ -86,7 +78,7 @@ export default function NebenkostenAbrechnung({
   onLoadRentPayments,
   onEditProperty,
 }: Props) {
-  const { t } = useTranslation("abrechnung");
+  const { t, i18n } = useTranslation("abrechnung");
 
   const [year, setYear] = useState(new Date().getFullYear() - 1);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
@@ -100,7 +92,29 @@ export default function NebenkostenAbrechnung({
   const propertyApts     = apartments.filter((a: any) => String(a["property-id"]) === selectedPropertyId);
   const selectedApt      = apartments.find((a: any) => String(a.id) === selectedAptId);
 
-  // Load property-level costs when property selected
+  // Map expense-type key → localized name
+  const expenseTypeMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    expenseTypes.forEach((et: any) => {
+      const name = i18n.language === "de"
+        ? (et["name-de"] || et["name-en"] || et.name || et.key)
+        : (et["name-en"] || et["name-de"] || et.name || et.key);
+      m[et.key] = name;
+    });
+    return m;
+  }, [expenseTypes, i18n.language]);
+
+  const lineName = (key: string) => expenseTypeMap[key] ?? key;
+
+  // Active cost lines for selected property: unique keys that have been entered (any year ≤ selected)
+  const activeCostLines = useMemo(() => {
+    const keys = new Set<string>();
+    costs.forEach((c: any) => {
+      if (Number(c.year) <= year) keys.add(c.line);
+    });
+    return [...keys];
+  }, [costs, year]);
+
   useEffect(() => {
     if (selectedPropertyId) {
       onLoadCosts?.(selectedPropertyId);
@@ -108,7 +122,6 @@ export default function NebenkostenAbrechnung({
     setSelectedAptId(null);
   }, [selectedPropertyId, year]);
 
-  // Load apt costs + rent payments when apt selected
   useEffect(() => {
     if (selectedAptId) {
       onLoadAptCosts?.(selectedAptId);
@@ -116,7 +129,6 @@ export default function NebenkostenAbrechnung({
     }
   }, [selectedAptId]);
 
-  // Sync bank info inputs when property changes
   useEffect(() => {
     setIbanInput(selectedProperty?.iban ?? "");
     setBankNameInput(selectedProperty?.["bank-name"] ?? "");
@@ -131,9 +143,9 @@ export default function NebenkostenAbrechnung({
 
   const hasTenant = !!tenantForApt;
 
-  const hasAllCosts = selectedApt
-    ? COST_LINES.every(line =>
-        aptCosts.some((c: any) => c.line === line.id && Number(c.year) <= year)
+  const hasAllCosts = selectedApt && activeCostLines.length > 0
+    ? activeCostLines.every(key =>
+        aptCosts.some((c: any) => c.line === key && Number(c.year) <= year)
       )
     : false;
 
@@ -172,10 +184,10 @@ export default function NebenkostenAbrechnung({
     if (!selectedProperty || !selectedApt || !tenantForApt) return;
     setGenerating(true);
     try {
-      const costLines: CostLineItem[] = COST_LINES.map(line => ({
-        name:  line.name,
-        total: effectiveCostValue(costs, line.id, year),
-        share: effectiveCostValue(aptCosts, line.id, year) ?? 0,
+      const costLines: CostLineItem[] = activeCostLines.map(key => ({
+        name:  lineName(key),
+        total: effectiveCostValue(costs, key, year),
+        share: effectiveCostValue(aptCosts, key, year) ?? 0,
       }));
 
       const prepayment = rentPayments
@@ -291,7 +303,6 @@ export default function NebenkostenAbrechnung({
   if (!selectedAptId) {
     return (
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" onClick={() => setSelectedPropertyId(null)}>
@@ -359,7 +370,6 @@ export default function NebenkostenAbrechnung({
           </CardContent>
         </Card>
 
-        {/* Apartment list */}
         {costsLoading ? (
           <p className="text-sm text-muted-foreground">{t("loading", { ns: "costs" })}</p>
         ) : propertyApts.length === 0 ? (
@@ -396,9 +406,18 @@ export default function NebenkostenAbrechnung({
 
   const isLoading = aptCostsLoading || rentLoading;
 
+  const totalShare = activeCostLines.reduce((sum, key) => {
+    return sum + (effectiveCostValue(aptCosts, key, year) ?? 0);
+  }, 0);
+
+  const prepaymentTotal = rentPayments
+    .filter((r: any) => Number(r.year) === year)
+    .reduce((sum: number, r: any) => sum + Number(r.value), 0);
+
+  const net = totalShare - prepaymentTotal;
+
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => setSelectedAptId(null)}>
@@ -465,52 +484,45 @@ export default function NebenkostenAbrechnung({
                 <span className="text-right">{t("total")}</span>
                 <span className="text-right">{t("share")}</span>
               </div>
-              {COST_LINES.map(line => {
-                const propTotal = effectiveCostValue(costs, line.id, year);
-                const aptShare  = effectiveCostValue(aptCosts, line.id, year);
-                return (
-                  <div key={line.id} className="grid grid-cols-3 text-sm px-4 py-2 border-b last:border-b-0">
-                    <span>{line.name}</span>
-                    <span className="text-right tabular-nums text-muted-foreground">
-                      {propTotal != null ? `€ ${formatEur(propTotal)}` : "—"}
-                    </span>
-                    <span className="text-right tabular-nums">
-                      {aptShare != null ? `€ ${formatEur(aptShare)}` : "—"}
-                    </span>
-                  </div>
-                );
-              })}
-              {/* Summary rows */}
-              {(() => {
-                const totalShare = COST_LINES.reduce((sum, line) => {
-                  return sum + (effectiveCostValue(aptCosts, line.id, year) ?? 0);
-                }, 0);
-                const prepayment = rentPayments
-                  .filter((r: any) => Number(r.year) === year)
-                  .reduce((sum: number, r: any) => sum + Number(r.value), 0);
-                const net = totalShare - prepayment;
-                return (
-                  <>
-                    <div className="grid grid-cols-3 text-sm px-4 py-2 border-t border-dashed">
-                      <span className="font-medium">{t("totalCosts")}</span>
-                      <span />
-                      <span className="text-right tabular-nums font-medium">€ {formatEur(totalShare)}</span>
-                    </div>
-                    <div className="grid grid-cols-3 text-sm px-4 py-2">
-                      <span className="text-muted-foreground">{t("prepayment")}</span>
-                      <span />
-                      <span className="text-right tabular-nums text-muted-foreground">− € {formatEur(prepayment)}</span>
-                    </div>
-                    <div className="grid grid-cols-3 text-sm px-4 py-2 border-t bg-muted/30">
-                      <span className="font-bold">{net >= 0 ? t("netPayment") : t("refund")}</span>
-                      <span />
-                      <span className={`text-right tabular-nums font-bold ${net >= 0 ? "text-destructive" : "text-green-600"}`}>
-                        € {formatEur(Math.abs(net))}
+              {activeCostLines.length === 0 ? (
+                <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                  {t("noCostLines")}
+                </div>
+              ) : (
+                activeCostLines.map(key => {
+                  const propTotal = effectiveCostValue(costs, key, year);
+                  const aptShare  = effectiveCostValue(aptCosts, key, year);
+                  return (
+                    <div key={key} className="grid grid-cols-3 text-sm px-4 py-2 border-b last:border-b-0">
+                      <span>{lineName(key)}</span>
+                      <span className="text-right tabular-nums text-muted-foreground">
+                        {propTotal != null ? `€ ${formatEur(propTotal)}` : "—"}
+                      </span>
+                      <span className="text-right tabular-nums">
+                        {aptShare != null ? `€ ${formatEur(aptShare)}` : "—"}
                       </span>
                     </div>
-                  </>
-                );
-              })()}
+                  );
+                })
+              )}
+              {/* Summary rows */}
+              <div className="grid grid-cols-3 text-sm px-4 py-2 border-t border-dashed">
+                <span className="font-medium">{t("totalCosts")}</span>
+                <span />
+                <span className="text-right tabular-nums font-medium">€ {formatEur(totalShare)}</span>
+              </div>
+              <div className="grid grid-cols-3 text-sm px-4 py-2">
+                <span className="text-muted-foreground">{t("prepayment")}</span>
+                <span />
+                <span className="text-right tabular-nums text-muted-foreground">− € {formatEur(prepaymentTotal)}</span>
+              </div>
+              <div className="grid grid-cols-3 text-sm px-4 py-2 border-t bg-muted/30">
+                <span className="font-bold">{net >= 0 ? t("netPayment") : t("refund")}</span>
+                <span />
+                <span className={`text-right tabular-nums font-bold ${net >= 0 ? "text-destructive" : "text-green-600"}`}>
+                  € {formatEur(Math.abs(net))}
+                </span>
+              </div>
             </CardContent>
           </Card>
 

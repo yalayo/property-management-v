@@ -201,11 +201,14 @@
                                                :onAdd        (fn [data]
                                                                (let [d (js->clj data :keywordize-keys true)]
                                                                  (re-frame/dispatch [::cost-events/create-expense-type
-                                                                                    {:key  (:key d)
-                                                                                     :name (:name d)}])))
-                                               :onUpdate     (fn [id name]
+                                                                                    {:key     (:key d)
+                                                                                     :name-en (:nameEn d)
+                                                                                     :name-de (:nameDe d)}])))
+                                               :onUpdate     (fn [id name-en name-de]
                                                                (re-frame/dispatch [::cost-events/update-expense-type
-                                                                                  {:id id :name name}]))
+                                                                                  {:id      id
+                                                                                   :name-en name-en
+                                                                                   :name-de name-de}]))
                                                :onDelete     (fn [id]
                                                                (re-frame/dispatch [::cost-events/delete-expense-type id]))}])
            :onAddProperty      (fn [data]

@@ -11,7 +11,9 @@ import { Skeleton } from "../ui/skeleton";
 type ExpenseType = {
   id: string;
   key: string;
-  name: string;
+  "name-en"?: string;
+  "name-de"?: string;
+  name?: string;
 };
 
 type Props = {
@@ -19,10 +21,15 @@ type Props = {
   isLoading?: boolean;
   isSaving?: boolean;
   onLoad?: () => void;
-  onAdd?: (data: { key: string; name: string }) => void;
-  onUpdate?: (id: string, name: string) => void;
+  onAdd?: (data: { key: string; nameEn: string; nameDe: string }) => void;
+  onUpdate?: (id: string, nameEn: string, nameDe: string) => void;
   onDelete?: (id: string) => void;
 };
+
+function displayName(et: ExpenseType, lang: string): string {
+  if (lang === "de") return et["name-de"] || et["name-en"] || et.name || et.key;
+  return et["name-en"] || et["name-de"] || et.name || et.key;
+}
 
 export default function ExpenseTypes({
   expenseTypes = [],
@@ -33,34 +40,37 @@ export default function ExpenseTypes({
   onUpdate,
   onDelete,
 }: Props) {
-  const { t } = useTranslation("expenseTypes");
+  const { t, i18n } = useTranslation("expenseTypes");
   const { t: tCommon } = useTranslation("common");
 
-  const [addForm, setAddForm] = useState({ key: "", name: "" });
+  const [addForm, setAddForm] = useState({ key: "", nameEn: "", nameDe: "" });
   const [addOpen, setAddOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [editName, setEditName] = useState("");
+  const [editNameEn, setEditNameEn] = useState("");
+  const [editNameDe, setEditNameDe] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   useEffect(() => { onLoad?.(); }, []);
 
   const handleAdd = () => {
-    if (!addForm.key.trim() || !addForm.name.trim()) return;
-    onAdd?.({ key: addForm.key.trim(), name: addForm.name.trim() });
-    setAddForm({ key: "", name: "" });
+    if (!addForm.key.trim() || !addForm.nameEn.trim() || !addForm.nameDe.trim()) return;
+    onAdd?.({ key: addForm.key.trim(), nameEn: addForm.nameEn.trim(), nameDe: addForm.nameDe.trim() });
+    setAddForm({ key: "", nameEn: "", nameDe: "" });
     setAddOpen(false);
   };
 
   const handleOpenEdit = (et: ExpenseType) => {
     setEditId(et.id);
-    setEditName(et.name);
+    setEditNameEn(et["name-en"] || et.name || "");
+    setEditNameDe(et["name-de"] || et.name || "");
   };
 
   const handleUpdate = () => {
-    if (!editName.trim() || !editId) return;
-    onUpdate?.(editId, editName.trim());
+    if (!editNameEn.trim() || !editNameDe.trim() || !editId) return;
+    onUpdate?.(editId, editNameEn.trim(), editNameDe.trim());
     setEditId(null);
-    setEditName("");
+    setEditNameEn("");
+    setEditNameDe("");
   };
 
   const handleDelete = () => {
@@ -109,30 +119,53 @@ export default function ExpenseTypes({
                 className="flex items-center justify-between p-3 border rounded-lg bg-card"
               >
                 {editId === et.id ? (
-                  <div className="flex items-center gap-2 flex-1 mr-2">
-                    <Input
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleUpdate();
-                        if (e.key === "Escape") setEditId(null);
-                      }}
-                      autoFocus
-                      className="h-8"
-                    />
-                    <Button size="sm" onClick={handleUpdate} disabled={isSaving}>
-                      {tCommon("save")}
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => setEditId(null)}>
-                      {tCommon("cancel")}
-                    </Button>
+                  <div className="flex flex-col gap-2 flex-1 mr-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-6">EN</span>
+                      <Input
+                        value={editNameEn}
+                        onChange={(e) => setEditNameEn(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") setEditId(null);
+                        }}
+                        autoFocus
+                        className="h-8"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-6">DE</span>
+                      <Input
+                        value={editNameDe}
+                        onChange={(e) => setEditNameDe(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleUpdate();
+                          if (e.key === "Escape") setEditId(null);
+                        }}
+                        className="h-8"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={handleUpdate} disabled={isSaving}>
+                        {tCommon("save")}
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditId(null)}>
+                        {tCommon("cancel")}
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex items-center gap-3 flex-1">
-                    <Badge variant="secondary" className="font-mono text-xs">
+                    <Badge variant="secondary" className="font-mono text-xs shrink-0">
                       {et.key}
                     </Badge>
-                    <span className="font-medium">{et.name}</span>
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{displayName(et, i18n.language)}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {i18n.language === "de"
+                          ? (et["name-en"] || et.name || "")
+                          : (et["name-de"] || et.name || "")}
+                      </p>
+                    </div>
                   </div>
                 )}
                 {editId !== et.id && (
@@ -177,11 +210,19 @@ export default function ExpenseTypes({
               />
             </div>
             <div>
-              <label className="text-sm font-medium block mb-1">{t("fields.name")}</label>
+              <label className="text-sm font-medium block mb-1">{t("fields.nameEn")}</label>
               <Input
-                value={addForm.name}
-                onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder={t("placeholders.name")}
+                value={addForm.nameEn}
+                onChange={(e) => setAddForm((f) => ({ ...f, nameEn: e.target.value }))}
+                placeholder={t("placeholders.nameEn")}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-1">{t("fields.nameDe")}</label>
+              <Input
+                value={addForm.nameDe}
+                onChange={(e) => setAddForm((f) => ({ ...f, nameDe: e.target.value }))}
+                placeholder={t("placeholders.nameDe")}
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">
@@ -190,7 +231,7 @@ export default function ExpenseTypes({
               </Button>
               <Button
                 onClick={handleAdd}
-                disabled={isSaving || !addForm.key.trim() || !addForm.name.trim()}
+                disabled={isSaving || !addForm.key.trim() || !addForm.nameEn.trim() || !addForm.nameDe.trim()}
               >
                 {isSaving ? tCommon("saving") : t("add")}
               </Button>
@@ -205,7 +246,7 @@ export default function ExpenseTypes({
             <DialogTitle>{t("deleteTitle")}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground py-4">
-            {t("deleteConfirm", { name: deletingItem?.name })}
+            {t("deleteConfirm", { name: deletingItem ? displayName(deletingItem, i18n.language) : "" })}
           </p>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setDeleteId(null)}>

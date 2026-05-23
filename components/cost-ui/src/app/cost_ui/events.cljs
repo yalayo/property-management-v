@@ -225,21 +225,25 @@
 
 (re-frame/reg-event-fx
  ::create-expense-type
- (fn [{:keys [db]} [_ data]]
+ (fn [{:keys [db]} [_ {:keys [key name-en name-de]}]]
    {:db       (assoc-in db [:expense-types :saving?] true)
     :dispatch [:app.core-ui.events/command
                :create-expense-type
-               data
+               {:key     key
+                :name-en name-en
+                :name-de name-de}
                [::expense-type-mutated]
                [::expense-type-error]]}))
 
 (re-frame/reg-event-fx
  ::update-expense-type
- (fn [{:keys [db]} [_ data]]
+ (fn [{:keys [db]} [_ {:keys [id name-en name-de]}]]
    {:db       (assoc-in db [:expense-types :saving?] true)
     :dispatch [:app.core-ui.events/command
                :update-expense-type
-               data
+               {:id      id
+                :name-en name-en
+                :name-de name-de}
                [::expense-type-mutated]
                [::expense-type-error]]}))
 
