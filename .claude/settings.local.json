@@ -26,7 +26,11 @@
       "Bash(Get-ChildItem -Path \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\\\\components\\\\property-ui\" -Recurse -Filter \"events.cljs\")",
       "Bash(Get-ChildItem -Recurse -Filter \"*.cljs\")",
       "Bash(Select-Object -First 20 FullName)",
-      "Bash(grep -E \"\\(subs|db|core\\)\\\\.cljs$\")"
+      "Bash(grep -E \"\\(subs|db|core\\)\\\\.cljs$\")",
+      "Bash(Get-ChildItem -Path . -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(Get-ChildItem -Path \"D:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\" -Recurse -Filter \"*Apartment*.tsx\")",
+      "Bash(Select-Object -First 20)"
     ]
   }
 }
