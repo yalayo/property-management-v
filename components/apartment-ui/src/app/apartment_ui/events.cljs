@@ -13,13 +13,11 @@
 (re-frame/reg-event-fx
  ::load-apartments
  (fn [{:keys [db]} _]
-   (let [property-id (get-in db [:apartments :property-filter :id])]
-     {:db       (assoc-in db [:apartments :loading?] true)
-      :dispatch [:app.core-ui.events/query
-                 (cond-> {:entity :apartment}
-                   property-id (assoc :property-id property-id))
-                 [::apartments-loaded]
-                 [::apartments-error]]})))
+   {:db       (assoc-in db [:apartments :loading?] true)
+    :dispatch [:app.core-ui.events/query
+               {:entity :apartment}
+               [::apartments-loaded]
+               [::apartments-error]]}))
 
 (re-frame/reg-event-fx
  ::apartments-loaded
@@ -92,11 +90,18 @@
 (re-frame/reg-event-fx
  ::apartment-added
  [local-storage-interceptor]
- (fn [{:keys [db]} _]
-   {:db       (-> db
-                  (assoc-in [:apartments :saving?] false)
-                  (assoc-in [:apartments :add-dialog-open?] false))
-    :dispatch [::load-apartments]}))
+ (fn [{:keys [db]} [_ {:keys [apartment-id]}]]
+   (let [new-code        (get-in db [:apartments :new-code])
+         new-property-id (get-in db [:apartments :new-property-id])
+         new-apt         {:db/id                 apartment-id
+                          :apartment/code        new-code
+                          :apartment/property-id new-property-id
+                          :apartment/occupied    false}]
+     {:db       (-> db
+                    (assoc-in [:apartments :saving?] false)
+                    (assoc-in [:apartments :add-dialog-open?] false)
+                    (update-in [:apartments :list] (fnil conj []) new-apt))
+      :dispatch [::load-apartments]})))
 
 (re-frame/reg-event-db
  ::apartment-save-error
