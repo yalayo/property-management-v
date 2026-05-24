@@ -9,7 +9,6 @@ import type { CostLineItem } from "./pdfGenerator";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Readiness = { ready: boolean; missing: string[] } | null;
 
 type Props = {
   properties?: any[];
@@ -58,12 +57,6 @@ function effectiveCostValue(costs: any[], lineKey: string, year: number): number
   return inherited ? Number(inherited.value) : null;
 }
 
-function effectiveAptCostEntry(aptCosts: any[], lineKey: string, year: number) {
-  const exact = costEntryFor(aptCosts, lineKey, year);
-  if (exact) return exact;
-  return inheritedCostFor(aptCosts, lineKey, year);
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function NebenkostenAbrechnung({
@@ -78,7 +71,6 @@ export default function NebenkostenAbrechnung({
   aptCostsLoading,
   rentLoading,
   propertySaving,
-  computeReadiness,
   onLoadCosts,
   onLoadAptCosts,
   onLoadRentPayments,
@@ -153,22 +145,49 @@ export default function NebenkostenAbrechnung({
     : null;
 
   const hasTenant = !!tenantForApt;
-
-  const hasAllCosts = selectedApt && activeCostLines.length > 0
-    ? activeCostLines.every(key =>
-        aptCosts.some((c: any) => c.line === key && Number(c.year) <= year)
-      )
-    : false;
-
-  const hasPayments = selectedApt
-    ? rentPayments.some((r: any) => Number(r.year) === year)
-    : false;
-
   const hasIban = !!(selectedProperty?.iban);
 
-  const readiness: Readiness = selectedApt && computeReadiness
-    ? computeReadiness({ hasTenant, hasAllCosts, hasPayments, hasIban })
-    : null;
+  // Months the tenant was active in the selected year
+  const tenantActiveMonths = useMemo(() => {
+    if (!tenantForApt) return [] as number[];
+    const startDate = tenantForApt["start-date"] ? new Date(tenantForApt["start-date"] + "T00:00:00") : null;
+    const endDate   = tenantForApt["end-date"]   ? new Date(tenantForApt["end-date"]   + "T00:00:00") : null;
+    const months: number[] = [];
+    for (let m = 1; m <= 12; m++) {
+      const monthStart = new Date(year, m - 1, 1);
+      const monthEnd   = new Date(year, m, 0);
+      const effStart   = startDate ?? new Date(year, 0, 1);
+      const effEnd     = endDate   ?? new Date(9999, 11, 31);
+      if (effStart <= monthEnd && effEnd >= monthStart) months.push(m);
+    }
+    return months;
+  }, [tenantForApt, year]);
+
+  // Cost lines missing an apt-cost entry for this exact year
+  const missingCostLines = useMemo(
+    () => activeCostLines.filter(key => !costEntryFor(aptCosts, key, year)),
+    [activeCostLines, aptCosts, year]
+  );
+
+  // Rent payment months present in the selected year
+  const paidMonths = useMemo(
+    () => new Set(rentPayments.filter((r: any) => Number(r.year) === year).map((r: any) => Number(r.month))),
+    [rentPayments, year]
+  );
+
+  // Tenant-active months that have no rent payment
+  const missingRentMonths = useMemo(
+    () => tenantActiveMonths.filter(m => !paidMonths.has(m)),
+    [tenantActiveMonths, paidMonths]
+  );
+
+  const isFullyReady =
+    hasTenant &&
+    hasIban &&
+    activeCostLines.length > 0 &&
+    missingCostLines.length === 0 &&
+    (tenantActiveMonths.length === 0 || missingRentMonths.length === 0);
+
 
   // ── Bank info save ────────────────────────────────────────────────────────
 
@@ -198,7 +217,7 @@ export default function NebenkostenAbrechnung({
       const costLines: CostLineItem[] = activeCostLines.map(key => ({
         name:  lineName(key),
         total: effectiveCostValue(propertyCosts, key, year),
-        share: effectiveCostValue(aptCosts, key, year) ?? 0,
+        share: Number(costEntryFor(aptCosts, key, year)?.value ?? 0),
       }));
 
       const prepayment = rentPayments
@@ -241,25 +260,6 @@ export default function NebenkostenAbrechnung({
       </Button>
     </div>
   );
-
-  function MissingBadge({ keys }: { keys: string[] }) {
-    const labels: Record<string, string> = {
-      tenant:   t("missingTenant"),
-      costs:    t("missingCosts"),
-      payments: t("missingPayments"),
-      iban:     t("missingIban"),
-    };
-    return (
-      <div className="flex flex-col gap-1">
-        {keys.map(k => (
-          <span key={k} className="flex items-center gap-1 text-xs text-amber-600">
-            <XCircle className="h-3.5 w-3.5 shrink-0" />
-            {labels[k] ?? k}
-          </span>
-        ))}
-      </div>
-    );
-  }
 
   // ── View: property list ───────────────────────────────────────────────────
 
@@ -420,7 +420,7 @@ export default function NebenkostenAbrechnung({
   const isLoading = aptCostsLoading || rentLoading;
 
   const totalShare = activeCostLines.reduce((sum, key) => {
-    return sum + (effectiveCostValue(aptCosts, key, year) ?? 0);
+    return sum + Number(costEntryFor(aptCosts, key, year)?.value ?? 0);
   }, 0);
 
   const prepaymentTotal = rentPayments
@@ -468,12 +468,12 @@ export default function NebenkostenAbrechnung({
         <p className="text-sm text-muted-foreground">Laden...</p>
       ) : (
         <>
-          {/* Readiness */}
+          {/* Status */}
           <Card>
             <CardContent className="pt-4 pb-4">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm font-semibold">{t("readiness")}</p>
-                {readiness?.ready ? (
+                {isFullyReady ? (
                   <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
                     <CheckCircle2 className="h-4 w-4" />
                     {t("ready")}
@@ -485,8 +485,35 @@ export default function NebenkostenAbrechnung({
                   </span>
                 )}
               </div>
-              {readiness && !readiness.ready && (
-                <MissingBadge keys={readiness.missing} />
+              {!isFullyReady && (
+                <div className="flex flex-col gap-1.5">
+                  {!hasTenant && (
+                    <span className="flex items-center gap-1.5 text-xs text-amber-600">
+                      <XCircle className="h-3.5 w-3.5 shrink-0" />
+                      {t("missingTenant")}
+                    </span>
+                  )}
+                  {!hasIban && (
+                    <span className="flex items-center gap-1.5 text-xs text-amber-600">
+                      <XCircle className="h-3.5 w-3.5 shrink-0" />
+                      {t("missingIban")}
+                    </span>
+                  )}
+                  {missingCostLines.map(key => (
+                    <span key={key} className="flex items-center gap-1.5 text-xs text-amber-600">
+                      <XCircle className="h-3.5 w-3.5 shrink-0" />
+                      {t("missingShare")}: <span className="font-medium">{lineName(key)}</span>
+                    </span>
+                  ))}
+                  {missingRentMonths.map(m => (
+                    <span key={m} className="flex items-center gap-1.5 text-xs text-amber-600">
+                      <XCircle className="h-3.5 w-3.5 shrink-0" />
+                      {t("missingRentMonth")}: <span className="font-medium">
+                        {new Date(year, m - 1).toLocaleString(i18n.language === "de" ? "de-DE" : "en-US", { month: "long" })}
+                      </span>
+                    </span>
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>
@@ -508,7 +535,7 @@ export default function NebenkostenAbrechnung({
               ) : (
                 activeCostLines.map(key => {
                   const propTotal  = effectiveCostValue(propertyCosts, key, year);
-                  const aptEntry   = effectiveAptCostEntry(aptCosts, key, year);
+                  const aptEntry   = costEntryFor(aptCosts, key, year);
                   const aptShare   = aptEntry ? Number(aptEntry.value) : null;
                   const verteiler  = aptEntry?.verteiler ?? "—";
                   const schluessel = aptEntry?.schluessel ?? "—";
@@ -548,7 +575,7 @@ export default function NebenkostenAbrechnung({
           {/* Generate button */}
           <div className="flex justify-end">
             <Button
-              disabled={!readiness?.ready || generating}
+              disabled={!isFullyReady || generating}
               onClick={handleGenerate}
               className="gap-2"
             >

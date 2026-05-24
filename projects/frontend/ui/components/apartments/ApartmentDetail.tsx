@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
+import { Checkbox } from "../ui/checkbox";
 import { Input } from "../ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
@@ -29,6 +30,7 @@ type CostEditFields = {
   verteiler: string;
   schluessel: string;
   anteil: string;
+  fixedValue: boolean;
 };
 
 type Props = {
@@ -279,6 +281,7 @@ export default function ApartmentDetail({
       verteiler:  defaultVert,
       schluessel: String(inherited?.schluessel ?? "Wohnfläche"),
       anteil:     defaultAnteil,
+      fixedValue: false,
     });
     setAddLineOpen(false);
   };
@@ -365,7 +368,7 @@ export default function ApartmentDetail({
       return (
         <div className="px-4 py-3 text-sm border-b last:border-b-0 space-y-3">
           <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide">{name}</p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {!fields.fixedValue && <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">{t("verteiler")}</label>
               <Input
@@ -410,19 +413,58 @@ export default function ApartmentDetail({
                 className="h-7 text-sm text-right"
               />
             </div>
+          </div>}
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id={`fixed-${line.key}`}
+              checked={fields.fixedValue}
+              onCheckedChange={checked =>
+                setCostInput(prev => ({
+                  ...prev,
+                  [line.key]: {
+                    ...prev[line.key]!,
+                    fixedValue: !!checked,
+                    ...(checked ? {} : { value: calculateShare(line.key, prev[line.key]!.verteiler, prev[line.key]!.anteil) || "" }),
+                  },
+                }))
+              }
+            />
+            <label htmlFor={`fixed-${line.key}`} className="text-xs text-muted-foreground cursor-pointer select-none">
+              {t("fixedValue")}
+            </label>
           </div>
-          <div className="flex items-center justify-between">
-            <div className="text-xs text-muted-foreground">
-              {t("gesamtkosten")}:{" "}
-              <span className="font-semibold text-foreground">
-                {fields.value ? `€ ${parseFloat(fields.value).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
-              </span>
+          {fields.fixedValue ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">{t("gesamtkosten")} (€)</span>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  value={fields.value}
+                  onChange={e => setCostInput(prev => ({ ...prev, [line.key]: { ...prev[line.key]!, value: e.target.value } }))}
+                  onKeyDown={e => { if (e.key === "Enter") commitCost(line.key); if (e.key === "Escape") closeCostEdit(line.key); }}
+                  className="h-7 text-sm text-right w-32"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" className="h-7 px-3" disabled={aptCostsSaving || !fields.value} onClick={() => commitCost(line.key)}>{t("save")}</Button>
+                <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => closeCostEdit(line.key)}>{t("cancel")}</Button>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <Button size="sm" className="h-7 px-3" disabled={aptCostsSaving || !fields.value} onClick={() => commitCost(line.key)}>{t("save")}</Button>
-              <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => closeCostEdit(line.key)}>{t("cancel")}</Button>
+          ) : (
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-muted-foreground">
+                {t("gesamtkosten")}:{" "}
+                <span className="font-semibold text-foreground">
+                  {fields.value ? `€ ${parseFloat(fields.value).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" className="h-7 px-3" disabled={aptCostsSaving || !fields.value} onClick={() => commitCost(line.key)}>{t("save")}</Button>
+                <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => closeCostEdit(line.key)}>{t("cancel")}</Button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       );
     }
@@ -444,6 +486,7 @@ export default function ApartmentDetail({
                 verteiler:  entry.verteiler != null ? String(entry.verteiler) : "",
                 schluessel: String(entry.schluessel ?? ""),
                 anteil:     entry.anteil != null ? String(entry.anteil) : "",
+                fixedValue: false,
               })}
             >
               <Pencil className="h-3.5 w-3.5" />

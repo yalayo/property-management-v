@@ -345,6 +345,7 @@ const resources = {
       verteiler: "Distributor",
       schluessel: "Key",
       anteil: "Share",
+      fixedValue: "Enter fixed amount",
       noTenantsInYear: "No tenants in {{year}}",
     },
     abrechnung: {
@@ -373,6 +374,8 @@ const resources = {
       missingCosts: "Not all cost allocations set",
       missingPayments: "No rent payments for this year",
       missingIban: "Property IBAN not set",
+      missingShare: "Missing cost share",
+      missingRentMonth: "Missing rent payment",
       loadData: "Load & Check",
       checkReadiness: "Check",
       back: "← Back",
@@ -1069,6 +1072,7 @@ const resources = {
       verteiler: "Verteiler",
       schluessel: "Schlüssel",
       anteil: "Anteil",
+      fixedValue: "Fixbetrag eingeben",
       noTenantsInYear: "Keine Mieter in {{year}}",
     },
     abrechnung: {
@@ -1097,6 +1101,8 @@ const resources = {
       missingCosts: "Nicht alle Nebenkostenanteile gesetzt",
       missingPayments: "Keine Mietzahlungen für dieses Jahr",
       missingIban: "Immobilien-IBAN nicht gesetzt",
+      missingShare: "Fehlender Kostenanteil",
+      missingRentMonth: "Fehlende Mietzahlung",
       loadData: "Laden & Prüfen",
       checkReadiness: "Prüfen",
       back: "← Zurück",
