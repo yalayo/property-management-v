@@ -217,12 +217,13 @@
 
 (re-frame/reg-event-fx
  ::assign-tenant
- (fn [{:keys [db]} [_ apt-id {:keys [name email phone start-date end-date]} on-after]]
+ (fn [{:keys [db]} [_ apt-id {:keys [first-name last-name email phone start-date end-date]} on-after]]
    {:db       (assoc-in db [:apartments :saving?] true)
     :dispatch [:app.core-ui.events/command
                :create-tenant
                {:apartment-id apt-id
-                :name         name
+                :first-name   first-name
+                :last-name    last-name
                 :email        email
                 :phone        phone
                 :start-date   start-date
