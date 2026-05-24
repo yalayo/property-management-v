@@ -10,13 +10,26 @@ const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 
 type Tenant = {
   id: string;
-  name: string;
+  "first-name"?: string;
+  "last-name"?: string;
+  name?: string;
   "apartment-id"?: string | number;
   "start-date"?: string;
   "end-date"?: string;
 };
 
-type CostLine = { id: string; key: string; name: string };
+function tenantDisplayName(tenant: Tenant): string {
+  if (tenant["first-name"]) {
+    return [tenant["first-name"], tenant["last-name"]].filter(Boolean).join(" ");
+  }
+  return tenant.name ?? "";
+}
+
+function costLineName(line: CostLine, lang: string): string {
+  return (lang.startsWith("de") ? line["name-de"] : line["name-en"]) ?? line.name ?? line.key ?? "";
+}
+
+type CostLine = { id: string; key: string; name?: string; "name-en"?: string; "name-de"?: string };
 
 
 type Props = {
@@ -155,7 +168,7 @@ export default function ApartmentDetail({
     if (existing) {
       onUpdateAptCost?.({ id: existing.id, value });
     } else {
-      onAddAptCost?.({ apartmentId: apartment.id, line: line.key, name: line.name, year, value });
+      onAddAptCost?.({ apartmentId: apartment.id, line: line.key, name: costLineName(line, i18n.language), year, value });
     }
     closeCostEdit(line.key);
   };
@@ -207,7 +220,7 @@ export default function ApartmentDetail({
     prevCostLinesToCopy.forEach(line => {
       const prev = inheritedCostFor(line.key);
       if (prev) {
-        onAddAptCost?.({ apartmentId: apartment.id, line: line.key, name: line.name, year, value: Number(prev.value) });
+        onAddAptCost?.({ apartmentId: apartment.id, line: line.key, name: costLineName(line, i18n.language), year, value: Number(prev.value) });
       }
     });
   };
@@ -233,7 +246,7 @@ export default function ApartmentDetail({
     const isEditing = costInput[line.key] != null;
     return (
       <div className="flex items-center gap-3 px-4 py-3 text-sm border-b last:border-b-0">
-        <span className="flex-1 font-medium">{line.name}</span>
+        <span className="flex-1 font-medium">{costLineName(line, i18n.language)}</span>
         {isEditing ? (
           <>
             <Input autoFocus type="text" inputMode="decimal"
@@ -367,68 +380,9 @@ export default function ApartmentDetail({
 
       {/* Tenant tabs + content */}
       {yearTenants.length === 0 ? (
-        <>
-          {/* No tenants for this year — show full-year view */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold">{t("rentPayments")}</h3>
-              {prevRentMonthsToCopy.length > 0 && (
-                <Button variant="outline" size="sm" className="h-7 text-xs" disabled={rentSaving} onClick={copyPrevYearRent}>
-                  <Copy className="h-3 w-3 mr-1.5" />
-                  {t("copyFromYear", { year: year - 1 })}
-                </Button>
-              )}
-            </div>
-            {rentLoading ? (
-              <p className="text-sm text-muted-foreground">{t("loading")}</p>
-            ) : (
-              <Card>
-                <CardContent className="p-0">
-                  {MONTHS.map(m => <RentRow key={m} month={m} />)}
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {costLines.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold">{t("aptNebenkosten")}</h3>
-                {prevCostLinesToCopy.length > 0 && (
-                  <Button variant="outline" size="sm" className="h-7 text-xs" disabled={aptCostsSaving} onClick={copyPrevYearCosts}>
-                    <Copy className="h-3 w-3 mr-1.5" />
-                    {t("copyFromYear", { year: year - 1 })}
-                  </Button>
-                )}
-              </div>
-              {aptCostsLoading ? (
-                <p className="text-sm text-muted-foreground">{t("loading")}</p>
-              ) : (
-                <div className="space-y-2">
-                  {activeCostLines.length > 0 && (
-                    <Card>
-                      <CardContent className="p-0">
-                        {activeCostLines.map(line => <CostRow key={line.id} line={line} />)}
-                      </CardContent>
-                    </Card>
-                  )}
-                  {availableCostLines.length > 0 && (
-                    <Select key={costSelectKey} onValueChange={handleSelectCostLine}>
-                      <SelectTrigger className="h-8 text-sm text-muted-foreground border-dashed">
-                        <SelectValue placeholder={t("addCostLine")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableCostLines.map(line => (
-                          <SelectItem key={line.id} value={line.key}>{line.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </>
+        <div className="rounded-xl border p-6 text-center text-sm text-muted-foreground">
+          {t("noTenantsInYear", { year, defaultValue: `No tenants in ${year}` })}
+        </div>
       ) : (
         <div className="rounded-xl border overflow-hidden">
           {/* Tab bar */}
@@ -448,7 +402,7 @@ export default function ApartmentDetail({
                   setRentInput({});
                 }}
               >
-                <span className="truncate block">{tn.name}</span>
+                <span className="truncate block">{tenantDisplayName(tn)}</span>
                 {tenantDateRange(tn) && (
                   <span className="block text-xs font-normal text-muted-foreground truncate">
                     {tenantDateRange(tn)}
@@ -512,7 +466,7 @@ export default function ApartmentDetail({
                           </SelectTrigger>
                           <SelectContent>
                             {availableCostLines.map(line => (
-                              <SelectItem key={line.id} value={line.key}>{line.name}</SelectItem>
+                              <SelectItem key={line.id} value={line.key}>{costLineName(line, i18n.language)}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>

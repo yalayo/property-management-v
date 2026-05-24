@@ -30,7 +30,9 @@ type OnboardingStatus = {
 
 type Tenant = {
   id: string;
-  name: string;
+  "first-name"?: string;
+  "last-name"?: string;
+  name?: string;
   email?: string;
   phone?: string;
   "start-date"?: string;
@@ -39,7 +41,8 @@ type Tenant = {
 };
 
 type TenantUpdateData = {
-  name?: string;
+  firstName?: string;
+  lastName?: string;
   email?: string;
   phone?: string;
   startDate?: string;
@@ -62,7 +65,7 @@ type Props = {
   onAssignExistingTenant?: (apartmentId: number, tenantId: string) => void;
   onAfterAssign?: () => void;
   onUpdateTenant?: (tenantId: string, data: TenantUpdateData) => void;
-  onCreateTenant?: (apartmentId: number, data: { name: string; email?: string; phone?: string; startDate: string; endDate?: string }) => void;
+  onCreateTenant?: (apartmentId: number, data: { firstName: string; lastName?: string; email?: string; phone?: string; startDate: string; endDate?: string }) => void;
 };
 
 function parseYear(dateStr: string | undefined): number | null {
@@ -82,6 +85,13 @@ function tenantActiveInYear(tenant: Tenant, year: number): boolean {
 function isActiveTenant(tenant: Tenant): boolean {
   const ed = tenant["end-date"];
   return !ed || ed === "";
+}
+
+function tenantDisplayName(tenant: Tenant): string {
+  if (tenant["first-name"]) {
+    return [tenant["first-name"], tenant["last-name"]].filter(Boolean).join(" ");
+  }
+  return tenant.name ?? "";
 }
 
 export default function ManageApartment({
@@ -114,7 +124,7 @@ export default function ManageApartment({
   const [tenantEmail, setTenantEmail] = useState("");
   const [emailError, setEmailError] = useState("");
   const [localAssignedTenant, setLocalAssignedTenant] = useState<Tenant | null>(null);
-  const [addForm, setAddForm] = useState({ name: "", email: "", phone: "", startDate: `${new Date().getFullYear()}-01-01`, endDate: "" });
+  const [addForm, setAddForm] = useState({ firstName: "", lastName: "", email: "", phone: "", startDate: `${new Date().getFullYear()}-01-01`, endDate: "" });
 
   if (!apartment) {
     return (
@@ -144,7 +154,7 @@ export default function ManageApartment({
   const filteredTenants = tenants.filter((t) => {
     if (t["apartment-id"]) return false;
     const q = tenantSearch.toLowerCase();
-    return !q || t.name?.toLowerCase().includes(q) || t.email?.toLowerCase().includes(q);
+    return !q || tenantDisplayName(t).toLowerCase().includes(q) || t.email?.toLowerCase().includes(q);
   });
 
   const changeYear = (delta: number) => {
@@ -175,15 +185,16 @@ export default function ManageApartment({
   };
 
   const handleCreateTenant = () => {
-    if (!apartment || !addForm.name.trim()) return;
+    if (!apartment || !addForm.firstName.trim()) return;
     onCreateTenant?.(apartment.id, {
-      name: addForm.name.trim(),
+      firstName: addForm.firstName.trim(),
+      lastName: addForm.lastName || undefined,
       email: addForm.email || undefined,
       phone: addForm.phone || undefined,
       startDate: addForm.startDate || `${year}-01-01`,
       endDate: addForm.endDate || undefined,
     });
-    setAddForm({ name: "", email: "", phone: "", startDate: `${year}-01-01`, endDate: "" });
+    setAddForm({ firstName: "", lastName: "", email: "", phone: "", startDate: `${year}-01-01`, endDate: "" });
   };
 
   const handleAssignExisting = (tenant: Tenant) => {
@@ -195,7 +206,8 @@ export default function ManageApartment({
   const startEdit = (tenant: Tenant) => {
     setEditingTenantId(tenant.id);
     setEditForm({
-      name: tenant.name,
+      firstName: tenant["first-name"] ?? tenant.name ?? "",
+      lastName: tenant["last-name"] ?? "",
       email: tenant.email ?? "",
       phone: tenant.phone ?? "",
       startDate: tenant["start-date"] ?? "",
@@ -287,7 +299,7 @@ export default function ManageApartment({
                         }`}
                         onClick={() => handleTabSelect(tenant.id)}
                       >
-                        {tenant.name}
+                        {tenantDisplayName(tenant)}
                       </button>
                     ))}
                   </div>
@@ -299,19 +311,58 @@ export default function ManageApartment({
                       /* Edit form */
                       <div className="space-y-3">
                         <div className="grid gap-3 sm:grid-cols-2">
-                          {(["name", "email", "phone", "startDate", "endDate"] as const).map((field) => (
-                            <div key={field} className="space-y-1">
-                              <Label className="text-xs">
-                                {tTenants(`fields.${field === "startDate" ? "startDate" : field === "endDate" ? "endDate" : field}`)}
-                              </Label>
-                              <Input
-                                type={field === "email" ? "email" : field === "phone" ? "tel" : field.endsWith("Date") ? "date" : "text"}
-                                value={(editForm[field] as string) ?? ""}
-                                onChange={(e) => setEditForm((f) => ({ ...f, [field]: e.target.value }))}
-                                disabled={tenantsSaving}
-                              />
-                            </div>
-                          ))}
+                          <div className="space-y-1">
+                            <Label className="text-xs">{tTenants("fields.firstName")}</Label>
+                            <Input
+                              value={editForm.firstName ?? ""}
+                              onChange={(e) => setEditForm((f) => ({ ...f, firstName: e.target.value }))}
+                              disabled={tenantsSaving}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">{tTenants("fields.lastName")}</Label>
+                            <Input
+                              value={editForm.lastName ?? ""}
+                              onChange={(e) => setEditForm((f) => ({ ...f, lastName: e.target.value }))}
+                              disabled={tenantsSaving}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">{tTenants("fields.email")}</Label>
+                            <Input
+                              type="email"
+                              value={editForm.email ?? ""}
+                              onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                              disabled={tenantsSaving}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">{tTenants("fields.phone")}</Label>
+                            <Input
+                              type="tel"
+                              value={editForm.phone ?? ""}
+                              onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                              disabled={tenantsSaving}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">{tTenants("fields.startDate")}</Label>
+                            <Input
+                              type="date"
+                              value={editForm.startDate ?? ""}
+                              onChange={(e) => setEditForm((f) => ({ ...f, startDate: e.target.value }))}
+                              disabled={tenantsSaving}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">{tTenants("fields.endDate")}</Label>
+                            <Input
+                              type="date"
+                              value={editForm.endDate ?? ""}
+                              onChange={(e) => setEditForm((f) => ({ ...f, endDate: e.target.value }))}
+                              disabled={tenantsSaving}
+                            />
+                          </div>
                         </div>
                         <div className="flex gap-2">
                           <Button size="sm" onClick={() => saveEdit(selectedTenant.id)} disabled={tenantsSaving}>
@@ -332,7 +383,7 @@ export default function ManageApartment({
                         <div className="grid gap-2 text-sm">
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">{tTenants("fields.name")}</span>
-                            <span className="font-medium">{selectedTenant.name}</span>
+                            <span className="font-medium">{tenantDisplayName(selectedTenant)}</span>
                           </div>
                           {selectedTenant.email && (
                             <div className="flex justify-between">
@@ -453,11 +504,20 @@ export default function ManageApartment({
                 <div className="space-y-3">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1">
-                      <Label className="text-xs">{tTenants("fields.name")}</Label>
+                      <Label className="text-xs">{tTenants("fields.firstName")}</Label>
                       <Input
-                        placeholder={tTenants("placeholders.name", { defaultValue: "Full name" })}
-                        value={addForm.name}
-                        onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))}
+                        placeholder={tTenants("placeholders.firstName", { defaultValue: "First name" })}
+                        value={addForm.firstName}
+                        onChange={(e) => setAddForm((f) => ({ ...f, firstName: e.target.value }))}
+                        disabled={isSaving}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">{tTenants("fields.lastName")}</Label>
+                      <Input
+                        placeholder={tTenants("placeholders.lastName", { defaultValue: "Last name" })}
+                        value={addForm.lastName}
+                        onChange={(e) => setAddForm((f) => ({ ...f, lastName: e.target.value }))}
                         disabled={isSaving}
                       />
                     </div>
@@ -501,7 +561,7 @@ export default function ManageApartment({
                       />
                     </div>
                   </div>
-                  <Button size="sm" onClick={handleCreateTenant} disabled={isSaving || !addForm.name.trim()}>
+                  <Button size="sm" onClick={handleCreateTenant} disabled={isSaving || !addForm.firstName.trim()}>
                     {isSaving
                       ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{tCommon("saving")}</>
                       : <><UserPlus className="h-3.5 w-3.5 mr-1.5" />{t("onboarding.addTenant", { defaultValue: "Add Tenant" })}</>}
@@ -533,7 +593,7 @@ export default function ManageApartment({
                           onClick={() => handleAssignExisting(tenant)}
                         >
                           <div>
-                            <p className="font-medium">{tenant.name}</p>
+                            <p className="font-medium">{tenantDisplayName(tenant)}</p>
                             {tenant.email && <p className="text-xs text-muted-foreground">{tenant.email}</p>}
                           </div>
                           {isSaving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
