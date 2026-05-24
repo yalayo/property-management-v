@@ -128,7 +128,7 @@
                                       :property/acquisition-date acquisition-date
                                       :property/purchase-price   purchase-price
                                       :property/current-value    current-value}] nil)]
-                                  {:tx-id tx-id :property-id (first entity-ids)})))))))
+                                  {:tx-id tx-id :property-id (first entity-ids)})))))))))
 
 (defn- handle-update-property! [core storage data user]
   (with-org user
@@ -160,7 +160,7 @@
                                                               :property/current-value  current-value}
                                                        iban      (assoc :property/iban      iban)
                                                        bank-name (assoc :property/bank-name bank-name))] nil)]
-                                                  {:tx-id tx-id})))))))))
+                                                  {:tx-id tx-id})))))))))))))
 
 (defn- handle-delete-property! [storage data user]
   (with-org user
@@ -210,7 +210,7 @@
                                       :apartment/property-id     property-id
                                       :apartment/code            code
                                       :apartment/occupied        false}] nil)]
-                                  {:tx-id tx-id :apartment-id (first entity-ids)})))))))
+                                  {:tx-id tx-id :apartment-id (first entity-ids)})))))))))
 
 (defn- handle-update-apartment! [core storage data user]
   (with-org user
@@ -320,7 +320,7 @@
                                               :tenant/birthday          birthday
                                               :tenant/household-members household-members}
                                        apartment-id (assoc :tenant/apartment-id apartment-id))] nil)]
-                                  {:tx-id tx-id :tenant-id (first entity-ids)})))))))
+                                  {:tx-id tx-id :tenant-id (first entity-ids)})))))))))
 
 (defn- handle-update-tenant! [core storage data user]
   (with-org user

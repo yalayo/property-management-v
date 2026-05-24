@@ -39,6 +39,7 @@ type Props = {
   isLoading?: boolean;
   isAddApartmentDialogOpen?: boolean;
   onChangeAddApartmentDialogOpen?: () => void;
+  onCloseAddApartmentDialog?: () => void;
   onSelectApartment?: (id: number) => void;
   onManageApartment?: (id: number) => void;
   onAssignTenant?: (id: number) => void;
@@ -55,6 +56,7 @@ export default function ApartmentsList({
   isLoading = false,
   isAddApartmentDialogOpen = false,
   onChangeAddApartmentDialogOpen,
+  onCloseAddApartmentDialog,
   onSelectApartment,
   onManageApartment,
   onAssignTenant,
@@ -222,8 +224,8 @@ export default function ApartmentsList({
       </CardContent>
 
       {/* Add apartment dialog */}
-      <Dialog open={isAddApartmentDialogOpen}>
-        <DialogContent>{children}</DialogContent>
+      <Dialog open={isAddApartmentDialogOpen} onOpenChange={(open) => !open && onCloseAddApartmentDialog?.()}>
+        <DialogContent className="sm:max-w-md">{children}</DialogContent>
       </Dialog>
 
       {/* Assign tenant dialog */}

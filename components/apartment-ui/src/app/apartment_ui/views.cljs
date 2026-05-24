@@ -98,6 +98,7 @@
           :isLoading                      loading?
           :isAddApartmentDialogOpen       add-dialog-open?
           :onChangeAddApartmentDialogOpen #(re-frame/dispatch [::events/open-add-dialog])
+          :onCloseAddApartmentDialog      #(re-frame/dispatch [::events/close-add-dialog])
           :onSelectApartment              (fn [id] (re-frame/dispatch [::events/select-apartment-detail id]))
           :onManageApartment              (fn [id] (re-frame/dispatch [::events/select-apartment id]))
           :onAssignTenant                 (fn [id] (re-frame/dispatch [::events/open-assign-dialog id]))
