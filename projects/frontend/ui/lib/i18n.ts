@@ -37,6 +37,7 @@ const resources = {
     expenseTypes: {
       title: "Expense Types",
       description: "Manage the categories used for cost allocations (Nebenkosten).",
+      saveError: "Failed to save. Please try again.",
       add: "Add Type",
       addNew: "Add New Expense Type",
       empty: "No expense types yet",
@@ -185,7 +186,10 @@ const resources = {
       deleteWarning: "This action cannot be undone. The tenant record will be permanently removed.",
       saveChanges: "Save Changes",
       fields: {
+        firstName: "First Name",
+        lastName: "Last Name",
         name: "Full Name",
+        birthday: "Date of Birth",
         email: "Email",
         phone: "Phone",
         startDate: "Start Date",
@@ -194,14 +198,23 @@ const resources = {
         noApartment: "No apartment assigned",
       },
       placeholders: {
+        firstName: "E.g., Maria",
+        lastName: "E.g., Schmidt",
         name: "E.g., Maria Schmidt",
         email: "tenant@example.com",
         phone: "+49 123 456789",
       },
       validation: {
+        firstNameRequired: "First name is required",
         nameRequired: "Name is required",
         nameTaken: "A tenant with this name already exists",
         emailInvalid: "Invalid email address",
+      },
+      household: {
+        title: "Household Members",
+        hint: "Add all people living in the apartment. This information is used for the Wohnbescheinigung.",
+        memberName: "Name",
+        memberBirthday: "Date of Birth (optional)",
       },
     },
     apartments: {
@@ -733,6 +746,7 @@ const resources = {
     expenseTypes: {
       title: "Kostenarten",
       description: "Verwalten Sie die Kategorien für Nebenkosten-Abrechnungsposten.",
+      saveError: "Speichern fehlgeschlagen. Bitte erneut versuchen.",
       add: "Kostenart hinzufügen",
       addNew: "Neue Kostenart hinzufügen",
       empty: "Noch keine Kostenarten",
@@ -881,7 +895,10 @@ const resources = {
       deleteWarning: "Diese Aktion kann nicht rückgängig gemacht werden. Der Mieterdatensatz wird dauerhaft entfernt.",
       saveChanges: "Änderungen speichern",
       fields: {
+        firstName: "Vorname",
+        lastName: "Nachname",
         name: "Vollständiger Name",
+        birthday: "Geburtsdatum",
         email: "E-Mail",
         phone: "Telefon",
         startDate: "Startdatum",
@@ -890,14 +907,23 @@ const resources = {
         noApartment: "Keine Wohnung zugewiesen",
       },
       placeholders: {
+        firstName: "z.B. Maria",
+        lastName: "z.B. Schmidt",
         name: "z.B. Maria Schmidt",
         email: "mieter@beispiel.de",
         phone: "+49 123 456789",
       },
       validation: {
+        firstNameRequired: "Vorname ist erforderlich",
         nameRequired: "Name ist erforderlich",
         nameTaken: "Ein Mieter mit diesem Namen existiert bereits",
         emailInvalid: "Ungültige E-Mail-Adresse",
+      },
+      household: {
+        title: "Mitbewohner",
+        hint: "Alle Personen hinzufügen, die in der Wohnung leben. Diese Daten werden für die Wohnbescheinigung verwendet.",
+        memberName: "Name",
+        memberBirthday: "Geburtsdatum (optional)",
       },
     },
     apartments: {

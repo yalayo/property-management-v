@@ -73,6 +73,7 @@
         expense-types        @(re-frame/subscribe [::cost-subs/expense-types])
         expense-types-loading? @(re-frame/subscribe [::cost-subs/expense-types-loading?])
         expense-types-saving?  @(re-frame/subscribe [::cost-subs/expense-types-saving?])
+        expense-types-error?   @(re-frame/subscribe [::cost-subs/expense-types-save-error?])
         dashboard-tab        @(re-frame/subscribe [::subs/dashboard-tab])
         all-costs            @(re-frame/subscribe [::cost-subs/all-costs])
         all-apt-costs        @(re-frame/subscribe [::cost-subs/all-apt-costs])
@@ -132,11 +133,14 @@
                                                                      (let [d (js->clj data :keywordize-keys true)]
                                                                        (re-frame/dispatch
                                                                         [::tenant-events/update-tenant id
-                                                                         {:name       (:name d)
-                                                                          :email      (:email d)
-                                                                          :phone      (:phone d)
-                                                                          :start-date (:startDate d)
-                                                                          :end-date   (:endDate d)}])))
+                                                                         {:first-name        (:firstName d)
+                                                                          :last-name         (:lastName d)
+                                                                          :email             (:email d)
+                                                                          :phone             (:phone d)
+                                                                          :start-date        (:startDate d)
+                                                                          :end-date          (:endDate d)
+                                                                          :birthday          (:birthday d)
+                                                                          :household-members (:householdMembers d)}])))
                                                :tenants-saving?    tenants-saving?
                                                :apt-costs          (clj->js apt-costs)
                                                :apt-costs-loading? apt-costs-loading?
@@ -197,6 +201,7 @@
                                               {:expenseTypes (clj->js expense-types)
                                                :isLoading    expense-types-loading?
                                                :isSaving     expense-types-saving?
+                                               :saveError    expense-types-error?
                                                :onLoad       #(re-frame/dispatch [::cost-events/load-expense-types])
                                                :onAdd        (fn [data]
                                                                (let [d (js->clj data :keywordize-keys true)]

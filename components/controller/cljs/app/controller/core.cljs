@@ -301,21 +301,25 @@
       (let [result ((:process core) {:command :create-tenant :data data})]
         (if (:error result)
           result
-          (let [{:keys [apartment-id name email phone start-date end-date]} (:entity result)]
+          (let [{:keys [apartment-id first-name last-name email phone start-date end-date birthday household-members]} (:entity result)]
             (js-await [dups ((:q storage) {:where [['?e :tenant/organization-id org-id]
-                                                    ['?e :tenant/name name]]})]
+                                                    ['?e :tenant/first-name first-name]
+                                                    ['?e :tenant/last-name last-name]]})]
                       (if (seq dups)
                         {:error :duplicate-name}
                         (js-await [{:keys [tx-id entity-ids]}
                                    ((:transact! storage)
-                                    [{:db/type                  "tenant"
-                                      :tenant/organization-id   org-id
-                                      :tenant/apartment-id      apartment-id
-                                      :tenant/name              name
-                                      :tenant/email             email
-                                      :tenant/phone             phone
-                                      :tenant/start-date        start-date
-                                      :tenant/end-date          end-date}] nil)]
+                                    [(cond-> {:db/type                  "tenant"
+                                              :tenant/organization-id   org-id
+                                              :tenant/first-name        first-name
+                                              :tenant/last-name         last-name
+                                              :tenant/email             email
+                                              :tenant/phone             phone
+                                              :tenant/start-date        start-date
+                                              :tenant/end-date          end-date
+                                              :tenant/birthday          birthday
+                                              :tenant/household-members household-members}
+                                       apartment-id (assoc :tenant/apartment-id apartment-id))] nil)]
                                   {:tx-id tx-id :tenant-id (first entity-ids)})))))))
 
 (defn- handle-update-tenant! [core storage data user]
@@ -328,13 +332,16 @@
                     (let [result ((:process core) {:command :update-tenant :data data})]
                       (if (:error result)
                         result
-                        (let [{:keys [name email phone start-date end-date]} (:updates result)
+                        (let [{:keys [first-name last-name email phone start-date end-date birthday household-members]} (:updates result)
                               facts (cond-> {:db/id eid}
-                                      (some? name)       (assoc :tenant/name name)
-                                      (some? email)      (assoc :tenant/email email)
-                                      (some? phone)      (assoc :tenant/phone phone)
-                                      (some? start-date) (assoc :tenant/start-date start-date)
-                                      (some? end-date)   (assoc :tenant/end-date end-date))]
+                                      (some? first-name)        (assoc :tenant/first-name first-name)
+                                      (some? last-name)         (assoc :tenant/last-name last-name)
+                                      (some? email)             (assoc :tenant/email email)
+                                      (some? phone)             (assoc :tenant/phone phone)
+                                      (some? start-date)        (assoc :tenant/start-date start-date)
+                                      (some? end-date)          (assoc :tenant/end-date end-date)
+                                      (some? birthday)          (assoc :tenant/birthday birthday)
+                                      (some? household-members) (assoc :tenant/household-members household-members))]
                           (js-await [{:keys [tx-id]}
                                      ((:transact! storage)
                                       [facts] nil)]

@@ -11,7 +11,8 @@ import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
 type TenantFormValues = {
-  name: string;
+  firstName: string;
+  lastName?: string;
   email?: string;
   phone?: string;
   startDate?: string;
@@ -39,7 +40,8 @@ export default function AddTenant({
   const { t: tCommon } = useTranslation("common");
 
   const tenantSchema = z.object({
-    name: z.string().min(1, t("validation.nameRequired")),
+    firstName: z.string().min(1, t("validation.firstNameRequired")),
+    lastName: z.string().optional(),
     email: z.union([z.string().email(t("validation.emailInvalid")), z.literal("")]).optional(),
     phone: z.string().optional(),
     startDate: z.string().optional(),
@@ -48,13 +50,17 @@ export default function AddTenant({
 
   const form = useForm<TenantFormValues>({
     resolver: zodResolver(tenantSchema),
-    defaultValues: { name: "", email: "", phone: "", startDate: "", apartmentId: "" },
+    defaultValues: { firstName: "", lastName: "", email: "", phone: "", startDate: "", apartmentId: "" },
   });
 
   const handleSubmit = (data: TenantFormValues) => {
-    const nameTaken = tenants.some(ten => ten.name?.toLowerCase() === data.name.toLowerCase());
+    const fullName = `${data.firstName} ${data.lastName || ""}`.trim().toLowerCase();
+    const nameTaken = tenants.some((ten) => {
+      const tenFull = `${ten["first-name"] || ""} ${ten["last-name"] || ""}`.trim().toLowerCase();
+      return tenFull === fullName;
+    });
     if (nameTaken) {
-      form.setError("name", { message: t("validation.nameTaken") });
+      form.setError("firstName", { message: t("validation.nameTaken") });
       return;
     }
     onSubmit?.(data);
@@ -69,15 +75,27 @@ export default function AddTenant({
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 pt-2">
-          <FormField control={form.control} name="name" render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t("fields.name")}</FormLabel>
-              <FormControl>
-                <Input placeholder={t("placeholders.name")} {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )} />
+          <div className="grid grid-cols-2 gap-3">
+            <FormField control={form.control} name="firstName" render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("fields.firstName")}</FormLabel>
+                <FormControl>
+                  <Input placeholder={t("placeholders.firstName")} {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+
+            <FormField control={form.control} name="lastName" render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("fields.lastName")}</FormLabel>
+                <FormControl>
+                  <Input placeholder={t("placeholders.lastName")} {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+          </div>
 
           <FormField control={form.control} name="email" render={({ field }) => (
             <FormItem>

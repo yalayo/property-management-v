@@ -60,3 +60,8 @@
  ::expense-types-saving?
  (fn [db _]
    (get-in db [:expense-types :saving?] false)))
+
+(re-frame/reg-sub
+ ::expense-types-save-error?
+ (fn [db _]
+   (get-in db [:expense-types :save-error] false)))

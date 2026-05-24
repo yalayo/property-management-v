@@ -71,24 +71,30 @@
                :occupied (get data :occupied)}}
 
     :create-tenant
-    (let [{:keys [apartment-id name]} data]
-      (if (or (nil? apartment-id) (nil? name))
+    (let [{:keys [first-name last-name]} data]
+      (if (nil? first-name)
         {:error :missing-required-fields}
         {:action :create-tenant
-         :entity {:apartment-id apartment-id
-                  :name         name
-                  :email        (or (get data :email) "")
-                  :phone        (or (get data :phone) "")
-                  :start-date   (or (get data :start-date) "")
-                  :end-date     (or (get data :end-date) "")}}))
+         :entity {:apartment-id       (get data :apartment-id)
+                  :first-name         first-name
+                  :last-name          (or last-name "")
+                  :email              (or (get data :email) "")
+                  :phone              (or (get data :phone) "")
+                  :start-date         (or (get data :start-date) "")
+                  :end-date           (or (get data :end-date) "")
+                  :birthday           (get data :birthday)
+                  :household-members  (get data :household-members)}}))
 
     :update-tenant
     {:action  :update-tenant
-     :updates {:name       (get data :name)
-               :email      (get data :email)
-               :phone      (get data :phone)
-               :start-date (get data :start-date)
-               :end-date   (get data :end-date)}}
+     :updates {:first-name        (get data :first-name)
+               :last-name         (get data :last-name)
+               :email             (get data :email)
+               :phone             (get data :phone)
+               :start-date        (get data :start-date)
+               :end-date          (get data :end-date)
+               :birthday          (get data :birthday)
+               :household-members (get data :household-members)}}
 
     :start-onboarding
     (let [{:keys [apartment-id email]} data]

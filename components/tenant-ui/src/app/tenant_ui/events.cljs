@@ -46,11 +46,12 @@
 
 (re-frame/reg-event-fx
  ::add-tenant
- (fn [{:keys [db]} [_ {:keys [name email phone start-date apartment-id]}]]
+ (fn [{:keys [db]} [_ {:keys [first-name last-name email phone start-date apartment-id]}]]
    {:db       (assoc-in db [:tenants :saving?] true)
     :dispatch [:app.core-ui.events/command
                :create-tenant
-               (cond-> {:name       name
+               (cond-> {:first-name first-name
+                        :last-name  last-name
                         :email      email
                         :phone      phone
                         :start-date start-date}

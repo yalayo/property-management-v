@@ -10,7 +10,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "../ui/input";
 
 type AssignFormValues = {
-  name: string;
+  firstName: string;
+  lastName?: string;
   email?: string;
   phone?: string;
   startDate?: string;
@@ -34,7 +35,8 @@ export default function AssignTenant({
   const { t: tCommon } = useTranslation("common");
 
   const assignSchema = z.object({
-    name: z.string().min(1, tTenants("validation.nameRequired")),
+    firstName: z.string().min(1, tTenants("validation.firstNameRequired")),
+    lastName: z.string().optional(),
     email: z.union([z.string().email(tTenants("validation.emailInvalid")), z.literal("")]).optional(),
     phone: z.string().optional(),
     startDate: z.string().optional(),
@@ -42,7 +44,7 @@ export default function AssignTenant({
 
   const form = useForm<AssignFormValues>({
     resolver: zodResolver(assignSchema),
-    defaultValues: { name: "", email: "", phone: "", startDate: "" },
+    defaultValues: { firstName: "", lastName: "", email: "", phone: "", startDate: "" },
   });
 
   const handleSubmit = (data: AssignFormValues) => {
@@ -62,15 +64,27 @@ export default function AssignTenant({
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 pt-2">
-          <FormField control={form.control} name="name" render={({ field }) => (
-            <FormItem>
-              <FormLabel>{tTenants("fields.name")}</FormLabel>
-              <FormControl>
-                <Input placeholder={tTenants("placeholders.name")} {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )} />
+          <div className="grid grid-cols-2 gap-3">
+            <FormField control={form.control} name="firstName" render={({ field }) => (
+              <FormItem>
+                <FormLabel>{tTenants("fields.firstName")}</FormLabel>
+                <FormControl>
+                  <Input placeholder={tTenants("placeholders.firstName")} {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+
+            <FormField control={form.control} name="lastName" render={({ field }) => (
+              <FormItem>
+                <FormLabel>{tTenants("fields.lastName")}</FormLabel>
+                <FormControl>
+                  <Input placeholder={tTenants("placeholders.lastName")} {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+          </div>
 
           <FormField control={form.control} name="email" render={({ field }) => (
             <FormItem>

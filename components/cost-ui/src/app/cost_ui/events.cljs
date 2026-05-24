@@ -260,10 +260,14 @@
 (re-frame/reg-event-fx
  ::expense-type-mutated
  (fn [{:keys [db]} _]
-   {:db       (assoc-in db [:expense-types :saving?] false)
+   {:db       (-> db
+                  (assoc-in [:expense-types :saving?] false)
+                  (assoc-in [:expense-types :save-error] false))
     :dispatch [::load-expense-types]}))
 
 (re-frame/reg-event-db
  ::expense-type-error
  (fn [db _]
-   (assoc-in db [:expense-types :saving?] false)))
+   (-> db
+       (assoc-in [:expense-types :saving?] false)
+       (assoc-in [:expense-types :save-error] true))))

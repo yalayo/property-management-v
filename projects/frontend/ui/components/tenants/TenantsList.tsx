@@ -23,12 +23,14 @@ function getPageNumbers(current: number, total: number): (number | "ellipsis")[]
 
 type Tenant = {
   id: number;
-  apartment_id: number;
-  name: string;
+  "apartment-id"?: number;
+  "first-name"?: string;
+  "last-name"?: string;
+  name?: string;
   email?: string;
   phone?: string;
-  start_date?: string;
-  end_date?: string;
+  "start-date"?: string;
+  "end-date"?: string;
 };
 
 type Props = {
@@ -52,7 +54,12 @@ export default function TenantsList({
   const { t: tCommon } = useTranslation("common");
 
   const safeTenants: Tenant[] = tenants ?? [];
-  const active = safeTenants.filter((t) => !t.end_date).length;
+  const active = safeTenants.filter((t) => !t["end-date"]).length;
+
+  function tenantDisplayName(t: Tenant): string {
+    const full = [t["first-name"], t["last-name"]].filter(Boolean).join(" ").trim();
+    return full || t.name || "";
+  }
   const [page, setPage] = useState(1);
   const [filterText, setFilterText] = useState("");
 
@@ -61,7 +68,10 @@ export default function TenantsList({
   const filteredTenants = filterText
     ? safeTenants.filter((t) => {
         const q = filterText.toLowerCase();
-        return t.name?.toLowerCase().includes(q) || t.email?.toLowerCase().includes(q);
+        return (
+          tenantDisplayName(t).toLowerCase().includes(q) ||
+          t.email?.toLowerCase().includes(q)
+        );
       })
     : safeTenants;
 
@@ -105,14 +115,14 @@ export default function TenantsList({
           <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {pagedTenants.map((tenant) => {
-              const isActive = !tenant.end_date;
+              const isActive = !tenant["end-date"];
               return (
                 <Card key={tenant.id} className="overflow-hidden">
                   <div className="p-4 flex flex-col gap-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <User className="h-5 w-5 text-primary" />
-                        <span className="font-semibold">{tenant.name}</span>
+                        <span className="font-semibold">{tenantDisplayName(tenant)}</span>
                       </div>
                       <Badge variant={isActive ? "default" : "secondary"}>
                         {isActive ? t("active") : t("past")}
@@ -121,11 +131,11 @@ export default function TenantsList({
                     {tenant.email && (
                       <p className="text-sm text-muted-foreground truncate">{tenant.email}</p>
                     )}
-                    {tenant.start_date && (
+                    {tenant["start-date"] && (
                       <p className="text-xs text-muted-foreground">
-                        {tenant.end_date
-                          ? t("fromTo", { from: tenant.start_date, to: tenant.end_date })
-                          : t("from", { from: tenant.start_date })}
+                        {tenant["end-date"]
+                          ? t("fromTo", { from: tenant["start-date"], to: tenant["end-date"] })
+                          : t("from", { from: tenant["start-date"] })}
                       </p>
                     )}
                     <Button

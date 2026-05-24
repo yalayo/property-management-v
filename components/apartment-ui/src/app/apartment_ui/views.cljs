@@ -61,7 +61,8 @@
                                      (let [d (js->clj data :keywordize-keys true)]
                                        (re-frame/dispatch [::events/assign-tenant
                                                            apt-id
-                                                           {:name       (:name d)
+                                                           {:first-name (:firstName d)
+                                                            :last-name  (:lastName d)
                                                             :email      (:email d)
                                                             :phone      (:phone d)
                                                             :start-date (:startDate d)
@@ -112,7 +113,8 @@
                                                                 (let [d (js->clj data :keywordize-keys true)]
                                                                   (re-frame/dispatch [::events/assign-tenant
                                                                                       assign-apt-id
-                                                                                      {:name       (:name d)
+                                                                                      {:first-name (:firstName d)
+                                                                                       :last-name  (:lastName d)
                                                                                        :email      (:email d)
                                                                                        :phone      (:phone d)
                                                                                        :start-date (:startDate d)}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, Tags } from "lucide-react";
+import { Plus, Pencil, Trash2, Tags, AlertCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
@@ -20,6 +20,7 @@ type Props = {
   expenseTypes?: ExpenseType[];
   isLoading?: boolean;
   isSaving?: boolean;
+  saveError?: boolean;
   onLoad?: () => void;
   onAdd?: (data: { key: string; nameEn: string; nameDe: string }) => void;
   onUpdate?: (id: string, nameEn: string, nameDe: string) => void;
@@ -35,6 +36,7 @@ export default function ExpenseTypes({
   expenseTypes = [],
   isLoading = false,
   isSaving = false,
+  saveError = false,
   onLoad,
   onAdd,
   onUpdate,
@@ -96,6 +98,12 @@ export default function ExpenseTypes({
 
       <CardContent>
         <p className="text-sm text-muted-foreground mb-4">{t("description")}</p>
+        {saveError && (
+          <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive mb-4">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            {t("saveError")}
+          </div>
+        )}
 
         {isLoading ? (
           <div className="space-y-2">

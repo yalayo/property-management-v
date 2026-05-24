@@ -29,11 +29,14 @@
           :onUpdate (fn [id data]
                       (let [d (js->clj data :keywordize-keys true)]
                         (re-frame/dispatch [::events/update-tenant id
-                                            {:name       (:name d)
-                                             :email      (:email d)
-                                             :phone      (:phone d)
-                                             :start-date (:startDate d)
-                                             :end-date   (:endDate d)}])))}]
+                                            {:first-name        (:firstName d)
+                                             :last-name         (:lastName d)
+                                             :email             (:email d)
+                                             :phone             (:phone d)
+                                             :start-date        (:startDate d)
+                                             :end-date          (:endDate d)
+                                             :birthday          (:birthday d)
+                                             :household-members (:householdMembers d)}])))}]
         [tenants-list
          {:tenants               (clj->js tenants)
           :isLoading             loading?
@@ -50,7 +53,8 @@
               :onSubmit   (fn [data]
                             (let [d (js->clj data :keywordize-keys true)]
                               (re-frame/dispatch [::events/add-tenant
-                                                  {:name         (:name d)
+                                                  {:first-name   (:firstName d)
+                                                   :last-name    (:lastName d)
                                                    :email        (:email d)
                                                    :phone        (:phone d)
                                                    :start-date   (:startDate d)
