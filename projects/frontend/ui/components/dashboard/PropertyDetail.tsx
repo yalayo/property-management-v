@@ -6,7 +6,11 @@ import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
-type CostLine = { id: string; key: string; name: string };
+type CostLine = { id: string; key: string; name?: string; "name-en"?: string; "name-de"?: string };
+
+function costLineName(line: CostLine, lang: string): string {
+  return (lang.startsWith("de") ? line["name-de"] : line["name-en"]) ?? line.name ?? line.key ?? "";
+}
 
 type Props = {
   property: any;
@@ -37,7 +41,7 @@ export default function PropertyDetail({
   onDeleteCost,
   onBack,
 }: Props) {
-  const { t } = useTranslation("costs");
+  const { t, i18n } = useTranslation("costs");
   const [year, setYear] = useState(new Date().getFullYear());
   const [inputState, setInputState] = useState<Record<string, string | null>>({});
   const [selectKey, setSelectKey] = useState(0);
@@ -73,7 +77,7 @@ export default function PropertyDetail({
     if (existing) {
       onUpdateCost?.({ id: existing.id, value });
     } else {
-      onAddCost?.({ propertyId: property.id, line: line.key, name: line.name, year, value });
+      onAddCost?.({ propertyId: property.id, line: line.key, name: costLineName(line, i18n.language), year, value });
     }
     closeEdit(line.key);
   };
@@ -97,7 +101,7 @@ export default function PropertyDetail({
   const copyFromPrevYear = () => {
     prevYearLinesToCopy.forEach(line => {
       const prev = prevEntryFor(line.key);
-      if (prev) onAddCost?.({ propertyId: property.id, line: line.key, name: line.name, year, value: Number(prev.value) });
+      if (prev) onAddCost?.({ propertyId: property.id, line: line.key, name: costLineName(line, i18n.language), year, value: Number(prev.value) });
     });
   };
 
@@ -178,7 +182,7 @@ export default function PropertyDetail({
                           key={line.id}
                           className={`flex items-center gap-3 px-4 py-3 text-sm ${!isLast ? "border-b" : ""}`}
                         >
-                          <span className="flex-1 font-medium">{line.name}</span>
+                          <span className="flex-1 font-medium">{costLineName(line, i18n.language)}</span>
                           {isEditing ? (
                             <>
                               <Input
@@ -226,7 +230,7 @@ export default function PropertyDetail({
                   <SelectContent>
                     {availableLines.map(line => (
                       <SelectItem key={line.id} value={line.key}>
-                        {line.name}
+                        {costLineName(line, i18n.language)}
                       </SelectItem>
                     ))}
                   </SelectContent>
