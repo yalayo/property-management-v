@@ -60,8 +60,9 @@
  ::cost-mutated
  (fn [{:keys [db]} _]
    (let [property-id (get-in db [:costs :property-id])]
-     {:db       (assoc-in db [:costs :saving?] false)
-      :dispatch [::load-costs property-id]})))
+     {:db         (assoc-in db [:costs :saving?] false)
+      :dispatch-n [[::load-costs property-id]
+                   [::load-all-costs]]})))
 
 (re-frame/reg-event-db
  ::cost-error
@@ -127,8 +128,9 @@
  ::apt-cost-mutated
  (fn [{:keys [db]} _]
    (let [apartment-id (get-in db [:apartment-costs :apartment-id])]
-     {:db       (assoc-in db [:apartment-costs :saving?] false)
-      :dispatch [::load-apartment-costs apartment-id]})))
+     {:db         (assoc-in db [:apartment-costs :saving?] false)
+      :dispatch-n [[::load-apartment-costs apartment-id]
+                   [::load-all-apt-costs]]})))
 
 (re-frame/reg-event-db
  ::apt-cost-error

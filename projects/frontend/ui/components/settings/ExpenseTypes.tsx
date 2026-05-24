@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, Tags, AlertCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, Tags, AlertCircle, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Input } from "../ui/input";
+
+const PAGE_SIZE = 10;
 import { Badge } from "../ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Skeleton } from "../ui/skeleton";
@@ -51,8 +53,11 @@ export default function ExpenseTypes({
   const [editNameEn, setEditNameEn] = useState("");
   const [editNameDe, setEditNameDe] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [filterText, setFilterText] = useState("");
+  const [page, setPage] = useState(1);
 
   useEffect(() => { onLoad?.(); }, []);
+  useEffect(() => { setPage(1); }, [filterText, expenseTypes]);
 
   const handleAdd = () => {
     if (!addForm.key.trim() || !addForm.nameEn.trim() || !addForm.nameDe.trim()) return;
@@ -119,9 +124,30 @@ export default function ExpenseTypes({
               {t("add")}
             </Button>
           </div>
-        ) : (
-          <div className="space-y-2">
-            {expenseTypes.map((et) => (
+        ) : (() => {
+          const filtered = filterText
+            ? expenseTypes.filter(et =>
+                displayName(et, i18n.language).toLowerCase().includes(filterText.toLowerCase()) ||
+                et.key.toLowerCase().includes(filterText.toLowerCase())
+              )
+            : expenseTypes;
+          const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+          const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+          const from = filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+          const to = Math.min(page * PAGE_SIZE, filtered.length);
+          return (
+          <>
+            <div className="relative mb-3">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder={t("search")}
+                value={filterText}
+                onChange={e => setFilterText(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            <div className="space-y-2">
+            {paged.map((et) => (
               <div
                 key={et.id}
                 className="flex items-center justify-between p-3 border rounded-lg bg-card"
@@ -198,8 +224,24 @@ export default function ExpenseTypes({
                 )}
               </div>
             ))}
-          </div>
-        )}
+            </div>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-2 text-sm text-muted-foreground">
+                <span>{t("showingCount", { from, to, total: filtered.length })}</span>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="w-16 text-center tabular-nums">{page} / {totalPages}</span>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+          );
+        })()}
       </CardContent>
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>

@@ -36,7 +36,8 @@
       "Bash(Get-ChildItem -Path \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\\\\projects\\\\frontend\\\\ui\\\\components\" -Recurse -Filter \"*.tsx\")",
       "Bash(python /tmp/patch_controller.py)",
       "Bash(python patch_ctrl.py)",
-      "Bash(del patch_ctrl.py)"
+      "Bash(del patch_ctrl.py)",
+      "Bash(grep -E \"\\\\.\\(clj|cljs\\)$\")"
     ]
   }
 }

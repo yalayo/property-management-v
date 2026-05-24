@@ -58,6 +58,12 @@ function effectiveCostValue(costs: any[], lineKey: string, year: number): number
   return inherited ? Number(inherited.value) : null;
 }
 
+function effectiveAptCostEntry(aptCosts: any[], lineKey: string, year: number) {
+  const exact = costEntryFor(aptCosts, lineKey, year);
+  if (exact) return exact;
+  return inheritedCostFor(aptCosts, lineKey, year);
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function NebenkostenAbrechnung({
@@ -106,14 +112,19 @@ export default function NebenkostenAbrechnung({
 
   const lineName = (key: string) => expenseTypeMap[key] ?? key;
 
+  const propertyCosts = useMemo(() => {
+    if (!selectedPropertyId) return [];
+    return costs.filter((c: any) => String(c["property-id"]) === selectedPropertyId);
+  }, [costs, selectedPropertyId]);
+
   // Active cost lines for selected property: unique keys that have been entered (any year ≤ selected)
   const activeCostLines = useMemo(() => {
     const keys = new Set<string>();
-    costs.forEach((c: any) => {
+    propertyCosts.forEach((c: any) => {
       if (Number(c.year) <= year) keys.add(c.line);
     });
     return [...keys];
-  }, [costs, year]);
+  }, [propertyCosts, year]);
 
   useEffect(() => {
     if (selectedPropertyId) {
@@ -186,7 +197,7 @@ export default function NebenkostenAbrechnung({
     try {
       const costLines: CostLineItem[] = activeCostLines.map(key => ({
         name:  lineName(key),
-        total: effectiveCostValue(costs, key, year),
+        total: effectiveCostValue(propertyCosts, key, year),
         share: effectiveCostValue(aptCosts, key, year) ?? 0,
       }));
 
@@ -199,7 +210,7 @@ export default function NebenkostenAbrechnung({
         senderAddress:   [selectedProperty.address, selectedProperty["postal-code"], selectedProperty.city]
                            .filter(Boolean).join(", "),
         city:            selectedProperty.city ?? "",
-        recipientName:   tenantForApt.name,
+        recipientName:   [tenantForApt["first-name"], tenantForApt["last-name"]].filter(Boolean).join(" ") || tenantForApt.name,
         propertyName:    selectedProperty.name,
         propertyAddress: [selectedProperty.address, selectedProperty["postal-code"], selectedProperty.city]
                            .filter(Boolean).join(", "),
@@ -388,7 +399,9 @@ export default function NebenkostenAbrechnung({
                     <div className="flex-1">
                       <p className="text-sm font-semibold">{apt.code}</p>
                       <p className="text-xs text-muted-foreground">
-                        {tenant ? tenant.name : t("noTenant")}
+                        {tenant
+                          ? ([tenant["first-name"], tenant["last-name"]].filter(Boolean).join(" ") || tenant.name)
+                          : t("noTenant")}
                       </p>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -436,7 +449,9 @@ export default function NebenkostenAbrechnung({
         <CardContent className="pt-4 pb-4 grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
           <div>
             <p className="text-xs text-muted-foreground mb-0.5">{t("tenant")}</p>
-            <p className="font-medium">{tenantForApt ? tenantForApt.name : <span className="text-muted-foreground">{t("noTenant")}</span>}</p>
+            <p className="font-medium">{tenantForApt
+              ? ([tenantForApt["first-name"], tenantForApt["last-name"]].filter(Boolean).join(" ") || tenantForApt.name)
+              : <span className="text-muted-foreground">{t("noTenant")}</span>}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-0.5">IBAN</p>
@@ -479,9 +494,11 @@ export default function NebenkostenAbrechnung({
           {/* Cost summary table */}
           <Card>
             <CardContent className="p-0">
-              <div className="grid grid-cols-3 text-xs font-medium text-muted-foreground border-b px-4 py-2">
+              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] text-xs font-medium text-muted-foreground border-b px-4 py-2 gap-1">
                 <span>{t("costLine")}</span>
                 <span className="text-right">{t("total")}</span>
+                <span className="text-right">{t("verteiler")}</span>
+                <span className="text-right">{t("schluessel")}</span>
                 <span className="text-right">{t("share")}</span>
               </div>
               {activeCostLines.length === 0 ? (
@@ -490,14 +507,19 @@ export default function NebenkostenAbrechnung({
                 </div>
               ) : (
                 activeCostLines.map(key => {
-                  const propTotal = effectiveCostValue(costs, key, year);
-                  const aptShare  = effectiveCostValue(aptCosts, key, year);
+                  const propTotal  = effectiveCostValue(propertyCosts, key, year);
+                  const aptEntry   = effectiveAptCostEntry(aptCosts, key, year);
+                  const aptShare   = aptEntry ? Number(aptEntry.value) : null;
+                  const verteiler  = aptEntry?.verteiler ?? "—";
+                  const schluessel = aptEntry?.schluessel ?? "—";
                   return (
-                    <div key={key} className="grid grid-cols-3 text-sm px-4 py-2 border-b last:border-b-0">
+                    <div key={key} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] text-sm px-4 py-2 border-b last:border-b-0 gap-1">
                       <span>{lineName(key)}</span>
                       <span className="text-right tabular-nums text-muted-foreground">
                         {propTotal != null ? `€ ${formatEur(propTotal)}` : "—"}
                       </span>
+                      <span className="text-right tabular-nums text-muted-foreground">{verteiler}</span>
+                      <span className="text-right tabular-nums text-muted-foreground">{schluessel}</span>
                       <span className="text-right tabular-nums">
                         {aptShare != null ? `€ ${formatEur(aptShare)}` : "—"}
                       </span>
@@ -506,19 +528,16 @@ export default function NebenkostenAbrechnung({
                 })
               )}
               {/* Summary rows */}
-              <div className="grid grid-cols-3 text-sm px-4 py-2 border-t border-dashed">
-                <span className="font-medium">{t("totalCosts")}</span>
-                <span />
+              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] text-sm px-4 py-2 border-t border-dashed gap-1">
+                <span className="col-span-4 font-medium">{t("totalCosts")}</span>
                 <span className="text-right tabular-nums font-medium">€ {formatEur(totalShare)}</span>
               </div>
-              <div className="grid grid-cols-3 text-sm px-4 py-2">
-                <span className="text-muted-foreground">{t("prepayment")}</span>
-                <span />
+              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] text-sm px-4 py-2 gap-1">
+                <span className="col-span-4 text-muted-foreground">{t("prepayment")}</span>
                 <span className="text-right tabular-nums text-muted-foreground">− € {formatEur(prepaymentTotal)}</span>
               </div>
-              <div className="grid grid-cols-3 text-sm px-4 py-2 border-t bg-muted/30">
-                <span className="font-bold">{net >= 0 ? t("netPayment") : t("refund")}</span>
-                <span />
+              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] text-sm px-4 py-2 border-t bg-muted/30 gap-1">
+                <span className="col-span-4 font-bold">{net >= 0 ? t("netPayment") : t("refund")}</span>
                 <span className={`text-right tabular-nums font-bold ${net >= 0 ? "text-destructive" : "text-green-600"}`}>
                   € {formatEur(Math.abs(net))}
                 </span>

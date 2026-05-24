@@ -476,7 +476,7 @@
 (defn- handle-create-apartment-cost! [storage data user]
   (with-org user
     (fn [org-id]
-      (let [{:keys [apartment-id line name year value]} data]
+      (let [{:keys [apartment-id line name year value verteiler anteil schluessel]} data]
         (js-await [{:keys [tx-id entity-ids]}
                    ((:transact! storage)
                     [{:db/type                      "apartment-cost"
@@ -485,7 +485,10 @@
                       :apartment-cost/line             line
                       :apartment-cost/name             name
                       :apartment-cost/year             year
-                      :apartment-cost/value            value}] nil)]
+                      :apartment-cost/value          value
+                      :apartment-cost/verteiler      verteiler
+                      :apartment-cost/anteil         anteil
+                      :apartment-cost/schluessel     schluessel}] nil)]
                   {:tx-id tx-id :cost-id (first entity-ids)})))))
 
 (defn- handle-update-apartment-cost! [storage data user]
@@ -498,7 +501,10 @@
                     (js-await [{:keys [tx-id]}
                                ((:transact! storage)
                                 [{:db/id                  eid
-                                  :apartment-cost/value   (:value data)}] nil)]
+                                  :apartment-cost/value        (:value data)
+                                  :apartment-cost/verteiler    (:verteiler data)
+                                  :apartment-cost/anteil       (:anteil data)
+                                  :apartment-cost/schluessel   (:schluessel data)}] nil)]
                               {:tx-id tx-id})))))))
 
 (defn- handle-delete-apartment-cost! [storage data user]

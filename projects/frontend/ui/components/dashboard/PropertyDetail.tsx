@@ -1,15 +1,20 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, ChevronRight, Copy, Pencil, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
 
 type CostLine = { id: string; key: string; name?: string; "name-en"?: string; "name-de"?: string };
 
 function costLineName(line: CostLine, lang: string): string {
   return (lang.startsWith("de") ? line["name-de"] : line["name-en"]) ?? line.name ?? line.key ?? "";
+}
+
+function formatEur(v: number) {
+  return v.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 type Props = {
@@ -24,10 +29,6 @@ type Props = {
   onDeleteCost?: (id: string) => void;
   onBack: () => void;
 };
-
-function formatEur(v: number) {
-  return v.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 export default function PropertyDetail({
   property,
@@ -44,18 +45,32 @@ export default function PropertyDetail({
   const { t, i18n } = useTranslation("costs");
   const [year, setYear] = useState(new Date().getFullYear());
   const [inputState, setInputState] = useState<Record<string, string | null>>({});
-  const [selectKey, setSelectKey] = useState(0);
+  const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
+  const [addLineOpen, setAddLineOpen] = useState(false);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (property?.id && onLoadCosts) onLoadCosts(property.id);
   }, [property?.id]);
 
-  useEffect(() => { setInputState({}); }, [year]);
+  React.useEffect(() => { setInputState({}); setSavingKeys(new Set()); }, [year]);
+
+  // Auto-close pending edits once costs confirms the save
+  React.useEffect(() => {
+    if (savingKeys.size === 0) return;
+    const yearEntries = costs.filter((c: any) => Number(c.year) === year);
+    const nowSaved = [...savingKeys].filter(k => yearEntries.some((c: any) => c.line === k));
+    if (nowSaved.length > 0) {
+      setInputState(prev => { const n = { ...prev }; nowSaved.forEach(k => delete n[k]); return n; });
+      setSavingKeys(prev => { const n = new Set(prev); nowSaved.forEach(k => n.delete(k)); return n; });
+    }
+  }, [costs, year, savingKeys]);
 
   const costLines: CostLine[] = expenseTypes;
 
-  const entryFor = (key: string) =>
-    costs.find((c: any) => c.line === key && Number(c.year) === year) ?? null;
+  const yearCostEntries = costs.filter((c: any) => Number(c.year) === year);
+  const savedKeys = yearCostEntries.map((c: any) => c.line as string);
+
+  const entryFor = (key: string) => yearCostEntries.find((c: any) => c.line === key) ?? null;
 
   const prevEntryFor = (key: string) =>
     [...costs]
@@ -76,10 +91,11 @@ export default function PropertyDetail({
     const existing = entryFor(line.key);
     if (existing) {
       onUpdateCost?.({ id: existing.id, value });
+      closeEdit(line.key);
     } else {
       onAddCost?.({ propertyId: property.id, line: line.key, name: costLineName(line, i18n.language), year, value });
+      setSavingKeys(prev => new Set([...prev, line.key]));
     }
-    closeEdit(line.key);
   };
 
   const handleSelectLine = (key: string) => {
@@ -87,15 +103,20 @@ export default function PropertyDetail({
     if (!line) return;
     const prev = prevEntryFor(line.key);
     openEdit(line.key, prev ? String(prev.value) : "");
-    setSelectKey(k => k + 1);
+    setAddLineOpen(false);
   };
 
-  // Only show lines that have a saved entry or are actively being edited
-  const activeLines = costLines.filter(l => entryFor(l.key) || inputState[l.key] != null);
-  // Lines still available to add
-  const availableLines = costLines.filter(l => !entryFor(l.key) && inputState[l.key] == null);
+  // Active lines in insertion order (savedKeys from DB, then pending, then new edits)
+  const pendingKeys = [...savingKeys].filter(k => !savedKeys.includes(k));
+  const editingNewKeys = Object.keys(inputState).filter(k => inputState[k] != null && !savedKeys.includes(k) && !savingKeys.has(k));
+  const activeLines = [
+    ...savedKeys.map(k => costLines.find(l => l.key === k)),
+    ...pendingKeys.map(k => costLines.find(l => l.key === k)),
+    ...editingNewKeys.map(k => costLines.find(l => l.key === k)),
+  ].filter(Boolean) as CostLine[];
 
-  // Lines from previous year that have no entry yet this year (for bulk copy)
+  const availableLines = costLines.filter(l => !savedKeys.includes(l.key) && inputState[l.key] == null && !savingKeys.has(l.key));
+
   const prevYearLinesToCopy = availableLines.filter(l => prevEntryFor(l.key));
 
   const copyFromPrevYear = () => {
@@ -146,10 +167,7 @@ export default function PropertyDetail({
             <h3 className="text-base font-semibold">{t("nebenkosten")}</h3>
             <div className="flex items-center gap-2">
               {prevYearLinesToCopy.length > 0 && (
-                <Button
-                  variant="outline" size="sm" className="h-7 text-xs"
-                  disabled={costsSaving} onClick={copyFromPrevYear}
-                >
+                <Button variant="outline" size="sm" className="h-7 text-xs" disabled={costsSaving} onClick={copyFromPrevYear}>
                   <Copy className="h-3 w-3 mr-1.5" />
                   {t("copyFromYear", { year: year - 1 })}
                 </Button>
@@ -173,15 +191,22 @@ export default function PropertyDetail({
               {activeLines.length > 0 && (
                 <Card>
                   <CardContent className="p-0">
-                    {activeLines.map((line, idx) => {
+                    {activeLines.map((line) => {
                       const entry     = entryFor(line.key);
-                      const isEditing = inputState[line.key] != null;
-                      const isLast    = idx === activeLines.length - 1;
+                      const isSaving  = savingKeys.has(line.key);
+                      const isEditing = inputState[line.key] != null && !isSaving;
+
+                      if (isSaving) {
+                        return (
+                          <div key={line.id} className="flex items-center gap-3 px-4 py-3 text-sm border-b last:border-b-0 opacity-60">
+                            <span className="flex-1 font-medium">{costLineName(line, i18n.language)}</span>
+                            <span className="text-xs text-muted-foreground italic">{t("save")}…</span>
+                          </div>
+                        );
+                      }
+
                       return (
-                        <div
-                          key={line.id}
-                          className={`flex items-center gap-3 px-4 py-3 text-sm ${!isLast ? "border-b" : ""}`}
-                        >
+                        <div key={line.id} className={`flex items-center gap-3 px-4 py-3 text-sm border-b last:border-b-0`}>
                           <span className="flex-1 font-medium">{costLineName(line, i18n.language)}</span>
                           {isEditing ? (
                             <>
@@ -189,18 +214,11 @@ export default function PropertyDetail({
                                 autoFocus type="text" inputMode="decimal"
                                 value={inputState[line.key]!}
                                 onChange={e => setInputState(prev => ({ ...prev, [line.key]: e.target.value }))}
-                                onKeyDown={e => {
-                                  if (e.key === "Enter") commit(line);
-                                  if (e.key === "Escape") closeEdit(line.key);
-                                }}
+                                onKeyDown={e => { if (e.key === "Enter") commit(line); if (e.key === "Escape") closeEdit(line.key); }}
                                 className="w-36 h-7 text-sm text-right"
                               />
-                              <Button size="sm" className="h-7 px-3" disabled={costsSaving} onClick={() => commit(line)}>
-                                {t("save")}
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => closeEdit(line.key)}>
-                                {t("cancel")}
-                              </Button>
+                              <Button size="sm" className="h-7 px-3" disabled={costsSaving} onClick={() => commit(line)}>{t("save")}</Button>
+                              <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => closeEdit(line.key)}>{t("cancel")}</Button>
                             </>
                           ) : entry ? (
                             <>
@@ -223,18 +241,33 @@ export default function PropertyDetail({
               )}
 
               {availableLines.length > 0 && (
-                <Select key={selectKey} onValueChange={handleSelectLine}>
-                  <SelectTrigger className="h-8 text-sm text-muted-foreground border-dashed">
-                    <SelectValue placeholder={t("addCostLine")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableLines.map(line => (
-                      <SelectItem key={line.id} value={line.key}>
-                        {costLineName(line, i18n.language)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={addLineOpen} onOpenChange={setAddLineOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full h-8 border-dashed text-sm text-muted-foreground justify-start font-normal">
+                      <Plus className="h-3.5 w-3.5 mr-2" />
+                      {t("addCostLine")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder={t("searchCostLine")} />
+                      <CommandList>
+                        <CommandEmpty>{t("noMatchCostLine")}</CommandEmpty>
+                        <CommandGroup>
+                          {availableLines.map(line => (
+                            <CommandItem
+                              key={line.id}
+                              value={costLineName(line, i18n.language)}
+                              onSelect={() => handleSelectLine(line.key)}
+                            >
+                              {costLineName(line, i18n.language)}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               )}
             </div>
           )}

@@ -1,12 +1,16 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
 const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
+
+const SCHLUESSEL_OPTIONS = ["Wohnfläche", "Verbraucht", "Anzahl Personen", "MEA"];
 
 type Tenant = {
   id: string;
@@ -18,34 +22,28 @@ type Tenant = {
   "end-date"?: string;
 };
 
-function tenantDisplayName(tenant: Tenant): string {
-  if (tenant["first-name"]) {
-    return [tenant["first-name"], tenant["last-name"]].filter(Boolean).join(" ");
-  }
-  return tenant.name ?? "";
-}
-
-function costLineName(line: CostLine, lang: string): string {
-  return (lang.startsWith("de") ? line["name-de"] : line["name-en"]) ?? line.name ?? line.key ?? "";
-}
-
 type CostLine = { id: string; key: string; name?: string; "name-en"?: string; "name-de"?: string };
 
+type CostEditFields = {
+  value: string;
+  verteiler: string;
+  schluessel: string;
+  anteil: string;
+};
 
 type Props = {
   apartment: any;
   properties?: any[];
   tenants?: Tenant[];
   expenseTypes?: CostLine[];
-  // cost allocation props
   aptCosts?: any[];
   aptCostsLoading?: boolean;
   aptCostsSaving?: boolean;
   onLoadAptCosts?: (apartmentId: string) => void;
-  onAddAptCost?: (data: { apartmentId: string; line: string; name: string; year: number; value: number }) => void;
-  onUpdateAptCost?: (data: { id: string; value: number }) => void;
+  onAddAptCost?: (data: { apartmentId: string; line: string; name: string; year: number; value: number; verteiler?: number; anteil?: number; schluessel?: string }) => void;
+  onUpdateAptCost?: (data: { id: string; value: number; verteiler?: number; anteil?: number; schluessel?: string }) => void;
   onDeleteAptCost?: (id: string) => void;
-  // rent payment props
+  allCosts?: any[];
   rentPayments?: any[];
   rentLoading?: boolean;
   rentSaving?: boolean;
@@ -65,10 +63,7 @@ function parseDateParts(dateStr: string | undefined): { year: number | null; mon
   const parts = dateStr.split("-");
   const year  = parseInt(parts[0], 10);
   const month = parseInt(parts[1], 10);
-  return {
-    year:  isNaN(year)  ? null : year,
-    month: isNaN(month) ? null : month,
-  };
+  return { year: isNaN(year) ? null : year, month: isNaN(month) ? null : month };
 }
 
 function tenantActiveInYear(tenant: Tenant, year: number): boolean {
@@ -87,6 +82,30 @@ function tenantMonthsInYear(tenant: Tenant, year: number): readonly number[] {
   return MONTHS.filter(m => m >= startMonth && m <= endMonth);
 }
 
+function tenantDisplayName(tenant: Tenant): string {
+  if (tenant["first-name"]) return [tenant["first-name"], tenant["last-name"]].filter(Boolean).join(" ");
+  return tenant.name ?? "";
+}
+
+function costLineName(line: CostLine, lang: string): string {
+  return (lang.startsWith("de") ? line["name-de"] : line["name-en"]) ?? line.name ?? line.key ?? "";
+}
+
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
+function tenantDaysInYear(tenant: Tenant, year: number): number {
+  const yearStart = new Date(year, 0, 1);
+  const yearEnd   = new Date(year, 11, 31);
+  const rawStart  = tenant["start-date"] ? new Date(tenant["start-date"] + "T00:00:00") : yearStart;
+  const rawEnd    = tenant["end-date"]   ? new Date(tenant["end-date"]   + "T00:00:00") : yearEnd;
+  const effStart  = rawStart > yearStart ? rawStart : yearStart;
+  const effEnd    = rawEnd   < yearEnd   ? rawEnd   : yearEnd;
+  if (effStart > effEnd) return 0;
+  return Math.round((effEnd.getTime() - effStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+}
+
 export default function ApartmentDetail({
   apartment,
   properties = [],
@@ -99,6 +118,7 @@ export default function ApartmentDetail({
   onAddAptCost,
   onUpdateAptCost,
   onDeleteAptCost,
+  allCosts = [],
   rentPayments = [],
   rentLoading,
   rentSaving,
@@ -111,9 +131,10 @@ export default function ApartmentDetail({
   const { t, i18n } = useTranslation("costs");
   const [year, setYear] = useState(new Date().getFullYear());
   const [activeTenantTab, setActiveTenantTab] = useState<string | null>(null);
-  const [costInput, setCostInput] = useState<Record<string, string | null>>({});
+  const [costInput, setCostInput] = useState<Record<string, CostEditFields | null>>({});
+  const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
   const [rentInput, setRentInput] = useState<Record<number, string | null>>({});
-  const [costSelectKey, setCostSelectKey] = useState(0);
+  const [addLineOpen, setAddLineOpen] = useState(false);
 
   useEffect(() => {
     if (apartment?.id) {
@@ -125,52 +146,161 @@ export default function ApartmentDetail({
   useEffect(() => {
     setCostInput({});
     setRentInput({});
+    setSavingKeys(new Set());
     setActiveTenantTab(null);
   }, [year]);
+
+  // Auto-close pending edits once aptCosts confirms the save
+  const prevAptCostsRef = useRef(aptCosts);
+  useEffect(() => {
+    if (savingKeys.size === 0) return;
+    const yearEntries = aptCosts.filter((c: any) => Number(c.year) === year);
+    const nowSaved = [...savingKeys].filter(k => yearEntries.some((c: any) => c.line === k));
+    if (nowSaved.length > 0) {
+      setCostInput(prev => {
+        const n = { ...prev };
+        nowSaved.forEach(k => delete n[k]);
+        return n;
+      });
+      setSavingKeys(prev => {
+        const n = new Set(prev);
+        nowSaved.forEach(k => n.delete(k));
+        return n;
+      });
+    }
+    prevAptCostsRef.current = aptCosts;
+  }, [aptCosts, year, savingKeys]);
 
   const property = properties.find((p: any) => p.id === apartment?.["property-id"]);
   const costLines: CostLine[] = expenseTypes;
 
   // ── Tenant helpers ────────────────────────────────────────────────────────
 
-  const aptTenants = tenants.filter(
-    (tn) => String(tn["apartment-id"]) === String(apartment?.id)
-  );
-  const yearTenants = aptTenants.filter((tn) => tenantActiveInYear(tn, year));
-  const selectedTenant =
-    yearTenants.find((tn) => tn.id === activeTenantTab) ?? yearTenants[0] ?? null;
-  const visibleMonths: readonly number[] = selectedTenant
-    ? tenantMonthsInYear(selectedTenant, year)
-    : MONTHS;
+  const aptTenants = tenants.filter(tn => String(tn["apartment-id"]) === String(apartment?.id));
+  const yearTenants = aptTenants.filter(tn => tenantActiveInYear(tn, year));
+  const selectedTenant = yearTenants.find(tn => tn.id === activeTenantTab) ?? yearTenants[0] ?? null;
+  const visibleMonths: readonly number[] = selectedTenant ? tenantMonthsInYear(selectedTenant, year) : MONTHS;
+
+  // ── Property cost lookup + share calculation ─────────────────────────────
+
+  const propertyCosts = React.useMemo(() => {
+    if (!apartment?.["property-id"]) return [];
+    return allCosts.filter((c: any) => String(c["property-id"]) === String(apartment["property-id"]));
+  }, [allCosts, apartment?.["property-id"]]);
+
+  const getPropertyCostTotal = (lineKey: string): number | null => {
+    const exact = propertyCosts.find((c: any) => c.line === lineKey && Number(c.year) === year);
+    if (exact) return Number(exact.value);
+    const inherited = [...propertyCosts]
+      .filter((c: any) => c.line === lineKey && Number(c.year) < year)
+      .sort((a: any, b: any) => Number(b.year) - Number(a.year))[0];
+    return inherited ? Number(inherited.value) : null;
+  };
+
+  const calculateShare = (lineKey: string, verteilerStr: string, anteilStr: string): string => {
+    const propTotal = getPropertyCostTotal(lineKey);
+    const v = parseFloat(verteilerStr.replace(",", "."));
+    const a = parseFloat(anteilStr.replace(",", "."));
+    if (propTotal == null || isNaN(v) || v === 0 || isNaN(a) || a === 0) return "";
+    const fullShare = (propTotal / v) * a;
+    const yearDays = isLeapYear(year) ? 366 : 365;
+    const tDays = selectedTenant ? tenantDaysInYear(selectedTenant, year) : yearDays;
+    const value = tDays < yearDays ? fullShare * (tDays / yearDays) : fullShare;
+    return value.toFixed(2);
+  };
 
   // ── Cost helpers ──────────────────────────────────────────────────────────
 
+  const yearCostEntries = aptCosts.filter((c: any) => Number(c.year) === year);
+  const savedKeys = yearCostEntries.map((c: any) => c.line as string);
+
   const costEntryFor = (lineId: string) =>
-    aptCosts.find((c: any) => c.line === lineId && Number(c.year) === year) ?? null;
+    yearCostEntries.find((c: any) => c.line === lineId) ?? null;
 
   const inheritedCostFor = (lineId: string) =>
     [...aptCosts]
       .filter((c: any) => c.line === lineId && Number(c.year) < year)
       .sort((a: any, b: any) => Number(b.year) - Number(a.year))[0] ?? null;
 
-  const openCostEdit = (lineId: string, initial: string) =>
-    setCostInput(prev => ({ ...prev, [lineId]: initial }));
+  const openCostEdit = (lineId: string, fields: CostEditFields) =>
+    setCostInput(prev => ({ ...prev, [lineId]: fields }));
 
   const closeCostEdit = (lineId: string) =>
     setCostInput(prev => { const n = { ...prev }; delete n[lineId]; return n; });
 
-  const commitCost = (line: CostLine) => {
-    const raw = costInput[line.key];
-    if (raw == null) return;
-    const value = parseFloat(raw.replace(",", "."));
+  const commitCost = (lineKey: string) => {
+    const fields = costInput[lineKey];
+    if (!fields) return;
+    const value = parseFloat(fields.value.replace(",", "."));
     if (isNaN(value) || value <= 0) return;
-    const existing = costEntryFor(line.key);
+    const verteilerVal = parseFloat(fields.verteiler.replace(",", "."));
+    const anteilVal = parseFloat(fields.anteil.replace(",", "."));
+    const payload = {
+      value,
+      verteiler: isNaN(verteilerVal) ? undefined : verteilerVal,
+      anteil:    isNaN(anteilVal)    ? undefined : anteilVal,
+      schluessel: fields.schluessel.trim() || undefined,
+    };
+    const existing = costEntryFor(lineKey);
     if (existing) {
-      onUpdateAptCost?.({ id: existing.id, value });
+      onUpdateAptCost?.({ id: existing.id, ...payload });
+      closeCostEdit(lineKey);
     } else {
-      onAddAptCost?.({ apartmentId: apartment.id, line: line.key, name: costLineName(line, i18n.language), year, value });
+      const line = costLines.find(l => l.key === lineKey);
+      if (!line) return;
+      onAddAptCost?.({ apartmentId: apartment.id, line: lineKey, name: costLineName(line, i18n.language), year, ...payload });
+      setSavingKeys(prev => new Set([...prev, lineKey]));
     }
-    closeCostEdit(line.key);
+  };
+
+  // ── Ordering: active lines follow aptCosts insertion order ────────────────
+
+  const pendingKeys = [...savingKeys].filter(k => !savedKeys.includes(k));
+  const editingNewKeys = Object.keys(costInput).filter(k => costInput[k] != null && !savedKeys.includes(k) && !savingKeys.has(k));
+  const activeCostLines = [
+    ...savedKeys.map(k => costLines.find(l => l.key === k)),
+    ...pendingKeys.map(k => costLines.find(l => l.key === k)),
+    ...editingNewKeys.map(k => costLines.find(l => l.key === k)),
+  ].filter(Boolean) as CostLine[];
+
+  const availableCostLines = costLines.filter(l => !savedKeys.includes(l.key) && costInput[l.key] == null && !savingKeys.has(l.key));
+
+  const handleSelectCostLine = (key: string) => {
+    const line = costLines.find(l => l.key === key);
+    if (!line) return;
+    const inherited      = inheritedCostFor(line.key);
+    const defaultVert    = inherited?.verteiler != null ? String(inherited.verteiler) : "100";
+    const defaultAnteil  = inherited?.anteil    != null ? String(inherited.anteil)    : "";
+    const defaultValue   = inherited
+      ? String(inherited.value)
+      : calculateShare(key, defaultVert, defaultAnteil);
+    openCostEdit(line.key, {
+      value:      defaultValue,
+      verteiler:  defaultVert,
+      schluessel: String(inherited?.schluessel ?? "Wohnfläche"),
+      anteil:     defaultAnteil,
+    });
+    setAddLineOpen(false);
+  };
+
+  const prevCostLinesToCopy = availableCostLines.filter(l => inheritedCostFor(l.key));
+
+  const copyPrevYearCosts = () => {
+    prevCostLinesToCopy.forEach(line => {
+      const prev = inheritedCostFor(line.key);
+      if (prev) {
+        onAddAptCost?.({
+          apartmentId: apartment.id,
+          line: line.key,
+          name: costLineName(line, i18n.language),
+          year,
+          value:      Number(prev.value),
+          verteiler:  prev.verteiler != null ? Number(prev.verteiler) : undefined,
+          anteil:     prev.anteil != null    ? Number(prev.anteil)    : undefined,
+          schluessel: prev.schluessel || undefined,
+        });
+      }
+    });
   };
 
   // ── Rent helpers ──────────────────────────────────────────────────────────
@@ -201,30 +331,6 @@ export default function ApartmentDetail({
   const monthName = (m: number) =>
     new Intl.DateTimeFormat(i18n.language, { month: "long" }).format(new Date(2024, m - 1, 1));
 
-  // ── Copy-from-previous-year ───────────────────────────────────────────────
-
-  const activeCostLines = costLines.filter(l => costEntryFor(l.key) || costInput[l.key] != null);
-  const availableCostLines = costLines.filter(l => !costEntryFor(l.key) && costInput[l.key] == null);
-
-  const handleSelectCostLine = (key: string) => {
-    const line = costLines.find(l => l.key === key);
-    if (!line) return;
-    const inherited = inheritedCostFor(line.key);
-    openCostEdit(line.key, inherited ? String(inherited.value) : "");
-    setCostSelectKey(k => k + 1);
-  };
-
-  const prevCostLinesToCopy = availableCostLines.filter(l => inheritedCostFor(l.key));
-
-  const copyPrevYearCosts = () => {
-    prevCostLinesToCopy.forEach(line => {
-      const prev = inheritedCostFor(line.key);
-      if (prev) {
-        onAddAptCost?.({ apartmentId: apartment.id, line: line.key, name: costLineName(line, i18n.language), year, value: Number(prev.value) });
-      }
-    });
-  };
-
   const prevRentMonthsToCopy = MONTHS.filter(m => {
     const prev = rentPayments.find((r: any) => Number(r.month) === m && Number(r.year) === year - 1);
     return prev && !rentEntryFor(m);
@@ -233,46 +339,126 @@ export default function ApartmentDetail({
   const copyPrevYearRent = () => {
     prevRentMonthsToCopy.forEach(month => {
       const prev = rentPayments.find((r: any) => Number(r.month) === month && Number(r.year) === year - 1);
-      if (prev) {
-        onAddRentPayment?.({ apartmentId: apartment.id, year, month, value: Number(prev.value) });
-      }
+      if (prev) onAddRentPayment?.({ apartmentId: apartment.id, year, month, value: Number(prev.value) });
     });
   };
 
   // ── Row renderers ─────────────────────────────────────────────────────────
 
-  function CostRow({ line }: { line: CostLine }) {
-    const entry     = costEntryFor(line.key);
-    const isEditing = costInput[line.key] != null;
+  const CostRow = ({ line }: { line: CostLine }) => {
+    const entry    = costEntryFor(line.key);
+    const fields   = costInput[line.key];
+    const isSaving = savingKeys.has(line.key);
+    const isEditing = fields != null && !isSaving;
+    const name = costLineName(line, i18n.language);
+
+    if (isSaving) {
+      return (
+        <div className="flex items-center gap-3 px-4 py-3 text-sm border-b last:border-b-0 opacity-60">
+          <span className="flex-1 font-medium">{name}</span>
+          <span className="text-xs text-muted-foreground italic">{t("save")}…</span>
+        </div>
+      );
+    }
+
+    if (isEditing) {
+      return (
+        <div className="px-4 py-3 text-sm border-b last:border-b-0 space-y-3">
+          <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide">{name}</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">{t("verteiler")}</label>
+              <Input
+                type="text"
+                inputMode="decimal"
+                value={fields.verteiler}
+                onChange={e => {
+                  const val = e.target.value;
+                  const calc = calculateShare(line.key, val, fields!.anteil);
+                  setCostInput(prev => ({ ...prev, [line.key]: { ...prev[line.key]!, verteiler: val, ...(calc ? { value: calc } : {}) } }));
+                }}
+                onKeyDown={e => { if (e.key === "Enter") commitCost(line.key); if (e.key === "Escape") closeCostEdit(line.key); }}
+                className="h-7 text-sm text-right"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">{t("schluessel")}</label>
+              <Input
+                type="text"
+                list={`schluessel-opts-${line.key}`}
+                value={fields.schluessel}
+                onChange={e => setCostInput(prev => ({ ...prev, [line.key]: { ...prev[line.key]!, schluessel: e.target.value } }))}
+                onKeyDown={e => { if (e.key === "Enter") commitCost(line.key); if (e.key === "Escape") closeCostEdit(line.key); }}
+                className="h-7 text-sm"
+              />
+              <datalist id={`schluessel-opts-${line.key}`}>
+                {SCHLUESSEL_OPTIONS.map(o => <option key={o} value={o} />)}
+              </datalist>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">{t("anteil")}</label>
+              <Input
+                type="text"
+                inputMode="decimal"
+                value={fields.anteil}
+                onChange={e => {
+                  const val = e.target.value;
+                  const calc = calculateShare(line.key, fields!.verteiler, val);
+                  setCostInput(prev => ({ ...prev, [line.key]: { ...prev[line.key]!, anteil: val, ...(calc ? { value: calc } : {}) } }));
+                }}
+                onKeyDown={e => { if (e.key === "Enter") commitCost(line.key); if (e.key === "Escape") closeCostEdit(line.key); }}
+                className="h-7 text-sm text-right"
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-muted-foreground">
+              {t("gesamtkosten")}:{" "}
+              <span className="font-semibold text-foreground">
+                {fields.value ? `€ ${parseFloat(fields.value).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" className="h-7 px-3" disabled={aptCostsSaving || !fields.value} onClick={() => commitCost(line.key)}>{t("save")}</Button>
+              <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => closeCostEdit(line.key)}>{t("cancel")}</Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <div className="flex items-center gap-3 px-4 py-3 text-sm border-b last:border-b-0">
-        <span className="flex-1 font-medium">{costLineName(line, i18n.language)}</span>
-        {isEditing ? (
+      <div className="flex items-center gap-2 px-4 py-2.5 text-sm border-b last:border-b-0">
+        <span className="flex-1 font-medium min-w-0 truncate">{name}</span>
+        {entry ? (
           <>
-            <Input autoFocus type="text" inputMode="decimal"
-              value={costInput[line.key]!}
-              onChange={e => setCostInput(prev => ({ ...prev, [line.key]: e.target.value }))}
-              onKeyDown={e => { if (e.key === "Enter") commitCost(line); if (e.key === "Escape") closeCostEdit(line.key); }}
-              className="w-36 h-7 text-sm text-right" />
-            <Button size="sm" className="h-7 px-3" disabled={aptCostsSaving} onClick={() => commitCost(line)}>{t("save")}</Button>
-            <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => closeCostEdit(line.key)}>{t("cancel")}</Button>
-          </>
-        ) : entry ? (
-          <>
-            <span className="tabular-nums text-right w-28">€{formatEur(Number(entry.value))}</span>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground"
-              disabled={aptCostsSaving} onClick={() => openCostEdit(line.key, String(entry.value))}>
+            <span className="tabular-nums text-right w-24 shrink-0">€{formatEur(Number(entry.value))}</span>
+            <span className="tabular-nums text-right w-10 shrink-0 text-muted-foreground text-xs">{entry.verteiler ?? "—"}</span>
+            <span className="w-20 shrink-0 text-muted-foreground text-xs truncate">{entry.schluessel ?? "—"}</span>
+            <span className="tabular-nums text-right w-10 shrink-0 text-xs font-medium">{entry.anteil ?? "—"}</span>
+            <Button
+              variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+              disabled={aptCostsSaving}
+              onClick={() => openCostEdit(line.key, {
+                value:      String(entry.value),
+                verteiler:  entry.verteiler != null ? String(entry.verteiler) : "",
+                schluessel: String(entry.schluessel ?? ""),
+                anteil:     entry.anteil != null ? String(entry.anteil) : "",
+              })}
+            >
               <Pencil className="h-3.5 w-3.5" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
-              disabled={aptCostsSaving} onClick={() => onDeleteAptCost?.(entry.id)}>
+            <Button
+              variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+              disabled={aptCostsSaving} onClick={() => onDeleteAptCost?.(entry.id)}
+            >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </>
         ) : null}
       </div>
     );
-  }
+  };
 
   function RentRow({ month }: { month: number }) {
     const entry     = rentEntryFor(month);
@@ -316,8 +502,6 @@ export default function ApartmentDetail({
     );
   }
 
-  // ── Year nav ──────────────────────────────────────────────────────────────
-
   const YearNav = () => (
     <div className="flex items-center gap-1">
       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setYear(y => y - 1)}>
@@ -329,8 +513,6 @@ export default function ApartmentDetail({
       </Button>
     </div>
   );
-
-  // ── Tenant date range label ───────────────────────────────────────────────
 
   const tenantDateRange = (tn: Tenant) => {
     const sd = tn["start-date"];
@@ -344,7 +526,6 @@ export default function ApartmentDetail({
 
   return (
     <div className="space-y-6">
-      {/* Back + header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={onBack}>
@@ -356,7 +537,6 @@ export default function ApartmentDetail({
         <YearNav />
       </div>
 
-      {/* Apartment info */}
       <Card>
         <CardContent className="pt-4 grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
           <div>
@@ -378,14 +558,13 @@ export default function ApartmentDetail({
         </CardContent>
       </Card>
 
-      {/* Tenant tabs + content */}
       {yearTenants.length === 0 ? (
         <div className="rounded-xl border p-6 text-center text-sm text-muted-foreground">
           {t("noTenantsInYear", { year, defaultValue: `No tenants in ${year}` })}
         </div>
       ) : (
         <div className="rounded-xl border overflow-hidden">
-          {/* Tab bar */}
+          {/* Tenant tab bar */}
           <div className="flex border-b overflow-x-auto bg-muted/30">
             {yearTenants.map((tn) => (
               <button
@@ -396,17 +575,11 @@ export default function ApartmentDetail({
                     ? "bg-background border-b-2 border-primary text-foreground"
                     : "text-muted-foreground hover:bg-muted/60"
                 }`}
-                onClick={() => {
-                  setActiveTenantTab(tn.id);
-                  setCostInput({});
-                  setRentInput({});
-                }}
+                onClick={() => { setActiveTenantTab(tn.id); setCostInput({}); setRentInput({}); }}
               >
                 <span className="truncate block">{tenantDisplayName(tn)}</span>
                 {tenantDateRange(tn) && (
-                  <span className="block text-xs font-normal text-muted-foreground truncate">
-                    {tenantDateRange(tn)}
-                  </span>
+                  <span className="block text-xs font-normal text-muted-foreground truncate">{tenantDateRange(tn)}</span>
                 )}
               </button>
             ))}
@@ -414,6 +587,7 @@ export default function ApartmentDetail({
 
           {selectedTenant && (
             <div className="p-4 space-y-6">
+
               {/* Rent payments */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -454,27 +628,54 @@ export default function ApartmentDetail({
                     <div className="space-y-2">
                       {activeCostLines.length > 0 && (
                         <Card>
+                          {/* Table header */}
+                          <div className="hidden sm:flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground border-b bg-muted/30">
+                            <span className="flex-1">{/* name */}</span>
+                            <span className="w-24 text-right">{t("gesamtkosten")}</span>
+                            <span className="w-10 text-right">{t("verteiler")}</span>
+                            <span className="w-20">{t("schluessel")}</span>
+                            <span className="w-10 text-right">{t("anteil")}</span>
+                            <span className="w-16" />
+                          </div>
                           <CardContent className="p-0">
-                            {activeCostLines.map(line => <CostRow key={line.id} line={line} />)}
+                            {activeCostLines.map(line => <React.Fragment key={line.id}>{CostRow({ line })}</React.Fragment>)}
                           </CardContent>
                         </Card>
                       )}
                       {availableCostLines.length > 0 && (
-                        <Select key={costSelectKey} onValueChange={handleSelectCostLine}>
-                          <SelectTrigger className="h-8 text-sm text-muted-foreground border-dashed">
-                            <SelectValue placeholder={t("addCostLine")} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableCostLines.map(line => (
-                              <SelectItem key={line.id} value={line.key}>{costLineName(line, i18n.language)}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Popover open={addLineOpen} onOpenChange={setAddLineOpen}>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full h-8 border-dashed text-sm text-muted-foreground justify-start font-normal">
+                              <Plus className="h-3.5 w-3.5 mr-2" />
+                              {t("addCostLine")}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                            <Command>
+                              <CommandInput placeholder={t("searchCostLine")} />
+                              <CommandList>
+                                <CommandEmpty>{t("noMatchCostLine")}</CommandEmpty>
+                                <CommandGroup>
+                                  {availableCostLines.map(line => (
+                                    <CommandItem
+                                      key={line.id}
+                                      value={costLineName(line, i18n.language)}
+                                      onSelect={() => handleSelectCostLine(line.key)}
+                                    >
+                                      {costLineName(line, i18n.language)}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       )}
                     </div>
                   )}
                 </div>
               )}
+
             </div>
           )}
         </div>

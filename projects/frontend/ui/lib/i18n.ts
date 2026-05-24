@@ -55,6 +55,8 @@ const resources = {
         nameEn: "e.g. General electricity",
         nameDe: "e.g. Allgemeinstrom",
       },
+      search: "Search...",
+      showingCount: "{{from}}–{{to}} of {{total}}",
     },
     auth: {
       login: {
@@ -337,6 +339,13 @@ const resources = {
       cancel: "Cancel",
       copyFromYear: "Copy from {{year}}",
       addCostLine: "Add expense type",
+      searchCostLine: "Search expense types...",
+      noMatchCostLine: "No expense type found",
+      gesamtkosten: "Total cost",
+      verteiler: "Distributor",
+      schluessel: "Key",
+      anteil: "Share",
+      noTenantsInYear: "No tenants in {{year}}",
     },
     abrechnung: {
       title: "Nebenkostenabrechnung",
@@ -374,6 +383,8 @@ const resources = {
       bankNamePlaceholder: "Sparkasse Essen",
       costLine: "Abrechnungsposten",
       total: "Gesamtkosten",
+      verteiler: "Distributor",
+      schluessel: "Key",
       share: "Ihr Anteil",
       totalCosts: "Gesamtkosten Nebenkosten",
       prepayment: "Abzüglich Vorauszahlungen",
@@ -768,6 +779,8 @@ const resources = {
         nameEn: "z.B. General electricity",
         nameDe: "z.B. Allgemeinstrom",
       },
+      search: "Suchen...",
+      showingCount: "{{from}}–{{to}} von {{total}}",
     },
     auth: {
       login: {
@@ -1050,6 +1063,13 @@ const resources = {
       cancel: "Abbrechen",
       copyFromYear: "Aus {{year}} übernehmen",
       addCostLine: "Kostenart hinzufügen",
+      searchCostLine: "Kostenarten suchen...",
+      noMatchCostLine: "Keine Kostenart gefunden",
+      gesamtkosten: "Gesamtkosten",
+      verteiler: "Verteiler",
+      schluessel: "Schlüssel",
+      anteil: "Anteil",
+      noTenantsInYear: "Keine Mieter in {{year}}",
     },
     abrechnung: {
       title: "Nebenkostenabrechnung",
@@ -1087,6 +1107,8 @@ const resources = {
       bankNamePlaceholder: "Sparkasse Essen",
       costLine: "Abrechnungsposten",
       total: "Gesamtkosten",
+      verteiler: "Verteiler",
+      schluessel: "Schlüssel",
       share: "Ihr Anteil",
       totalCosts: "Gesamtkosten Nebenkosten",
       prepayment: "Abzüglich Vorauszahlungen",

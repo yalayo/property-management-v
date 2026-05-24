@@ -208,7 +208,7 @@ export default function Dashboard(props) {
               properties={props.properties}
               apartments={props.apartments}
               tenants={props.tenants}
-              costs={props.costs}
+              costs={props.allCosts}
               aptCosts={props.aptCosts}
               rentPayments={props.rentPayments}
               expenseTypes={props.expenseTypes}

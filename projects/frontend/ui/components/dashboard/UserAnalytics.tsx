@@ -34,6 +34,7 @@ export default function UserAnalytics({
   const { t } = useTranslation("analytics");
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const totalRent = useMemo(
     () => allRentPayments.filter(p => Number(p.year) === year).reduce((s, p) => s + Number(p.value || 0), 0),
@@ -74,7 +75,9 @@ export default function UserAnalytics({
         const label = c.name || c.line || "other";
         map[label] = (map[label] || 0) + Number(c.value || 0);
       });
-    return Object.entries(map).map(([name, value]) => ({ name, value }));
+    return Object.entries(map)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
   }, [allCosts, allAptCosts, year]);
 
   const years = Array.from({ length: 5 }, (_, i) => year - 4 + i);
@@ -188,30 +191,62 @@ export default function UserAnalytics({
               </CardHeader>
               <CardContent>
                 {expenseData.length === 0 ? (
-                  <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">{t("noData")}</div>
-                ) : (
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={expenseData}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={80}
-                          dataKey="value"
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                          labelLine={false}
-                        >
-                          {expenseData.map((_, i) => (
-                            <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(v: number) => [fmt(v), t("amount")]} />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
+                  <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">{t("noData")}</div>
+                ) : (() => {
+                  const expTotal = expenseData.reduce((s, d) => s + d.value, 0);
+                  return (
+                    <div className="flex gap-4 items-center">
+                      <div
+                        className="shrink-0"
+                        style={{ width: 210, height: 210 }}
+                        onMouseLeave={() => setHoveredIndex(null)}
+                      >
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={expenseData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={56}
+                              outerRadius={88}
+                              dataKey="value"
+                              paddingAngle={2}
+                              onMouseEnter={(_, index) => setHoveredIndex(index)}
+                            >
+                              {expenseData.map((_, i) => (
+                                <Cell
+                                  key={i}
+                                  fill={COLORS[i % COLORS.length]}
+                                  opacity={hoveredIndex !== null && hoveredIndex !== i ? 0.25 : 1}
+                                />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(v: number) => [fmt(v), t("amount")]} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="flex-1 min-w-0 space-y-2 max-h-[210px] overflow-y-auto pr-1">
+                        {expenseData.map((entry, i) => {
+                          const pct = expTotal > 0 ? (entry.value / expTotal) * 100 : 0;
+                          const dimmed = hoveredIndex !== null && hoveredIndex !== i;
+                          return (
+                            <div
+                              key={i}
+                              className={`flex items-center gap-2 text-xs cursor-default transition-opacity duration-150 ${dimmed ? "opacity-30" : "opacity-100"}`}
+                              onMouseEnter={() => setHoveredIndex(i)}
+                              onMouseLeave={() => setHoveredIndex(null)}
+                            >
+                              <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                              <span className="flex-1">{entry.name}</span>
+                              <span className="tabular-nums shrink-0 font-medium">{fmt(entry.value)}</span>
+                              <span className="text-muted-foreground shrink-0 w-12 text-right">{pct.toFixed(1)}%</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
 

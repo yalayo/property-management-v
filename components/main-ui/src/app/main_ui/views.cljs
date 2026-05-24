@@ -128,6 +128,7 @@
                                               {:properties         properties
                                                :tenants            tenants
                                                :expense-types      expense-types
+                                               :all-costs          all-costs
                                                :on-after-assign    (fn [] (tenant-ui/load-tenants))
                                                :on-update-tenant   (fn [id data]
                                                                      (let [d (js->clj data :keywordize-keys true)]
@@ -152,16 +153,22 @@
                                                                        (re-frame/dispatch
                                                                         [::cost-events/create-apartment-cost
                                                                          {:apartment-id (:apartmentId d)
-                                                                          :line        (:line d)
-                                                                          :name        (:name d)
-                                                                          :year        (:year d)
-                                                                          :value       (:value d)}])))
+                                                                          :line         (:line d)
+                                                                          :name         (:name d)
+                                                                          :year         (:year d)
+                                                                          :value        (:value d)
+                                                                          :verteiler    (:verteiler d)
+                                                                          :anteil       (:anteil d)
+                                                                          :schluessel   (:schluessel d)}])))
                                                :on-update-apt-cost (fn [data]
                                                                      (let [d (js->clj data :keywordize-keys true)]
                                                                        (re-frame/dispatch
                                                                         [::cost-events/update-apartment-cost
-                                                                         {:id    (:id d)
-                                                                          :value (:value d)}])))
+                                                                         {:id          (:id d)
+                                                                          :value       (:value d)
+                                                                          :verteiler   (:verteiler d)
+                                                                          :anteil      (:anteil d)
+                                                                          :schluessel  (:schluessel d)}])))
                                                :on-delete-apt-cost          (fn [id]
                                                                               (re-frame/dispatch [::cost-events/delete-apartment-cost id]))
                                                :rent-payments               (clj->js rent-payments)

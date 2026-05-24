@@ -18,7 +18,7 @@
 (defn component [_]
   (re-frame/dispatch [::events/load-apartments])
   (re-frame/dispatch [::events/close-assign-dialog])
-  (fn [{:keys [properties tenants expense-types on-after-assign on-update-tenant tenants-saving?
+  (fn [{:keys [properties tenants expense-types all-costs on-after-assign on-update-tenant tenants-saving?
                apt-costs apt-costs-loading? apt-costs-saving?
                on-load-apt-costs on-add-apt-cost on-update-apt-cost on-delete-apt-cost
                rent-payments rent-loading? rent-saving?
@@ -89,6 +89,7 @@
           :onAddRentPayment    on-add-rent-payment
           :onUpdateRentPayment on-update-rent-payment
           :onDeleteRentPayment on-delete-rent-payment
+          :allCosts            (clj->js (or all-costs []))
           :onBack              #(re-frame/dispatch [::events/clear-apartment-detail])}]
 
         :else
