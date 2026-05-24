@@ -37,7 +37,10 @@
       "Bash(python /tmp/patch_controller.py)",
       "Bash(python patch_ctrl.py)",
       "Bash(del patch_ctrl.py)",
-      "Bash(grep -E \"\\\\.\\(clj|cljs\\)$\")"
+      "Bash(grep -E \"\\\\.\\(clj|cljs\\)$\")",
+      "Bash(grep -E \"\\\\.\\(tsx|cljs|ts\\)$\")",
+      "Bash(Get-ChildItem -Path \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\" -Recurse -Directory -Name)",
+      "Bash(Select-Object -First 30)"
     ]
   }
 }
