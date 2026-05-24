@@ -24,6 +24,8 @@ type Tenant = {
   "end-date"?: string;
   birthday?: string;
   "household-members"?: string;
+  kaltmiete?: number | string;
+  "nebenkosten-warm"?: number | string;
 };
 
 type Props = {
@@ -56,6 +58,8 @@ export default function ManageTenant({
   const [startDate, setStartDate] = useState(tenant?.["start-date"] ?? "");
   const [endDate, setEndDate] = useState(tenant?.["end-date"] ?? "");
   const [birthday, setBirthday] = useState(tenant?.birthday ?? "");
+  const [kaltmiete, setKaltmiete] = useState(tenant?.kaltmiete != null ? String(tenant.kaltmiete) : "");
+  const [nebenkostenWarm, setNebenkostenWarm] = useState(tenant?.["nebenkosten-warm"] != null ? String(tenant["nebenkosten-warm"]) : "");
   const [members, setMembers] = useState<HouseholdMember[]>(parseMembers(tenant?.["household-members"]));
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberBirthday, setNewMemberBirthday] = useState("");
@@ -93,6 +97,8 @@ export default function ManageTenant({
       endDate,
       birthday,
       householdMembers: JSON.stringify(members),
+      kaltmiete,
+      nebenkostenWarm,
     });
   };
 
@@ -148,6 +154,50 @@ export default function ManageTenant({
               </div>
             </div>
           </div>
+
+          {/* Rent breakdown */}
+          {(() => {
+            const kalt = parseFloat(kaltmiete.replace(",", ".")) || 0;
+            const nk   = parseFloat(nebenkostenWarm.replace(",", ".")) || 0;
+            const total = kalt + nk;
+            return (
+              <div className="rounded-xl border p-4 space-y-3">
+                <p className="text-sm font-medium">{t("rent.title")}</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="kaltmiete">{t("rent.kaltmiete")} (€)</Label>
+                    <Input
+                      id="kaltmiete"
+                      type="text"
+                      inputMode="decimal"
+                      value={kaltmiete}
+                      onChange={e => setKaltmiete(e.target.value)}
+                      className="text-right"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="nebenkostenWarm">{t("rent.nebenkostenWarm")} (€)</Label>
+                    <Input
+                      id="nebenkostenWarm"
+                      type="text"
+                      inputMode="decimal"
+                      value={nebenkostenWarm}
+                      onChange={e => setNebenkostenWarm(e.target.value)}
+                      className="text-right"
+                    />
+                  </div>
+                </div>
+                {total > 0 && (
+                  <div className="flex justify-between items-center pt-1 border-t text-sm">
+                    <span className="text-muted-foreground">{t("rent.total")}</span>
+                    <span className="font-semibold tabular-nums">
+                      € {total.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Household members */}
           <div className="rounded-xl border p-4 space-y-3">

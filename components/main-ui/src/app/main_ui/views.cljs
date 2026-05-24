@@ -141,7 +141,9 @@
                                                                           :start-date        (:startDate d)
                                                                           :end-date          (:endDate d)
                                                                           :birthday          (:birthday d)
-                                                                          :household-members (:householdMembers d)}])))
+                                                                          :household-members (:householdMembers d)
+                        :kaltmiete         (:kaltmiete d)
+                        :nebenkosten-warm  (:nebenkostenWarm d)}])))
                                                :tenants-saving?    tenants-saving?
                                                :apt-costs          (clj->js apt-costs)
                                                :apt-costs-loading? apt-costs-loading?

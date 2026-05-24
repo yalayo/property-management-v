@@ -21,6 +21,8 @@ type Tenant = {
   "apartment-id"?: string | number;
   "start-date"?: string;
   "end-date"?: string;
+  kaltmiete?: number | string;
+  "nebenkosten-warm"?: number | string;
 };
 
 type CostLine = { id: string; key: string; name?: string; "name-en"?: string; "name-de"?: string };
@@ -135,7 +137,7 @@ export default function ApartmentDetail({
   const [activeTenantTab, setActiveTenantTab] = useState<string | null>(null);
   const [costInput, setCostInput] = useState<Record<string, CostEditFields | null>>({});
   const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
-  const [rentInput, setRentInput] = useState<Record<number, string | null>>({});
+  const [rentInput, setRentInput] = useState<Record<number, { kaltmiete: string; nebenkostenWarm: string } | null>>({});
   const [addLineOpen, setAddLineOpen] = useState(false);
 
   useEffect(() => {
@@ -311,17 +313,28 @@ export default function ApartmentDetail({
   const rentEntryFor = (month: number) =>
     rentPayments.find((r: any) => Number(r.month) === month && Number(r.year) === year) ?? null;
 
-  const openRentEdit = (month: number, initial: string) =>
-    setRentInput(prev => ({ ...prev, [month]: initial }));
+  const openRentEdit = (month: number, initialTotal?: number) => {
+    const tenantKalt = parseFloat(String(selectedTenant?.kaltmiete ?? 0).replace(",", ".")) || 0;
+    const tenantNk   = parseFloat(String(selectedTenant?.["nebenkosten-warm"] ?? 0).replace(",", ".")) || 0;
+    if (initialTotal != null && (tenantKalt + tenantNk).toFixed(2) === initialTotal.toFixed(2)) {
+      setRentInput(prev => ({ ...prev, [month]: { kaltmiete: tenantKalt.toFixed(2), nebenkostenWarm: tenantNk.toFixed(2) } }));
+    } else if (initialTotal != null) {
+      setRentInput(prev => ({ ...prev, [month]: { kaltmiete: initialTotal.toFixed(2), nebenkostenWarm: "" } }));
+    } else {
+      setRentInput(prev => ({ ...prev, [month]: { kaltmiete: "", nebenkostenWarm: "" } }));
+    }
+  };
 
   const closeRentEdit = (month: number) =>
     setRentInput(prev => { const n = { ...prev }; delete n[month]; return n; });
 
   const commitRent = (month: number) => {
-    const raw = rentInput[month];
-    if (raw == null) return;
-    const value = parseFloat(raw.replace(",", "."));
-    if (isNaN(value) || value <= 0) return;
+    const fields = rentInput[month];
+    if (fields == null) return;
+    const kalt = parseFloat(fields.kaltmiete.replace(",", ".")) || 0;
+    const nk   = parseFloat(fields.nebenkostenWarm.replace(",", ".")) || 0;
+    const value = kalt + nk;
+    if (value <= 0) return;
     const existing = rentEntryFor(month);
     if (existing) {
       onUpdateRentPayment?.({ id: existing.id, value });
@@ -505,25 +518,64 @@ export default function ApartmentDetail({
 
   function RentRow({ month }: { month: number }) {
     const entry     = rentEntryFor(month);
-    const isEditing = rentInput[month] != null;
+    const fields    = rentInput[month];
+    const isEditing = fields != null;
+    const tenantKalt = parseFloat(String(selectedTenant?.kaltmiete ?? 0).replace(",", ".")) || 0;
+    const tenantNk   = parseFloat(String(selectedTenant?.["nebenkosten-warm"] ?? 0).replace(",", ".")) || 0;
+    const hasTenantData = tenantKalt > 0 || tenantNk > 0;
+
+    if (isEditing) {
+      const kalt  = parseFloat(fields!.kaltmiete.replace(",", ".")) || 0;
+      const nk    = parseFloat(fields!.nebenkostenWarm.replace(",", ".")) || 0;
+      const total = kalt + nk;
+      return (
+        <div className="px-4 py-3 text-sm border-b last:border-b-0 space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="flex-1 font-medium capitalize">{monthName(month)}</span>
+            {hasTenantData && (
+              <Button variant="outline" size="sm" className="h-7 px-2 text-xs shrink-0"
+                onClick={() => setRentInput(prev => ({ ...prev, [month]: { kaltmiete: tenantKalt.toFixed(2), nebenkostenWarm: tenantNk.toFixed(2) } }))}>
+                {t("fillFromTenant")}
+              </Button>
+            )}
+            <Button size="sm" className="h-7 px-3" disabled={rentSaving || total <= 0} onClick={() => commitRent(month)}>{t("save")}</Button>
+            <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => closeRentEdit(month)}>{t("cancel")}</Button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">{t("rent.kaltmiete")} (€)</p>
+              <Input autoFocus type="text" inputMode="decimal"
+                value={fields!.kaltmiete}
+                onChange={e => setRentInput(prev => ({ ...prev, [month]: { ...prev[month]!, kaltmiete: e.target.value } }))}
+                onKeyDown={e => { if (e.key === "Enter") commitRent(month); if (e.key === "Escape") closeRentEdit(month); }}
+                className="h-7 text-sm text-right" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">{t("rent.nebenkostenWarm")} (€)</p>
+              <Input type="text" inputMode="decimal"
+                value={fields!.nebenkostenWarm}
+                onChange={e => setRentInput(prev => ({ ...prev, [month]: { ...prev[month]!, nebenkostenWarm: e.target.value } }))}
+                onKeyDown={e => { if (e.key === "Enter") commitRent(month); if (e.key === "Escape") closeRentEdit(month); }}
+                className="h-7 text-sm text-right" />
+            </div>
+          </div>
+          {total > 0 && (
+            <div className="flex justify-end text-xs text-muted-foreground pt-0.5">
+              {t("rent.total")}: <span className="font-semibold text-foreground ml-1 tabular-nums">€ {total.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     return (
       <div className="flex items-center gap-3 px-4 py-3 text-sm border-b last:border-b-0">
         <span className="flex-1 font-medium capitalize">{monthName(month)}</span>
-        {isEditing ? (
-          <>
-            <Input autoFocus type="text" inputMode="decimal"
-              value={rentInput[month]!}
-              onChange={e => setRentInput(prev => ({ ...prev, [month]: e.target.value }))}
-              onKeyDown={e => { if (e.key === "Enter") commitRent(month); if (e.key === "Escape") closeRentEdit(month); }}
-              className="w-36 h-7 text-sm text-right" />
-            <Button size="sm" className="h-7 px-3" disabled={rentSaving} onClick={() => commitRent(month)}>{t("save")}</Button>
-            <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => closeRentEdit(month)}>{t("cancel")}</Button>
-          </>
-        ) : entry ? (
+        {entry ? (
           <>
             <span className="tabular-nums text-right w-28">€{formatEur(Number(entry.value))}</span>
             <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground"
-              disabled={rentSaving} onClick={() => openRentEdit(month, String(entry.value))}>
+              disabled={rentSaving} onClick={() => openRentEdit(month, Number(entry.value))}>
               <Pencil className="h-3.5 w-3.5" />
             </Button>
             <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
@@ -535,7 +587,7 @@ export default function ApartmentDetail({
           <>
             <span className="text-muted-foreground w-28 text-right">—</span>
             <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground"
-              onClick={() => openRentEdit(month, "")}>
+              onClick={() => openRentEdit(month)}>
               <Plus className="h-3.5 w-3.5" />
             </Button>
             <div className="w-7" />

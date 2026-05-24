@@ -36,7 +36,9 @@
                                              :start-date        (:startDate d)
                                              :end-date          (:endDate d)
                                              :birthday          (:birthday d)
-                                             :household-members (:householdMembers d)}])))}]
+                                             :household-members (:householdMembers d)
+                                              :kaltmiete         (:kaltmiete d)
+                                              :nebenkosten-warm  (:nebenkostenWarm d)}])))}]
         [tenants-list
          {:tenants               (clj->js tenants)
           :isLoading             loading?

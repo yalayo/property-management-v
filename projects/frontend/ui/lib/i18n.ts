@@ -212,6 +212,12 @@ const resources = {
         nameTaken: "A tenant with this name already exists",
         emailInvalid: "Invalid email address",
       },
+      rent: {
+        title: "Rent",
+        kaltmiete: "Kaltmiete",
+        nebenkostenWarm: "Nebenkosten warm",
+        total: "Total",
+      },
       household: {
         title: "Household Members",
         hint: "Add all people living in the apartment. This information is used for the Wohnbescheinigung.",
@@ -338,6 +344,7 @@ const resources = {
       save: "Save",
       cancel: "Cancel",
       copyFromYear: "Copy from {{year}}",
+      fillFromTenant: "Fill from tenant",
       addCostLine: "Add expense type",
       searchCostLine: "Search expense types...",
       noMatchCostLine: "No expense type found",
@@ -347,6 +354,11 @@ const resources = {
       anteil: "Share",
       fixedValue: "Enter fixed amount",
       noTenantsInYear: "No tenants in {{year}}",
+      rent: {
+        kaltmiete: "Kaltmiete",
+        nebenkostenWarm: "Nebenkosten warm",
+        total: "Total",
+      },
     },
     abrechnung: {
       title: "Nebenkostenabrechnung",
@@ -939,6 +951,12 @@ const resources = {
         nameTaken: "Ein Mieter mit diesem Namen existiert bereits",
         emailInvalid: "Ungültige E-Mail-Adresse",
       },
+      rent: {
+        title: "Miete",
+        kaltmiete: "Kaltmiete",
+        nebenkostenWarm: "Nebenkosten warm",
+        total: "Gesamt",
+      },
       household: {
         title: "Mitbewohner",
         hint: "Alle Personen hinzufügen, die in der Wohnung leben. Diese Daten werden für die Wohnbescheinigung verwendet.",
@@ -1065,6 +1083,7 @@ const resources = {
       save: "Speichern",
       cancel: "Abbrechen",
       copyFromYear: "Aus {{year}} übernehmen",
+      fillFromTenant: "Aus Mietvertrag",
       addCostLine: "Kostenart hinzufügen",
       searchCostLine: "Kostenarten suchen...",
       noMatchCostLine: "Keine Kostenart gefunden",
@@ -1074,6 +1093,11 @@ const resources = {
       anteil: "Anteil",
       fixedValue: "Fixbetrag eingeben",
       noTenantsInYear: "Keine Mieter in {{year}}",
+      rent: {
+        kaltmiete: "Kaltmiete",
+        nebenkostenWarm: "Nebenkosten warm",
+        total: "Gesamt",
+      },
     },
     abrechnung: {
       title: "Nebenkostenabrechnung",

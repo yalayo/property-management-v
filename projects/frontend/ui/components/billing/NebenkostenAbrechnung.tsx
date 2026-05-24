@@ -220,9 +220,7 @@ export default function NebenkostenAbrechnung({
         share: Number(costEntryFor(aptCosts, key, year)?.value ?? 0),
       }));
 
-      const prepayment = rentPayments
-        .filter((r: any) => Number(r.year) === year)
-        .reduce((sum: number, r: any) => sum + Number(r.value), 0);
+      const prepayment = nebenkostenWarmPerMonth * paidMonths.size;
 
       const bytes = await generateBillingPdf({
         senderName:      selectedProperty.name ?? "Vermieter",
@@ -423,9 +421,8 @@ export default function NebenkostenAbrechnung({
     return sum + Number(costEntryFor(aptCosts, key, year)?.value ?? 0);
   }, 0);
 
-  const prepaymentTotal = rentPayments
-    .filter((r: any) => Number(r.year) === year)
-    .reduce((sum: number, r: any) => sum + Number(r.value), 0);
+  const nebenkostenWarmPerMonth = Number(tenantForApt?.["nebenkosten-warm"] ?? 0);
+  const prepaymentTotal = nebenkostenWarmPerMonth * paidMonths.size;
 
   const net = totalShare - prepaymentTotal;
 
