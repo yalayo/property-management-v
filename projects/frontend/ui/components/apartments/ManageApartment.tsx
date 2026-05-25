@@ -56,6 +56,7 @@ type Props = {
   tenants?: Tenant[];
   isSaving?: boolean;
   tenantsSaving?: boolean;
+  isReadOnly?: boolean;
   isOnboarding?: boolean;
   onboardingStatus?: OnboardingStatus | null;
   onBack?: () => void;
@@ -99,6 +100,7 @@ export default function ManageApartment({
   tenants = [],
   isSaving = false,
   tenantsSaving = false,
+  isReadOnly = false,
   isOnboarding = false,
   onboardingStatus,
   onBack,
@@ -259,7 +261,7 @@ export default function ManageApartment({
                 id="occupied-toggle"
                 checked={isOccupied}
                 onCheckedChange={handleToggle}
-                disabled={isSaving}
+                disabled={isSaving || isReadOnly}
               />
             </div>
           </div>
@@ -365,7 +367,7 @@ export default function ManageApartment({
                           </div>
                         </div>
                         <div className="flex gap-2">
-                          <Button size="sm" onClick={() => saveEdit(selectedTenant.id)} disabled={tenantsSaving}>
+                          <Button size="sm" onClick={() => saveEdit(selectedTenant.id)} disabled={tenantsSaving || isReadOnly}>
                             {tenantsSaving
                               ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                               : <Check className="h-3.5 w-3.5 mr-1" />}
@@ -410,7 +412,7 @@ export default function ManageApartment({
                             </div>
                           )}
                         </div>
-                        <Button variant="outline" size="sm" onClick={() => startEdit(selectedTenant)}>
+                        <Button variant="outline" size="sm" disabled={isReadOnly} onClick={() => startEdit(selectedTenant)}>
                           <Pencil className="h-3.5 w-3.5 mr-1.5" />
                           {tCommon("edit")}
                         </Button>
@@ -464,7 +466,7 @@ export default function ManageApartment({
                               />
                               {emailError && <p className="text-xs text-destructive">{emailError}</p>}
                             </div>
-                            <Button size="sm" onClick={handleOnboarding} disabled={isOnboarding || isSaving}>
+                            <Button size="sm" onClick={handleOnboarding} disabled={isOnboarding || isSaving || isReadOnly}>
                               {isOnboarding
                                 ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("onboarding.submitting")}</>
                                 : t("onboarding.submit")}
@@ -561,7 +563,7 @@ export default function ManageApartment({
                       />
                     </div>
                   </div>
-                  <Button size="sm" onClick={handleCreateTenant} disabled={isSaving || !addForm.firstName.trim()}>
+                  <Button size="sm" onClick={handleCreateTenant} disabled={isSaving || isReadOnly || !addForm.firstName.trim()}>
                     {isSaving
                       ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{tCommon("saving")}</>
                       : <><UserPlus className="h-3.5 w-3.5 mr-1.5" />{t("onboarding.addTenant", { defaultValue: "Add Tenant" })}</>}
@@ -588,7 +590,7 @@ export default function ManageApartment({
                         <button
                           key={tenant.id}
                           type="button"
-                          disabled={isSaving}
+                          disabled={isSaving || isReadOnly}
                           className="w-full flex items-center justify-between px-3 py-2.5 text-left text-sm hover:bg-muted transition-colors disabled:opacity-50"
                           onClick={() => handleAssignExisting(tenant)}
                         >
@@ -609,7 +611,7 @@ export default function ManageApartment({
           {/* Danger zone */}
           <div className="rounded-xl border border-destructive/30 p-4">
             <p className="text-sm font-medium text-destructive mb-3">{tCommon("dangerZone")}</p>
-            <Button variant="destructive" size="sm" onClick={() => setConfirmDelete(true)} disabled={isSaving}>
+            <Button variant="destructive" size="sm" onClick={() => setConfirmDelete(true)} disabled={isSaving || isReadOnly}>
               <Trash2 className="h-4 w-4 mr-2" />
               {t("deleteApartment")}
             </Button>

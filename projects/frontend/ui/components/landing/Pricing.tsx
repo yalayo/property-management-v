@@ -2,32 +2,31 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
-import { CheckCircle2, Star, Gift, Calendar, Shield, Wrench, Book, Headphones } from "lucide-react";
+import { CheckCircle2, Star, Gift, Calendar, Shield, Wrench, Book, Headphones, Cloud } from "lucide-react";
 
 interface PricingProps {
   userEmail?: string;
   onSelectPlan?: (tierId: string) => void;
 }
 
-// Static icon mapping by tier id + feature index (language-independent)
 const tierFeatureIcons: Record<string, React.ReactNode[]> = {
   done_for_you: [
-    <Shield className="flex-shrink-0 h-5 w-5 text-green-500" />,
-    <Headphones className="flex-shrink-0 h-5 w-5 text-green-500" />,
-    <Calendar className="flex-shrink-0 h-5 w-5 text-green-500" />,
-    <Gift className="flex-shrink-0 h-5 w-5 text-green-500" />,
+    <Shield key="0" className="flex-shrink-0 h-5 w-5 text-green-500" />,
+    <Headphones key="1" className="flex-shrink-0 h-5 w-5 text-green-500" />,
+    <Calendar key="2" className="flex-shrink-0 h-5 w-5 text-green-500" />,
+    <Gift key="3" className="flex-shrink-0 h-5 w-5 text-green-500" />,
   ],
   done_with_you: [
-    <Shield className="flex-shrink-0 h-5 w-5 text-green-500" />,
-    <Wrench className="flex-shrink-0 h-5 w-5 text-green-500" />,
-    <Shield className="flex-shrink-0 h-5 w-5 text-green-500" />,
-    <Book className="flex-shrink-0 h-5 w-5 text-green-500" />,
+    <Cloud key="0" className="flex-shrink-0 h-5 w-5 text-green-500" />,
+    <Wrench key="1" className="flex-shrink-0 h-5 w-5 text-green-500" />,
+    <Shield key="2" className="flex-shrink-0 h-5 w-5 text-green-500" />,
+    <Book key="3" className="flex-shrink-0 h-5 w-5 text-green-500" />,
   ],
   done_by_you: [
-    <Wrench className="flex-shrink-0 h-5 w-5 text-green-500" />,
-    <Shield className="flex-shrink-0 h-5 w-5 text-green-500" />,
-    <Book className="flex-shrink-0 h-5 w-5 text-green-500" />,
-    <Headphones className="flex-shrink-0 h-5 w-5 text-green-500" />,
+    <Wrench key="0" className="flex-shrink-0 h-5 w-5 text-green-500" />,
+    <Book key="1" className="flex-shrink-0 h-5 w-5 text-green-500" />,
+    <Shield key="2" className="flex-shrink-0 h-5 w-5 text-green-500" />,
+    <Headphones key="3" className="flex-shrink-0 h-5 w-5 text-green-500" />,
   ],
 };
 
@@ -37,28 +36,32 @@ export default function Pricing({ userEmail, onSelectPlan }: PricingProps) {
   const tiers = [
     {
       id: "done_for_you",
-      priceMonthly: "€35",
+      price: "€35",
+      billingNote: null,
       icon: <Calendar className="h-10 w-10 text-indigo-500" />,
       color: "from-indigo-600 to-blue-500",
       mostPopular: false,
     },
     {
       id: "done_with_you",
-      priceMonthly: "€2,700",
-      icon: <Star className="h-10 w-10 text-purple-500" />,
+      price: "€2,700",
+      billingNote: null,
+      icon: <Cloud className="h-10 w-10 text-purple-500" />,
       color: "from-purple-600 to-indigo-500",
       mostPopular: true,
     },
     {
       id: "done_by_you",
-      priceMonthly: "€950",
+      price: "€950",
+      billingNote: t("pricing.tiers.doneByYou.supportNote"),
       icon: <Wrench className="h-10 w-10 text-blue-500" />,
       color: "from-blue-600 to-cyan-500",
       mostPopular: false,
     },
   ];
 
-  const tierKey = (id: string) => id === "done_for_you" ? "doneForYou" : id === "done_with_you" ? "doneWithYou" : "doneByYou";
+  const tierKey = (id: string) =>
+    id === "done_for_you" ? "doneForYou" : id === "done_with_you" ? "doneWithYou" : "doneByYou";
 
   return (
     <div id="pricing" className="py-16 bg-gradient-to-b from-white via-indigo-50 to-white">
@@ -113,11 +116,16 @@ export default function Pricing({ userEmail, onSelectPlan }: PricingProps) {
                   </CardDescription>
                   <div className="mt-8">
                     <span className={`text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r ${tier.color}`}>
-                      {tier.priceMonthly}
+                      {tier.price}
                     </span>
-                    <span className="text-base font-medium text-gray-500">
+                    <span className="text-base font-medium text-gray-500 ml-1">
                       {t(`pricing.tiers.${tk}.frequency`)}
                     </span>
+                    {tier.billingNote && (
+                      <div className="mt-1 text-xs font-medium text-blue-600">
+                        {tier.billingNote}
+                      </div>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="pt-6 pb-8 px-6">

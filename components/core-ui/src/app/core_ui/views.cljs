@@ -32,7 +32,10 @@
         nav-to-register  #(re-frame/dispatch [::events/navigate :register])]
     (case section
       :landing          [landing-page {:on-login-click          nav-to-auth
-                                       :on-create-account-click nav-to-auth}]
+                                       :on-create-account-click nav-to-auth
+                                       :on-select-plan          (fn [tier-id]
+                                                                  (js/localStorage.setItem "pm-pending-plan" tier-id)
+                                                                  (nav-to-register))}]
       :auth             [auth-page {:on-create-account-click nav-to-register
                                     :on-go-home              nav-to-home
                                     :on-submit               #(re-frame/dispatch [::events/submit :auth (camel->form-data %)])}]

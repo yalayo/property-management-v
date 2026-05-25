@@ -13,39 +13,42 @@ export default function BottomCTA({ onSignUp, onSignIn, trackCTA }: BottomCTAPro
   const { t } = useTranslation("landing");
 
   return (
-    <section data-section="bottom-cta" className="py-20 bg-gradient-to-r from-indigo-600 via-primary to-purple-600">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-4">
+    <section
+      data-section="bottom-cta"
+      className="py-20 sm:py-24"
+      style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #312e81 100%)" }}
+    >
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
           {t("bottomCTA.title")}
         </h2>
-        <p className="text-indigo-100 text-lg mb-10 max-w-xl mx-auto">
+        <p className="text-slate-400 text-lg mb-10 max-w-xl mx-auto leading-relaxed">
           {t("bottomCTA.subtitle")}
         </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
           {onSignUp && (
             <Button
               size="lg"
-              variant="secondary"
-              className="font-semibold"
+              className="bg-white text-slate-900 hover:bg-white/90 font-semibold rounded-xl h-12 px-7"
               onClick={() => {
                 trackCTA?.("bottom_cta_primary", "bottom_cta");
                 onSignUp();
               }}
             >
               {t("bottomCTA.primary")}
-              <ArrowRight className="ml-2 h-5 w-5" />
+              <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           )}
           {onSignIn && (
             <Button
               size="lg"
-              className="font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/30"
+              className="bg-transparent border border-white/20 text-slate-300 hover:bg-white/10 hover:text-white font-semibold rounded-xl h-12 px-7"
               onClick={() => {
                 trackCTA?.("bottom_cta_signin", "bottom_cta");
                 onSignIn();
               }}
             >
-              <LogIn className="mr-2 h-5 w-5" />
+              <LogIn className="mr-2 h-4 w-4" />
               {t("bottomCTA.secondary")}
             </Button>
           )}

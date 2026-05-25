@@ -28,6 +28,7 @@
           :secretError     error
           :intentType      (name (or intent-type :payment))
           :onBack          #(re-frame/dispatch [::events/back-to-pricing])
+          :onSkip          #(re-frame/dispatch [::events/skip-to-dashboard])
           :onPaymentSuccess (fn [id] (re-frame/dispatch [::events/payment-success id]))}]
 
         :register

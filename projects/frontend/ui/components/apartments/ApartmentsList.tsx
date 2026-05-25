@@ -37,6 +37,7 @@ type Props = {
   apartments?: Apartment[];
   onboardingsByApartment?: Record<number, OnboardingRecord>;
   isLoading?: boolean;
+  isReadOnly?: boolean;
   isAddApartmentDialogOpen?: boolean;
   onChangeAddApartmentDialogOpen?: () => void;
   onCloseAddApartmentDialog?: () => void;
@@ -54,6 +55,7 @@ export default function ApartmentsList({
   apartments,
   onboardingsByApartment = {},
   isLoading = false,
+  isReadOnly = false,
   isAddApartmentDialogOpen = false,
   onChangeAddApartmentDialogOpen,
   onCloseAddApartmentDialog,
@@ -103,7 +105,7 @@ export default function ApartmentsList({
             )}
           </div>
         </div>
-        <Button size="sm" onClick={onChangeAddApartmentDialogOpen}>
+        <Button size="sm" disabled={isReadOnly} onClick={onChangeAddApartmentDialogOpen}>
           <Plus className="h-4 w-4 mr-2" />
           {t("addApartment")}
         </Button>
@@ -176,6 +178,7 @@ export default function ApartmentsList({
                         <Button
                           size="sm"
                           className="flex-1"
+                          disabled={isReadOnly}
                           onClick={() => onAssignTenant?.(apt.id)}
                         >
                           <UserPlus className="h-3.5 w-3.5 mr-1.5" />

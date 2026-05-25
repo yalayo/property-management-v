@@ -57,7 +57,8 @@
                                                           :account/email    (get-in result [:user-data :email])
                                                           :account/name     (get-in result [:user-data :name])
                                                           :account/password hashed
-                                                          :account/verified false}] nil)
+                                                          :account/verified false
+                                                          :account/plan     nil}] nil)
                            {org-eids :entity-ids}     (transact
                                                         [{:db/type           "organization"
                                                           :organization/name (get-in result [:user-data :name])}] nil)
@@ -89,8 +90,22 @@
                                             :exp     (+ (js/Math.floor (/ (.now js/Date) 1000)) 86400)}
                                 token  (jwt/sign claims (aget env "JWT_SECRET"))]
                             {:token token
-                             :user  (assoc (:user result) :org-id org-id :role role)}))
+                             :user  (assoc (:user result)
+                                           :org-id org-id
+                                           :role   role
+                                           :plan   (:account/plan db-user))}))
                 result))))
+
+(defn- handle-activate-plan! [storage data user]
+  (with-org user
+    (fn [_org-id]
+      (js-await [eids ((:find-by-attr storage) :account/email (:email user))]
+                (if-let [eid (first eids)]
+                  (js-await [_ ((:transact! storage)
+                                [{:db/id        eid
+                                  :account/plan (:tier data)}] nil)]
+                            {:ok true :plan (:tier data)})
+                  {:error :not-found})))))
 
 ;; ---------------------------------------------------------------------------
 ;; Property handlers
@@ -654,4 +669,5 @@
     :get-all-costs                   (handle-get-all-costs! storage user)
     :get-all-apartment-costs         (handle-get-all-apartment-costs! storage user)
     :get-all-rent-payments           (handle-get-all-rent-payments! storage user)
+    :activate-plan                   (handle-activate-plan! storage data user)
     {:error :unknown-command}))

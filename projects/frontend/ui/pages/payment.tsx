@@ -84,9 +84,10 @@ type Props = {
   intentType: "payment" | "setup";
   onBack: () => void;
   onPaymentSuccess: (intentId: string) => void;
+  onSkip?: () => void;
 };
 
-export default function Payment({ tier, clientSecret, isLoadingSecret, secretError, intentType, onBack, onPaymentSuccess }: Props) {
+export default function Payment({ tier, clientSecret, isLoadingSecret, secretError, intentType, onBack, onPaymentSuccess, onSkip }: Props) {
   const tierInfo = TIERS[tier];
   if (!tierInfo) return null;
 
@@ -127,6 +128,17 @@ export default function Payment({ tier, clientSecret, isLoadingSecret, secretErr
             )}
           </CardContent>
         </Card>
+
+        {onSkip && (
+          <div className="mt-4 text-center">
+            <button
+              onClick={onSkip}
+              className="text-sm text-slate-400 hover:text-slate-600 underline underline-offset-2"
+            >
+              Skip for now — continue with read-only access
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

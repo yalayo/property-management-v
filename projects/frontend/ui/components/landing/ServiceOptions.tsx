@@ -1,6 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, ArrowRight, ChevronDown } from "lucide-react";
+import { CheckCircle2, ArrowRight } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 
@@ -29,9 +29,13 @@ export default function ServiceOptions({ onSelectPlan, onSignUp, trackCTA }: Ser
     }
   };
 
-  const handleLearnMore = (tier: string) => {
-    trackCTA?.(tier + "_learn_more", "service_options");
-    document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" });
+  const handleSelectTier = (tierId: string) => {
+    trackCTA?.(tierId + "_select", "service_options");
+    if (onSelectPlan) {
+      onSelectPlan(tierId);
+    } else {
+      onSignUp?.();
+    }
   };
 
   return (
@@ -123,14 +127,19 @@ export default function ServiceOptions({ onSelectPlan, onSignUp, trackCTA }: Ser
                     <span className="text-slate-400 text-sm ml-1">
                       {t(`serviceOptions.${key}.frequency`)}
                     </span>
+                    {t(`serviceOptions.${key}.supportLabel`, "") && (
+                      <div className="mt-1 text-xs font-medium text-blue-600">
+                        {t(`serviceOptions.${key}.supportLabel`, "")}
+                      </div>
+                    )}
                   </div>
                   <Button
                     variant="outline"
                     className="w-full"
-                    onClick={() => handleLearnMore(tierId)}
+                    onClick={() => handleSelectTier(tierId)}
                   >
                     {t(`serviceOptions.${key}.cta`)}
-                    <ChevronDown className="ml-1.5 h-4 w-4" />
+                    <ArrowRight className="ml-1.5 h-4 w-4" />
                   </Button>
                 </div>
               );

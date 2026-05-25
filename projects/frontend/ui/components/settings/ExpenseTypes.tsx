@@ -22,6 +22,7 @@ type Props = {
   expenseTypes?: ExpenseType[];
   isLoading?: boolean;
   isSaving?: boolean;
+  isReadOnly?: boolean;
   saveError?: boolean;
   onLoad?: () => void;
   onAdd?: (data: { key: string; nameEn: string; nameDe: string }) => void;
@@ -38,6 +39,7 @@ export default function ExpenseTypes({
   expenseTypes = [],
   isLoading = false,
   isSaving = false,
+  isReadOnly = false,
   saveError = false,
   onLoad,
   onAdd,
@@ -95,7 +97,7 @@ export default function ExpenseTypes({
           <Tags className="h-5 w-5 text-primary" />
           <CardTitle>{t("title")}</CardTitle>
         </div>
-        <Button size="sm" onClick={() => setAddOpen(true)}>
+        <Button size="sm" disabled={isReadOnly} onClick={() => setAddOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           {t("add")}
         </Button>
@@ -119,7 +121,7 @@ export default function ExpenseTypes({
             <Tags className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
             <p className="text-muted-foreground font-medium">{t("empty")}</p>
             <p className="text-sm text-muted-foreground mt-1">{t("emptyHint")}</p>
-            <Button className="mt-4" size="sm" onClick={() => setAddOpen(true)}>
+            <Button className="mt-4" size="sm" disabled={isReadOnly} onClick={() => setAddOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               {t("add")}
             </Button>
@@ -179,7 +181,7 @@ export default function ExpenseTypes({
                       />
                     </div>
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={handleUpdate} disabled={isSaving}>
+                      <Button size="sm" onClick={handleUpdate} disabled={isSaving || isReadOnly}>
                         {tCommon("save")}
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => setEditId(null)}>
@@ -208,6 +210,7 @@ export default function ExpenseTypes({
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
+                      disabled={isReadOnly}
                       onClick={() => handleOpenEdit(et)}
                     >
                       <Pencil className="h-3.5 w-3.5" />
@@ -216,6 +219,7 @@ export default function ExpenseTypes({
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-destructive hover:text-destructive"
+                      disabled={isReadOnly}
                       onClick={() => setDeleteId(et.id)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />

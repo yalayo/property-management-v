@@ -23,6 +23,7 @@ type Props = {
   costs?: any[];
   costsLoading?: boolean;
   costsSaving?: boolean;
+  isReadOnly?: boolean;
   onLoadCosts?: (propertyId: string) => void;
   onAddCost?: (data: { propertyId: string; line: string; name: string; year: number; value: number }) => void;
   onUpdateCost?: (data: { id: string; value: number }) => void;
@@ -36,6 +37,7 @@ export default function PropertyDetail({
   costs = [],
   costsLoading,
   costsSaving,
+  isReadOnly = false,
   onLoadCosts,
   onAddCost,
   onUpdateCost,
@@ -167,7 +169,7 @@ export default function PropertyDetail({
             <h3 className="text-base font-semibold">{t("nebenkosten")}</h3>
             <div className="flex items-center gap-2">
               {prevYearLinesToCopy.length > 0 && (
-                <Button variant="outline" size="sm" className="h-7 text-xs" disabled={costsSaving} onClick={copyFromPrevYear}>
+                <Button variant="outline" size="sm" className="h-7 text-xs" disabled={costsSaving || isReadOnly} onClick={copyFromPrevYear}>
                   <Copy className="h-3 w-3 mr-1.5" />
                   {t("copyFromYear", { year: year - 1 })}
                 </Button>
@@ -217,18 +219,18 @@ export default function PropertyDetail({
                                 onKeyDown={e => { if (e.key === "Enter") commit(line); if (e.key === "Escape") closeEdit(line.key); }}
                                 className="w-36 h-7 text-sm text-right"
                               />
-                              <Button size="sm" className="h-7 px-3" disabled={costsSaving} onClick={() => commit(line)}>{t("save")}</Button>
+                              <Button size="sm" className="h-7 px-3" disabled={costsSaving || isReadOnly} onClick={() => commit(line)}>{t("save")}</Button>
                               <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => closeEdit(line.key)}>{t("cancel")}</Button>
                             </>
                           ) : entry ? (
                             <>
                               <span className="tabular-nums text-right w-28">€{formatEur(Number(entry.value))}</span>
                               <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                disabled={costsSaving} onClick={() => openEdit(line.key, String(entry.value))}>
+                                disabled={costsSaving || isReadOnly} onClick={() => openEdit(line.key, String(entry.value))}>
                                 <Pencil className="h-3.5 w-3.5" />
                               </Button>
                               <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                disabled={costsSaving} onClick={() => onDeleteCost?.(entry.id)}>
+                                disabled={costsSaving || isReadOnly} onClick={() => onDeleteCost?.(entry.id)}>
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </>
@@ -243,7 +245,7 @@ export default function PropertyDetail({
               {availableLines.length > 0 && (
                 <Popover open={addLineOpen} onOpenChange={setAddLineOpen}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full h-8 border-dashed text-sm text-muted-foreground justify-start font-normal">
+                    <Button variant="outline" className="w-full h-8 border-dashed text-sm text-muted-foreground justify-start font-normal" disabled={isReadOnly}>
                       <Plus className="h-3.5 w-3.5 mr-2" />
                       {t("addCostLine")}
                     </Button>

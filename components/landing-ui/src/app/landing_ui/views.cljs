@@ -6,8 +6,9 @@
 
 ;; on-submit is called with the raw camelCase JS form object; conversion to
 ;; kebab-case ClojureScript keys happens in web/views.cljs before dispatch.
-(defn component [{:keys [on-login-click on-create-account-click on-submit]}]
-  [landing-page 
-   {:onSignIn           on-login-click 
-    :onSignUp  (or on-create-account-click on-login-click) 
-    :on-submit                on-submit}])
+(defn component [{:keys [on-login-click on-create-account-click on-submit on-select-plan]}]
+  [landing-page
+   {:onSignIn     on-login-click
+    :onSignUp     (or on-create-account-click on-login-click)
+    :on-submit    on-submit
+    :onSelectPlan on-select-plan}])

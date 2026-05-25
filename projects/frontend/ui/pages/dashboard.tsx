@@ -1,9 +1,10 @@
 import React from "react";
 import { useState, useEffect } from "react";
-import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2, Landmark, Receipt, Tags } from "lucide-react";
+import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2, Landmark, Receipt, Tags, Download, Lock, ArrowUpRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../components/ui/dialog";
 import PropertyList from "../components/dashboard/PropertyList";
 import PropertyDetail from "../components/dashboard/PropertyDetail";
 import TenantPayments from "../components/dashboard/TenantPayments";
@@ -13,6 +14,8 @@ import DashboardSummary from "../components/dashboard/DashboardSummary";
 import LanguageSwitcher from "../components/common/LanguageSwitcher";
 import BankStatement from "../components/bank/BankStatement";
 import NebenkostenAbrechnung from "../components/billing/NebenkostenAbrechnung";
+
+const PENDING_MIGRATION_KEY = "pm-pending-migration";
 
 function SidebarContent({ activeTab, onSelect, onLogout }) {
   const { t } = useTranslation("nav");
@@ -65,12 +68,22 @@ function SidebarContent({ activeTab, onSelect, onLogout }) {
 
 export default function Dashboard(props) {
   const { t } = useTranslation("nav");
+  const { t: td } = useTranslation("home");
   const [activeTab, setActiveTab] = useState<string>(() => props.activeTab || "overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<any | null>(null);
+  const [pendingMigration, setPendingMigration] = useState<any | null>(null);
 
   useEffect(() => {
     if (props.onLoadData) props.onLoadData();
+    const raw = localStorage.getItem(PENDING_MIGRATION_KEY);
+    if (raw) {
+      try {
+        setPendingMigration(JSON.parse(raw));
+      } catch {
+        localStorage.removeItem(PENDING_MIGRATION_KEY);
+      }
+    }
   }, []);
 
   // Sync activeTab when restored from localStorage on first mount
@@ -106,8 +119,48 @@ export default function Dashboard(props) {
 
   const activeLabel = NAV_LABELS[activeTab] ?? "Dashboard";
 
+  const handleMigrationConfirm = () => {
+    if (pendingMigration && props.onImportDemoData) {
+      props.onImportDemoData(pendingMigration);
+    }
+    localStorage.removeItem(PENDING_MIGRATION_KEY);
+    setPendingMigration(null);
+  };
+
+  const handleMigrationSkip = () => {
+    localStorage.removeItem(PENDING_MIGRATION_KEY);
+    setPendingMigration(null);
+  };
+
+  const migrationCount = pendingMigration?.properties?.length ?? 0;
+  const migrationPlural = migrationCount === 1 ? "y" : "ies";
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
+      <Dialog open={!!pendingMigration} onOpenChange={(open) => { if (!open) handleMigrationSkip(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="h-5 w-5 text-primary" />
+              {td("dashboard.migrate.bannerTitle")}
+            </DialogTitle>
+            <DialogDescription>
+              {td("dashboard.migrate.bannerDesc", {
+                count: migrationCount,
+                plural: migrationPlural,
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={handleMigrationSkip}>
+              {td("dashboard.migrate.skip")}
+            </Button>
+            <Button onClick={handleMigrationConfirm}>
+              {td("dashboard.migrate.confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {/* Desktop sidebar — fixed, full height */}
       <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 border-r border-gray-200">
         <SidebarContent
@@ -149,6 +202,21 @@ export default function Dashboard(props) {
         </header>
 
         <main className="flex-1 p-4 sm:p-6">
+          {props.isReadOnly && (
+            <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <Lock className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-800 flex-1">{t("readOnly.banner")}</p>
+              {props.onUpgrade && (
+                <button
+                  onClick={props.onUpgrade}
+                  className="flex items-center gap-1 text-sm font-semibold text-amber-700 hover:text-amber-900 whitespace-nowrap"
+                >
+                  {t("readOnly.upgrade")}
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          )}
           {activeTab === "overview" && (
             <div className="space-y-6">
               <DashboardSummary
@@ -173,6 +241,7 @@ export default function Dashboard(props) {
                 costs={props.costs}
                 costsLoading={props.costsLoading}
                 costsSaving={props.costsSaving}
+                isReadOnly={props.isReadOnly}
                 onLoadCosts={props.onLoadCosts}
                 onAddCost={props.onAddCost}
                 onUpdateCost={props.onUpdateCost}
@@ -184,6 +253,7 @@ export default function Dashboard(props) {
                 properties={props.properties}
                 apartments={props.apartments}
                 isSaving={props.isSaving}
+                isReadOnly={props.isReadOnly}
                 onAddProperty={props.onAddProperty}
                 onEditProperty={props.onEditProperty}
                 onDeleteProperty={props.onDeleteProperty}

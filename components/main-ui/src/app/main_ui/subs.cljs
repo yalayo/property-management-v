@@ -25,3 +25,8 @@
  ::dashboard-tab
  (fn [db _]
    (get-in db [:ui :dashboard-tab] "overview")))
+
+(re-frame/reg-sub
+ ::has-active-plan?
+ (fn [db _]
+   (some? (get-in db [:user :info :plan]))))

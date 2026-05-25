@@ -39,6 +39,7 @@ type Props = {
   properties?: any[];
   apartments?: any[];
   isSaving?: boolean;
+  isReadOnly?: boolean;
   onAddProperty?: (data: any) => void;
   onEditProperty?: (id: number, data: any) => void;
   onDeleteProperty?: (id: number) => void;
@@ -128,7 +129,7 @@ const emptyDefaults = {
   name: "", address: "", city: "", postalCode: "", units: "1", purchasePrice: "", currentValue: "",
 };
 
-export default function PropertyList({ properties = [], apartments = [], isSaving = false, onAddProperty, onEditProperty, onDeleteProperty, onViewApartments, onSelectProperty, onGoBack }: Props) {
+export default function PropertyList({ properties = [], apartments = [], isSaving = false, isReadOnly = false, onAddProperty, onEditProperty, onDeleteProperty, onViewApartments, onSelectProperty, onGoBack }: Props) {
   const { t } = useTranslation("properties");
   const { t: tCommon } = useTranslation("common");
   const { toast } = useToast();
@@ -226,7 +227,7 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
         </div>
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogTrigger asChild>
-            <Button size="sm"><Plus className="h-4 w-4 mr-2" />{t("addProperty")}</Button>
+            <Button size="sm" disabled={isReadOnly}><Plus className="h-4 w-4 mr-2" />{t("addProperty")}</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>{t("addNew")}</DialogTitle></DialogHeader>
@@ -263,10 +264,10 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
                       <p className="text-sm text-gray-500">{property.city}, {property.postal_code || property.postalCode}</p>
                     </div>
                     <div className="flex space-x-2">
-                      <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(property)}>
+                      <Button variant="ghost" size="icon" disabled={isReadOnly} onClick={() => handleOpenEdit(property)}>
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setDeletingProperty(property)}>
+                      <Button variant="ghost" size="icon" disabled={isReadOnly} onClick={() => setDeletingProperty(property)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -337,7 +338,7 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
         ) : (
           <div className="text-center p-8">
             <p className="text-gray-500">{t("noProperties")}</p>
-            <Button className="mt-4" onClick={() => setIsAddOpen(true)}>
+            <Button className="mt-4" disabled={isReadOnly} onClick={() => setIsAddOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />{t("addFirst")}
             </Button>
           </div>

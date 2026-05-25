@@ -51,15 +51,43 @@
        (assoc-in [:payment :loading?] false)
        (assoc-in [:payment :error] "Failed to initialize payment. Please try again."))))
 
-;; ── Payment succeeded — show registration form ────────────────────────────────
+;; ── Payment succeeded ────────────────────────────────────────────────────────
+;; Logged-in users: activate the plan via API then return to overview.
+;; New users (unauthenticated flow): show the registration form.
 
-(re-frame/reg-event-db
+(re-frame/reg-event-fx
  ::payment-success
  [local-storage-interceptor]
- (fn [db [_ intent-id]]
+ (fn [{:keys [db]} [_ intent-id]]
+   (if (get-in db [:user :logged-in?])
+     (let [tier-id (get-in db [:payment :tier-id])]
+       {:db       (assoc-in db [:payment :activating?] true)
+        :dispatch [:app.core-ui.events/command
+                   :activate-plan
+                   {:tier tier-id :intent-id intent-id}
+                   [::plan-activated tier-id]
+                   [::plan-activation-error]]})
+     {:db (-> db
+              (assoc-in [:payment :step] :register)
+              (assoc-in [:payment :intent-id] intent-id))})))
+
+(re-frame/reg-event-db
+ ::plan-activated
+ [local-storage-interceptor]
+ (fn [db [_ tier-id _response]]
    (-> db
-       (assoc-in [:payment :step] :register)
-       (assoc-in [:payment :intent-id] intent-id))))
+       (assoc-in [:user :info :plan] tier-id)
+       (assoc-in [:payment :step] nil)
+       (assoc-in [:payment :activating?] false)
+       (assoc-in [:ui :active-section] "overview"))))
+
+(re-frame/reg-event-db
+ ::plan-activation-error
+ [local-storage-interceptor]
+ (fn [db [_ _error]]
+   (-> db
+       (assoc-in [:payment :activating?] false)
+       (assoc-in [:payment :error] "Failed to activate plan. Please contact support."))))
 
 ;; ── Registration done — go to auth ────────────────────────────────────────────
 
@@ -82,3 +110,11 @@
        (assoc-in [:payment :tier-id] nil)
        (assoc-in [:payment :client-secret] nil)
        (assoc-in [:ui :active-section] "features-pricing"))))
+
+(re-frame/reg-event-db
+ ::skip-to-dashboard
+ [local-storage-interceptor]
+ (fn [db _]
+   (-> db
+       (assoc-in [:payment :step] nil)
+       (assoc-in [:ui :active-section] "overview"))))

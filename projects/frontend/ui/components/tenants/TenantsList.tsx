@@ -38,6 +38,7 @@ type Tenant = {
 type Props = {
   tenants?: Tenant[];
   isLoading?: boolean;
+  isReadOnly?: boolean;
   isAddTenantDialogOpen?: boolean;
   onOpenAddTenantDialog?: () => void;
   onManageTenant?: (id: number) => void;
@@ -47,6 +48,7 @@ type Props = {
 export default function TenantsList({
   tenants,
   isLoading = false,
+  isReadOnly = false,
   isAddTenantDialogOpen = false,
   onOpenAddTenantDialog,
   onManageTenant,
@@ -91,7 +93,7 @@ export default function TenantsList({
             </p>
           )}
         </div>
-        <Button size="sm" onClick={onOpenAddTenantDialog}>
+        <Button size="sm" disabled={isReadOnly} onClick={onOpenAddTenantDialog}>
           <Plus className="h-4 w-4 mr-2" />
           {t("addTenant")}
         </Button>

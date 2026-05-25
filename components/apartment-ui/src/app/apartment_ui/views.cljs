@@ -23,7 +23,7 @@
                on-load-apt-costs on-add-apt-cost on-update-apt-cost on-delete-apt-cost
                rent-payments rent-loading? rent-saving?
                on-load-rent-payments on-add-rent-payment on-update-rent-payment on-delete-rent-payment
-               _on-go-back]}]
+               is-read-only? _on-go-back]}]
     (let [apartments       @(re-frame/subscribe [::subs/apartments])
           loading?         @(re-frame/subscribe [::subs/loading?])
           saving?          @(re-frame/subscribe [::subs/saving?])
@@ -37,11 +37,13 @@
           assign-apt-id    @(re-frame/subscribe [::subs/assign-apt-id])
           selected-apt     (when selected-id (first (filter #(= (:db/id %) selected-id) apartments)))
           detail-apt       (when detail-apt-id (first (filter #(= (:db/id %) detail-apt-id) apartments)))
-          assign-apt       (when assign-apt-id (first (filter #(= (:db/id %) assign-apt-id) apartments)))]
+          assign-apt       (when assign-apt-id (first (filter #(= (:db/id %) assign-apt-id) apartments)))
+          is-read-only?    is-read-only?]
       (cond
         selected-id
         [manage-apartment
          {:apartment               (clj->js selected-apt)
+          :isReadOnly              is-read-only?
           :tenants                 (clj->js (or tenants []))
           :isSaving                saving?
           :tenantsSaving           tenants-saving?
@@ -72,6 +74,7 @@
         detail-apt-id
         [apartment-detail
          {:apartment           (clj->js detail-apt)
+          :isReadOnly          is-read-only?
           :properties          (clj->js (or properties []))
           :tenants             (clj->js (or tenants []))
           :expenseTypes        (clj->js (or expense-types []))
@@ -95,6 +98,7 @@
         :else
         [apartments-list
          {:apartments                     (clj->js apartments)
+          :isReadOnly                     is-read-only?
           :onboardingsByApartment         (clj->js onboardings-by-apt)
           :isLoading                      loading?
           :isAddApartmentDialogOpen       add-dialog-open?

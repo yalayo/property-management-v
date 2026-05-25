@@ -4,7 +4,8 @@
             [app.worker.async :refer [js-await]]
             [app.worker.auth :as auth]
             [app.worker.cf :as cf]
-            [app.worker.routes :as routes]))
+            [app.worker.routes :as routes]
+            [app.payment.interface :as payment]))
 
 (def allowed-origins
   #{"http://localhost:8081"
@@ -75,7 +76,8 @@
 
 
 (defn init [{:keys [core storage controller]}]
-  (let [routes (into base-routes (concat (routes/create-routes core storage controller)))
+  (let [routes (into base-routes (concat (routes/create-routes core storage controller)
+                                         (payment/get-routes)))
         router (r/router routes {:conflicts nil})
         handler #js {:fetch (cf/with-handler router handle-route)}]
     handler))

@@ -1,7 +1,7 @@
 import React from "react";
 import { useState, useEffect } from "react";
 import Features from "../components/landing/Features";
-import Pricing from "../components/landing/Pricing";
+import ServiceOptions from "../components/landing/ServiceOptions";
 import Footer from "../components/landing/Footer";
 import { Button } from "../components/ui/button";
 import { Home, LogIn, UserPlus, CheckCircle2 } from "lucide-react";
@@ -78,7 +78,7 @@ export default function FeaturesPricing(props) {
           </div>
 
           <Features />
-          <Pricing userEmail={userEmail} onSelectPlan={onSelectPlan} />
+          <ServiceOptions onSelectPlan={onSelectPlan} />
         </div>
 
         {/* Bottom CTA */}

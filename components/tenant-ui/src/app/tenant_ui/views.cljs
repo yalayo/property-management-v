@@ -13,7 +13,7 @@
 
 (defn component [_]
   (re-frame/dispatch [::events/load-tenants])
-  (fn [{:keys [apartments]}]
+  (fn [{:keys [apartments is-read-only?]}]
     (let [tenants          @(re-frame/subscribe [::subs/tenants])
           loading?         @(re-frame/subscribe [::subs/loading?])
           saving?          @(re-frame/subscribe [::subs/saving?])
@@ -22,8 +22,9 @@
           selected-tenant  (when selected-id (first (filter #(= (:db/id %) selected-id) tenants)))]
       (if selected-id
         [manage-tenant
-         {:tenant   (clj->js selected-tenant)
-          :isSaving saving?
+         {:tenant      (clj->js selected-tenant)
+          :isReadOnly  is-read-only?
+          :isSaving    saving?
           :onBack   #(re-frame/dispatch [::events/clear-selected-tenant])
           :onDelete (fn [id] (re-frame/dispatch [::events/delete-tenant id]))
           :onUpdate (fn [id data]
@@ -41,6 +42,7 @@
                                               :nebenkosten-warm  (:nebenkostenWarm d)}])))}]
         [tenants-list
          {:tenants               (clj->js tenants)
+          :isReadOnly            is-read-only?
           :isLoading             loading?
           :isAddTenantDialogOpen add-dialog-open?
           :onOpenAddTenantDialog #(re-frame/dispatch [::events/open-add-dialog])

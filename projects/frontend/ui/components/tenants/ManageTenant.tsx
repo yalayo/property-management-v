@@ -31,6 +31,7 @@ type Tenant = {
 type Props = {
   tenant?: Tenant | null;
   isSaving?: boolean;
+  isReadOnly?: boolean;
   onBack?: () => void;
   onDelete?: (id: number) => void;
   onUpdate?: (id: number, data: Record<string, string>) => void;
@@ -44,6 +45,7 @@ function parseMembers(raw?: string): HouseholdMember[] {
 export default function ManageTenant({
   tenant,
   isSaving = false,
+  isReadOnly = false,
   onBack,
   onDelete,
   onUpdate,
@@ -244,7 +246,7 @@ export default function ManageTenant({
           </div>
 
           <div className="flex justify-end">
-            <Button onClick={handleSave} disabled={isSaving || !firstName.trim()}>
+            <Button onClick={handleSave} disabled={isSaving || isReadOnly || !firstName.trim()}>
               {isSaving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -262,7 +264,7 @@ export default function ManageTenant({
               variant="destructive"
               size="sm"
               onClick={() => setConfirmDelete(true)}
-              disabled={isSaving}
+              disabled={isSaving || isReadOnly}
             >
               <Trash2 className="h-4 w-4 mr-2" />
               {t("deleteTenant")}
