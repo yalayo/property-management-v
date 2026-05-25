@@ -24,13 +24,20 @@ export interface CostLineItem {
   name: string;
   total: number | null;
   share: number;
+  verteiler?: number | string | null;
+  schluessel?: string | null;
+  anteil?: number | string | null;
 }
 
 export interface BillingData {
   senderName: string;
+  senderStreet?: string;
+  senderPostalCity?: string;
   senderAddress: string;
   city: string;
   recipientName: string;
+  recipientStreet?: string;
+  recipientPostalCity?: string;
   propertyName: string;
   propertyAddress: string;
   apartmentCode: string;
@@ -39,6 +46,9 @@ export interface BillingData {
   bankName: string;
   costLines: CostLineItem[];
   prepayment: number;
+  closingName?: string;
+  billingDays?: number;
+  personCount?: number;
 }
 
 function formatEur(v: number): string {
@@ -51,161 +61,245 @@ function germanDate(): string {
   }).format(new Date());
 }
 
-// pdf-lib standard fonts cover Latin-1 Supplement (German umlauts, ß).
+function isLeapYear(y: number): boolean {
+  return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+}
+
 export async function generateBillingPdf(data: BillingData): Promise<Uint8Array> {
   const PDFLib = await loadPdfLib();
   const { PDFDocument, StandardFonts, rgb } = PDFLib;
 
-  const doc = await PDFDocument.create();
+  const doc  = await PDFDocument.create();
   const page = doc.addPage([595.28, 841.89]); // A4
 
-  const fontRegular = await doc.embedFont(StandardFonts.Helvetica);
-  const fontBold    = await doc.embedFont(StandardFonts.HelveticaBold);
+  const fontR = await doc.embedFont(StandardFonts.Helvetica);
+  const fontB = await doc.embedFont(StandardFonts.HelveticaBold);
 
   const { width, height } = page.getSize();
-  const left   = 60;
-  const right  = width - 60;
-  const gray   = rgb(0.5, 0.5, 0.5);
-  const black  = rgb(0, 0, 0);
-  const blue   = rgb(0.1, 0.25, 0.6);
+  const L = 57;          // left margin (≈20mm, DIN envelope window left edge)
+  const R = width - 55;  // right margin
 
-  let y = height - 56;
+  const gray      = rgb(0.5, 0.5, 0.5);
+  const lightGray = rgb(0.75, 0.75, 0.75);
+  const black     = rgb(0, 0, 0);
+  const blue      = rgb(0.1, 0.25, 0.6);
+  const lightBlue = rgb(0.88, 0.92, 0.97);
 
-  // ── Sender line ────────────────────────────────────────────────────────────
-  page.drawText(`${data.senderName} | ${data.senderAddress}`, {
-    x: left, y, font: fontRegular, size: 7, color: gray,
+  // ── Date + return address on the same line (top) ─────────────────────────
+  const topY = height - 52;
+  const dateStr = `${data.city}, ${germanDate()}`;
+  const dateW   = fontR.widthOfTextAtSize(dateStr, 9);
+  page.drawText(dateStr, { x: R - dateW, y: topY, font: fontR, size: 9, color: black });
+
+  const closingLine = `${data.closingName ?? data.senderName} - ${[data.senderStreet, data.senderPostalCity].filter(Boolean).join(" ")}`;
+  page.drawText(closingLine, { x: L, y: topY, font: fontR, size: 7, color: blue });
+  page.drawLine({
+    start: { x: L, y: topY - 5 }, end: { x: L + 240, y: topY - 5 },
+    thickness: 0.3, color: lightGray,
   });
-  y -= 14;
 
-  // ── Horizontal rule ────────────────────────────────────────────────────────
-  page.drawLine({ start: { x: left, y }, end: { x: right, y }, thickness: 0.5, color: gray });
+  // ── Envelope window position (DIN 5008: 45–85mm from top) ────────────────
+  const windowTop = height - 127;
+
+  // ── Recipient address (DIN 5008 envelope window: 45–85mm from top) ───────
+  let ry = windowTop - 16;
+  page.drawText(data.recipientName, { x: L, y: ry, font: fontB, size: 10.5, color: black });
+  ry -= 14;
+  if (data.recipientStreet) {
+    page.drawText(data.recipientStreet, { x: L, y: ry, font: fontR, size: 10, color: black });
+    ry -= 13;
+  }
+  if (data.recipientPostalCity) {
+    page.drawText(data.recipientPostalCity, { x: L, y: ry, font: fontR, size: 10, color: black });
+  }
+
+  // ── Info table (right side, aligned with address window) ─────────────────
+  const tL = 315;               // table left
+  const tR = R;                 // table right
+  const tW = tR - tL;           // table width
+  const lX = tL + 4;            // label x
+  const vX = tL + 100;          // value x
+  const rH = 15;                // row height
+
+  const billingDays = data.billingDays ?? (isLeapYear(data.year) ? 366 : 365);
+  const personCount = data.personCount ?? 1;
+
+  const infoRows: Array<{ label: string; value: string; header?: boolean }> = [
+    { label: "Objekt",                  value: data.propertyName ?? "",      header: true },
+    { label: "Wohnung",                  value: data.apartmentCode },
+    { label: "Zeitraum",                 value: `01.01.${data.year} – 31.12.${data.year}` },
+    { label: "Abrechnungstage",          value: String(billingDays) },
+    { label: "Abrechnungstage×Pers.", value: String(billingDays * personCount) },
+  ];
+
+  const tableH  = infoRows.length * rH + 2;
+  const tableTop = windowTop + 2;
+  const tableBtm = tableTop - tableH;
+
+  page.drawRectangle({
+    x: tL, y: tableBtm, width: tW, height: tableH,
+    color: rgb(1, 1, 1), borderColor: rgb(0.7, 0.75, 0.85), borderWidth: 0.5,
+  });
+
+  let iy = tableTop - 2;
+  for (let i = 0; i < infoRows.length; i++) {
+    const { label, value, header } = infoRows[i];
+    if (header) {
+      page.drawRectangle({ x: tL, y: iy - rH + 1, width: tW, height: rH, color: lightBlue });
+    }
+    if (label) {
+      page.drawText(label, {
+        x: lX, y: iy - rH + 4,
+        font: header ? fontB : fontR,
+        size: 7.5,
+        color: header ? blue : gray,
+      });
+    }
+    page.drawText(value, {
+      x: vX, y: iy - rH + 4,
+      font: header ? fontB : fontR,
+      size: 7.5,
+      color: header ? blue : black,
+    });
+    if (i < infoRows.length - 1) {
+      page.drawLine({
+        start: { x: tL, y: iy - rH + 1 }, end: { x: tR, y: iy - rH + 1 },
+        thickness: 0.25, color: rgb(0.85, 0.87, 0.92),
+      });
+    }
+    iy -= rH;
+  }
+
+  // ── Separator + date below header zone ───────────────────────────────────
+  const contentY = Math.min(tableBtm, ry) - 16;
+
+  page.drawLine({
+    start: { x: L, y: contentY + 6 }, end: { x: R, y: contentY + 6 },
+    thickness: 0.4, color: lightGray,
+  });
+
+  // ── Subject ───────────────────────────────────────────────────────────────
+  let y = contentY - 12;
+  page.drawText(
+    `Nebenkostenabrechnung ${data.year}`,
+    { x: L, y, font: fontB, size: 11, color: blue },
+  );
   y -= 20;
 
-  // ── Recipient address (left) + Date (right) ────────────────────────────────
-  const dateStr = `${data.city}, ${germanDate()}`;
-  const dateW   = fontRegular.widthOfTextAtSize(dateStr, 10);
-  page.drawText(dateStr, { x: right - dateW, y, font: fontRegular, size: 10, color: black });
-
-  page.drawText(data.recipientName, { x: left, y, font: fontBold, size: 10, color: black });
+  // ── Greeting + body ───────────────────────────────────────────────────────
+  page.drawText(`Sehr geehrte(r) ${data.recipientName},`, { x: L, y, font: fontR, size: 9.5, color: black });
   y -= 14;
-  page.drawText(data.propertyAddress, { x: left, y, font: fontRegular, size: 10, color: black });
-  y -= 28;
-
-  // ── Subject ────────────────────────────────────────────────────────────────
-  page.drawText(
-    `Nebenkostenabrechnung ${data.year} — Wohnung ${data.apartmentCode}`,
-    { x: left, y, font: fontBold, size: 11, color: blue },
-  );
-  y -= 22;
-
-  // ── Greeting ───────────────────────────────────────────────────────────────
-  page.drawText(`Sehr geehrte(r) ${data.recipientName},`, {
-    x: left, y, font: fontRegular, size: 10, color: black,
-  });
-  y -= 16;
-
-  // ── Body text ──────────────────────────────────────────────────────────────
   const bodyLines = [
     `hiermit erhalten Sie die Betriebskostenabrechnung gemäß §556 BGB Abs. 3`,
-    `für das Abrechnungsjahr ${data.year} (${data.year}.01.01 – ${data.year}.12.31).`,
+    `für das Abrechnungsjahr ${data.year} (01.01.${data.year} – 31.12.${data.year}).`,
   ];
   for (const line of bodyLines) {
-    page.drawText(line, { x: left, y, font: fontRegular, size: 10, color: black });
-    y -= 14;
+    page.drawText(line, { x: L, y, font: fontR, size: 9.5, color: black });
+    y -= 13;
   }
   y -= 10;
 
-  // ── Cost table ─────────────────────────────────────────────────────────────
-  const colName  = left;
-  const colTotal = left + 270;
-  const colShare = left + 390;
-  const rowH     = 18;
+  // ── Cost table ────────────────────────────────────────────────────────────
+  // 6 columns: Name | Gesamtkosten | Verteiler | Schlüssel | Anteil | Ihr Anteil
+  const cName  = L;
+  const cTotal = L + 138;
+  const cVert  = L + 213;
+  const cKey   = L + 272;
+  const cAnt   = L + 337;
+  const cShare = L + 388;
+  const rowH   = 15;
 
-  // Table header
-  page.drawRectangle({ x: left, y: y - 4, width: right - left, height: rowH, color: rgb(0.93, 0.95, 0.98) });
-  page.drawText("Abrechnungsposten", { x: colName + 4,  y: y + 2, font: fontBold, size: 9, color: blue });
-  page.drawText("Gesamtkosten",       { x: colTotal + 4, y: y + 2, font: fontBold, size: 9, color: blue });
-  page.drawText("Ihr Anteil",          { x: colShare + 4, y: y + 2, font: fontBold, size: 9, color: blue });
-  y -= rowH;
+  const hdrBtm = y - 4;
+  page.drawRectangle({ x: L, y: hdrBtm, width: R - L, height: rowH + 2, color: lightBlue });
 
-  // Cost rows
+  const headers: Array<[string, number]> = [
+    ["Abrechnungsposten", cName],
+    ["Gesamtkosten",      cTotal],
+    ["Verteiler",         cVert],
+    ["Schlüssel",         cKey],
+    ["Anteil",            cAnt],
+    ["Ihr Anteil",        cShare],
+  ];
+  for (const [label, colX] of headers) {
+    page.drawText(label, { x: colX + 3, y: y + 2, font: fontB, size: 7.5, color: blue });
+  }
+  y -= rowH + 2;
+
   let totalShare = 0;
-  let totalAll   = 0;
   for (const line of data.costLines) {
-    const shareVal = line.share;
-    const totalVal = line.total ?? 0;
-    totalShare += shareVal;
-    totalAll   += totalVal;
+    totalShare += line.share;
 
-    page.drawLine({ start: { x: left, y: y + rowH - 2 }, end: { x: right, y: y + rowH - 2 }, thickness: 0.3, color: rgb(0.85, 0.85, 0.85) });
-    page.drawText(line.name,                               { x: colName + 4,  y: y + 4, font: fontRegular, size: 9, color: black });
-    page.drawText(line.total != null ? `€ ${formatEur(totalVal)}` : "—", { x: colTotal + 4, y: y + 4, font: fontRegular, size: 9, color: black });
-    page.drawText(`€ ${formatEur(shareVal)}`,              { x: colShare + 4, y: y + 4, font: fontRegular, size: 9, color: black });
+    page.drawLine({
+      start: { x: L, y: y + rowH - 1 }, end: { x: R, y: y + rowH - 1 },
+      thickness: 0.25, color: rgb(0.88, 0.88, 0.88),
+    });
+
+    const str = (v: any) => (v != null && v !== "" ? String(v) : "—");
+    page.drawText(line.name,                                                { x: cName  + 3, y: y + 3, font: fontR, size: 8, color: black });
+    page.drawText(line.total != null ? `€ ${formatEur(line.total)}` : "—", { x: cTotal + 3, y: y + 3, font: fontR, size: 8, color: black });
+    page.drawText(str(line.verteiler),                                      { x: cVert  + 3, y: y + 3, font: fontR, size: 8, color: black });
+    page.drawText(str(line.schluessel),                                     { x: cKey   + 3, y: y + 3, font: fontR, size: 8, color: black });
+    page.drawText(str(line.anteil),                                         { x: cAnt   + 3, y: y + 3, font: fontR, size: 8, color: black });
+    page.drawText(`€ ${formatEur(line.share)}`,                             { x: cShare + 3, y: y + 3, font: fontR, size: 8, color: black });
     y -= rowH;
   }
 
-  // ── Summary rows ───────────────────────────────────────────────────────────
-  const summaryRows: Array<{ label: string; value: string; bold?: boolean; highlight?: boolean }> = [
-    { label: "Gesamtkosten Nebenkosten", value: `€ ${formatEur(totalShare)}` },
-    { label: "Abzüglich Vorauszahlungen", value: `€ ${formatEur(data.prepayment)}` },
-  ];
+  // ── Summary ───────────────────────────────────────────────────────────────
+  y -= 6;
+  page.drawLine({ start: { x: L, y }, end: { x: R, y }, thickness: 0.7, color: gray });
+  y -= 14;
 
   const net    = totalShare - data.prepayment;
   const refund = net < 0;
-  summaryRows.push({
-    label:     refund ? "Guthaben" : "Nachzahlung",
-    value:     `€ ${formatEur(Math.abs(net))}`,
-    bold:      true,
-    highlight: true,
-  });
 
-  y -= 4;
-  page.drawLine({ start: { x: left, y }, end: { x: right, y }, thickness: 0.8, color: gray });
-  y -= 4;
+  const summaryRows: Array<{ label: string; value: string; bold?: boolean; highlight?: boolean }> = [
+    { label: "Summe Nebenkosten",       value: `€ ${formatEur(totalShare)}` },
+    { label: "Abzüglich Vorauszahlungen", value: `- € ${formatEur(data.prepayment)}` },
+    { label: refund ? "Guthaben" : "Nachzahlung", value: `€ ${formatEur(Math.abs(net))}`, bold: true, highlight: true },
+  ];
 
   for (const row of summaryRows) {
     if (row.highlight) {
-      page.drawRectangle({ x: left, y: y - 4, width: right - left, height: rowH, color: rgb(0.93, 0.95, 0.98) });
+      page.drawRectangle({ x: L, y: y - 4, width: R - L, height: rowH + 2, color: lightBlue });
     }
-    const f = row.bold ? fontBold : fontRegular;
+    const f = row.bold ? fontB : fontR;
     const c = row.bold ? blue : black;
-    page.drawText(row.label, { x: colName + 4, y: y + 4, font: f, size: 9, color: c });
-    const vw = f.widthOfTextAtSize(row.value, 9);
-    page.drawText(row.value, { x: right - 4 - vw, y: y + 4, font: f, size: 9, color: c });
-    y -= rowH;
+    page.drawText(row.label, { x: L + 3, y: y + 2, font: f, size: 8.5, color: c });
+    const vw = f.widthOfTextAtSize(row.value, 8.5);
+    page.drawText(row.value, { x: R - 3 - vw, y: y + 2, font: f, size: 8.5, color: c });
+    y -= rowH + 2;
   }
 
-  y -= 18;
+  y -= 14;
 
-  // ── Payment instructions ───────────────────────────────────────────────────
+  // ── Payment instructions ──────────────────────────────────────────────────
   if (!refund) {
     page.drawText(
       `Wir bitten Sie, den Betrag von € ${formatEur(net)} auf das folgende Konto zu überweisen:`,
-      { x: left, y, font: fontRegular, size: 10, color: black },
+      { x: L, y, font: fontR, size: 9.5, color: black },
     );
   } else {
     page.drawText(
       `Wir werden den Betrag von € ${formatEur(Math.abs(net))} auf Ihr Konto erstatten.`,
-      { x: left, y, font: fontRegular, size: 10, color: black },
+      { x: L, y, font: fontR, size: 9.5, color: black },
     );
+  }
+  y -= 16;
+
+  page.drawText(`IBAN: ${data.iban}`, { x: L, y, font: fontB, size: 9.5, color: black });
+  y -= 13;
+  if (data.bankName) {
+    page.drawText(`Bank: ${data.bankName}`, { x: L, y, font: fontR, size: 9.5, color: black });
+    y -= 13;
   }
   y -= 18;
 
-  // ── IBAN / Bank ────────────────────────────────────────────────────────────
-  page.drawText(`IBAN: ${data.iban}`, { x: left, y, font: fontBold, size: 10, color: black });
-  y -= 14;
-  if (data.bankName) {
-    page.drawText(`Bank: ${data.bankName}`, { x: left, y, font: fontRegular, size: 10, color: black });
-    y -= 14;
-  }
-  y -= 20;
-
-  // ── Closing ────────────────────────────────────────────────────────────────
-  page.drawText("Mit freundlichen Grüßen", { x: left, y, font: fontRegular, size: 10, color: black });
-  y -= 40;
-  page.drawLine({ start: { x: left, y }, end: { x: left + 140, y }, thickness: 0.5, color: gray });
+  // ── Closing ───────────────────────────────────────────────────────────────
+  page.drawText("Mit freundlichen Grüßen", { x: L, y, font: fontR, size: 9.5, color: black });
+  y -= 36;
+  page.drawLine({ start: { x: L, y }, end: { x: L + 160, y }, thickness: 0.4, color: lightGray });
   y -= 12;
-  page.drawText(data.senderName, { x: left, y, font: fontRegular, size: 9, color: gray });
+  page.drawText(data.closingName ?? data.senderName, { x: L, y, font: fontR, size: 9, color: black });
 
   return doc.save();
 }

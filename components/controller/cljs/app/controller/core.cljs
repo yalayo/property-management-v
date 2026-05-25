@@ -141,7 +141,7 @@
                       (if (:error result)
                         result
                         (let [{:keys [name address city postal-code country units
-                                      purchase-price current-value iban bank-name]} (:updates result)]
+                                      purchase-price current-value iban bank-name landlord-name landlord-street landlord-postal-city]} (:updates result)]
                           (js-await [dups ((:q storage) {:where [['?e :property/organization-id org-id]
                                                                    ['?e :property/name name]]})]
                                     (let [conflicts (filter #(not= % eid) (vec dups))]
@@ -158,8 +158,11 @@
                                                               :property/units          units
                                                               :property/purchase-price purchase-price
                                                               :property/current-value  current-value}
-                                                       iban      (assoc :property/iban      iban)
-                                                       bank-name (assoc :property/bank-name bank-name))] nil)]
+                                                       iban          (assoc :property/iban          iban)
+                                                       bank-name     (assoc :property/bank-name     bank-name)
+                                                       landlord-name         (assoc :property/landlord-name         landlord-name)
+                                                       landlord-street       (assoc :property/landlord-street       landlord-street)
+                                                       landlord-postal-city  (assoc :property/landlord-postal-city  landlord-postal-city))] nil)]
                                                   {:tx-id tx-id})))))))))))))
 
 (defn- handle-delete-property! [storage data user]

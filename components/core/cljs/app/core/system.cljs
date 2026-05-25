@@ -54,8 +54,11 @@
                :units            (get data :units)
                :purchase-price   (get data :purchase-price)
                :current-value    (get data :current-value)
-               :iban             (get data :iban)
-               :bank-name        (get data :bank-name)}}
+               :iban                 (get data :iban)
+               :bank-name            (get data :bank-name)
+               :landlord-name        (get data :landlord-name)
+               :landlord-street      (get data :landlord-street)
+               :landlord-postal-city (get data :landlord-postal-city)}}
 
     :create-apartment
     (let [{:keys [property-id code]} data]

@@ -247,8 +247,11 @@
                                       :units          (:units d)
                                       :purchase-price (:purchasePrice d)
                                       :current-value  (:currentValue d)
-                                      :iban           (:iban d)
-                                      :bank-name      (:bankName d)}])))
+                                      :iban                 (:iban d)
+                                      :bank-name            (:bankName d)
+                                      :landlord-name        (:landlordName d)
+                                      :landlord-street      (:landlordStreet d)
+                                      :landlord-postal-city (:landlordPostalCity d)}])))
            :onDeleteProperty   (fn [id]
                                  (re-frame/dispatch [::property-events/delete-property id]))
            :aptCosts           (clj->js apt-costs)

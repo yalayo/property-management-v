@@ -84,6 +84,9 @@ export default function NebenkostenAbrechnung({
   const [editingBankInfo, setEditingBankInfo] = useState(false);
   const [ibanInput, setIbanInput] = useState("");
   const [bankNameInput, setBankNameInput] = useState("");
+  const [landlordNameInput, setLandlordNameInput] = useState("");
+  const [landlordStreetInput, setLandlordStreetInput] = useState("");
+  const [landlordPostalCityInput, setLandlordPostalCityInput] = useState("");
   const [generating, setGenerating] = useState(false);
 
   const selectedProperty = properties.find((p: any) => String(p.id) === selectedPropertyId);
@@ -135,6 +138,9 @@ export default function NebenkostenAbrechnung({
   useEffect(() => {
     setIbanInput(selectedProperty?.iban ?? "");
     setBankNameInput(selectedProperty?.["bank-name"] ?? "");
+    setLandlordNameInput(selectedProperty?.["landlord-name"] ?? "");
+    setLandlordStreetInput(selectedProperty?.["landlord-street"] ?? "");
+    setLandlordPostalCityInput(selectedProperty?.["landlord-postal-city"] ?? "");
     setEditingBankInfo(false);
   }, [selectedPropertyId]);
 
@@ -202,8 +208,11 @@ export default function NebenkostenAbrechnung({
       units:         selectedProperty.units,
       purchasePrice: selectedProperty["purchase-price"],
       currentValue:  selectedProperty["current-value"],
-      iban:          ibanInput.trim(),
-      bankName:      bankNameInput.trim(),
+      iban:               ibanInput.trim(),
+      bankName:           bankNameInput.trim(),
+      landlordName:       landlordNameInput.trim(),
+      landlordStreet:     landlordStreetInput.trim(),
+      landlordPostalCity: landlordPostalCityInput.trim(),
     });
     setEditingBankInfo(false);
   };
@@ -214,29 +223,52 @@ export default function NebenkostenAbrechnung({
     if (!selectedProperty || !selectedApt || !tenantForApt) return;
     setGenerating(true);
     try {
-      const costLines: CostLineItem[] = activeCostLines.map(key => ({
-        name:  lineName(key),
-        total: effectiveCostValue(propertyCosts, key, year),
-        share: Number(costEntryFor(aptCosts, key, year)?.value ?? 0),
-      }));
+      const costLines: CostLineItem[] = activeCostLines.map(key => {
+        const aptEntry = costEntryFor(aptCosts, key, year);
+        return {
+          name:      lineName(key),
+          total:     effectiveCostValue(propertyCosts, key, year),
+          share:     Number(aptEntry?.value ?? 0),
+          verteiler: aptEntry?.verteiler ?? null,
+          schluessel: aptEntry?.schluessel ?? null,
+          anteil:    aptEntry?.anteil ?? null,
+        };
+      });
 
       const prepayment = nebenkostenWarmPerMonth * paidMonths.size;
 
+      const billingDays = ((y: number) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0 ? 366 : 365)(year);
+      let personCount = 1;
+      try {
+        const members = JSON.parse(tenantForApt["household-members"] ?? "[]");
+        if (Array.isArray(members)) personCount += members.length;
+      } catch { /* ignore */ }
+
+      const street     = selectedProperty.address ?? "";
+      const postalCity = [selectedProperty["postal-code"], selectedProperty.city].filter(Boolean).join(" ");
+      const landlordStreet     = selectedProperty["landlord-street"] || street;
+      const landlordPostalCity = selectedProperty["landlord-postal-city"] || postalCity;
+
       const bytes = await generateBillingPdf({
-        senderName:      selectedProperty.name ?? "Vermieter",
-        senderAddress:   [selectedProperty.address, selectedProperty["postal-code"], selectedProperty.city]
-                           .filter(Boolean).join(", "),
-        city:            selectedProperty.city ?? "",
-        recipientName:   [tenantForApt["first-name"], tenantForApt["last-name"]].filter(Boolean).join(" ") || tenantForApt.name,
-        propertyName:    selectedProperty.name,
-        propertyAddress: [selectedProperty.address, selectedProperty["postal-code"], selectedProperty.city]
-                           .filter(Boolean).join(", "),
-        apartmentCode:   selectedApt.code,
+        senderName:         selectedProperty.name ?? "Vermieter",
+        senderStreet:       landlordStreet,
+        senderPostalCity:   landlordPostalCity,
+        senderAddress:      [landlordStreet, landlordPostalCity].filter(Boolean).join(", "),
+        city:               selectedProperty.city ?? "",
+        recipientName:      [tenantForApt["first-name"], tenantForApt["last-name"]].filter(Boolean).join(" ") || tenantForApt.name,
+        recipientStreet:    street,
+        recipientPostalCity: postalCity,
+        propertyName:       selectedProperty.name,
+        propertyAddress:    [street, postalCity].filter(Boolean).join(", "),
+        apartmentCode:      selectedApt.code,
         year,
-        iban:            selectedProperty.iban ?? ibanInput,
-        bankName:        selectedProperty["bank-name"] ?? bankNameInput,
+        iban:               selectedProperty.iban ?? ibanInput,
+        bankName:           selectedProperty["bank-name"] ?? bankNameInput,
         costLines,
         prepayment,
+        closingName:        selectedProperty["landlord-name"] || selectedProperty.name || "Vermieter",
+        billingDays,
+        personCount,
       });
 
       downloadPdf(bytes, `Nebenkostenabrechnung_${selectedApt.code}_${year}.pdf`);
@@ -355,6 +387,33 @@ export default function NebenkostenAbrechnung({
                     className="h-7 text-sm flex-1"
                   />
                 </div>
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs w-20 text-muted-foreground">{t("landlordName")}</span>
+                  <Input
+                    value={landlordNameInput}
+                    onChange={e => setLandlordNameInput(e.target.value)}
+                    placeholder={t("landlordNamePlaceholder")}
+                    className="h-7 text-sm flex-1"
+                  />
+                </div>
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs w-20 text-muted-foreground">{t("landlordStreet")}</span>
+                  <Input
+                    value={landlordStreetInput}
+                    onChange={e => setLandlordStreetInput(e.target.value)}
+                    placeholder={t("landlordStreetPlaceholder")}
+                    className="h-7 text-sm flex-1"
+                  />
+                </div>
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs w-20 text-muted-foreground">{t("landlordPostalCity")}</span>
+                  <Input
+                    value={landlordPostalCityInput}
+                    onChange={e => setLandlordPostalCityInput(e.target.value)}
+                    placeholder={t("landlordPostalCityPlaceholder")}
+                    className="h-7 text-sm flex-1"
+                  />
+                </div>
                 <div className="flex gap-2 pt-1">
                   <Button size="sm" className="h-7 px-3" disabled={propertySaving} onClick={handleSaveBankInfo}>
                     {t("saveBankInfo")}
@@ -373,6 +432,18 @@ export default function NebenkostenAbrechnung({
                 <div>
                   <p className="text-xs text-muted-foreground">{t("bankName")}</p>
                   <p>{selectedProperty?.["bank-name"] || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{t("landlordName")}</p>
+                  <p>{selectedProperty?.["landlord-name"] || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{t("landlordStreet")}</p>
+                  <p>{selectedProperty?.["landlord-street"] || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{t("landlordPostalCity")}</p>
+                  <p>{selectedProperty?.["landlord-postal-city"] || "—"}</p>
                 </div>
               </div>
             )}
@@ -552,17 +623,17 @@ export default function NebenkostenAbrechnung({
                 })
               )}
               {/* Summary rows */}
-              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] text-sm px-4 py-2 border-t border-dashed gap-1">
-                <span className="col-span-4 font-medium">{t("totalCosts")}</span>
-                <span className="text-right tabular-nums font-medium">€ {formatEur(totalShare)}</span>
+              <div className="flex items-center justify-between px-4 py-2 border-t border-dashed text-sm">
+                <span className="font-medium">{t("totalCosts")}</span>
+                <span className="tabular-nums font-medium">€ {formatEur(totalShare)}</span>
               </div>
-              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] text-sm px-4 py-2 gap-1">
-                <span className="col-span-4 text-muted-foreground">{t("prepayment")}</span>
-                <span className="text-right tabular-nums text-muted-foreground">− € {formatEur(prepaymentTotal)}</span>
+              <div className="flex items-center justify-between px-4 py-2 text-sm">
+                <span className="text-muted-foreground">{t("prepayment")}</span>
+                <span className="tabular-nums text-muted-foreground">− € {formatEur(prepaymentTotal)}</span>
               </div>
-              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] text-sm px-4 py-2 border-t bg-muted/30 gap-1">
-                <span className="col-span-4 font-bold">{net >= 0 ? t("netPayment") : t("refund")}</span>
-                <span className={`text-right tabular-nums font-bold ${net >= 0 ? "text-destructive" : "text-green-600"}`}>
+              <div className="flex items-center justify-between px-4 py-2 border-t bg-muted/30 text-sm">
+                <span className="font-bold">{net >= 0 ? t("netPayment") : t("refund")}</span>
+                <span className={`tabular-nums font-bold ${net >= 0 ? "text-destructive" : "text-green-600"}`}>
                   € {formatEur(Math.abs(net))}
                 </span>
               </div>
