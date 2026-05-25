@@ -94,7 +94,9 @@
                :start-date        (get data :start-date)
                :end-date          (get data :end-date)
                :birthday          (get data :birthday)
-               :household-members (get data :household-members)}}
+               :household-members (get data :household-members)
+               :kaltmiete         (get data :kaltmiete)
+               :nebenkosten-warm  (get data :nebenkosten-warm)}}
 
     :start-onboarding
     (let [{:keys [apartment-id email]} data]

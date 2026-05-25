@@ -31,6 +31,8 @@ type Tenant = {
   phone?: string;
   "start-date"?: string;
   "end-date"?: string;
+  kaltmiete?: number | string;
+  "nebenkosten-warm"?: number | string;
 };
 
 type Props = {
@@ -116,28 +118,71 @@ export default function TenantsList({
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {pagedTenants.map((tenant) => {
               const isActive = !tenant["end-date"];
+              const kalt = parseFloat(String(tenant.kaltmiete ?? "").replace(",", ".")) || 0;
+              const nk   = parseFloat(String(tenant["nebenkosten-warm"] ?? "").replace(",", ".")) || 0;
+              const total = kalt + nk;
+              const fmt = (n: number) => n.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+              const rentDuration = (() => {
+                if (!tenant["start-date"]) return null;
+                const start = new Date(tenant["start-date"] + "T00:00:00");
+                const end   = tenant["end-date"] ? new Date(tenant["end-date"] + "T00:00:00") : new Date();
+                let years  = end.getFullYear() - start.getFullYear();
+                let months = end.getMonth() - start.getMonth();
+                if (months < 0) { years--; months += 12; }
+                if (years === 0 && months === 0) return t("durationLessThanMonth");
+                if (years > 0 && months > 0) return t("durationYearsMonths", { years, months });
+                if (years > 0) return t("durationYears", { count: years });
+                return t("durationMonths", { count: months });
+              })();
+
               return (
                 <Card key={tenant.id} className="overflow-hidden">
                   <div className="p-4 flex flex-col gap-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <User className="h-5 w-5 text-primary" />
-                        <span className="font-semibold">{tenantDisplayName(tenant)}</span>
+                        <User className="h-5 w-5 text-primary shrink-0" />
+                        <span className="font-semibold leading-tight">{tenantDisplayName(tenant)}</span>
                       </div>
-                      <Badge variant={isActive ? "default" : "secondary"}>
+                      <Badge variant={isActive ? "default" : "secondary"} className="shrink-0 ml-2">
                         {isActive ? t("active") : t("past")}
                       </Badge>
                     </div>
+
                     {tenant.email && (
                       <p className="text-sm text-muted-foreground truncate">{tenant.email}</p>
                     )}
+
                     {tenant["start-date"] && (
-                      <p className="text-xs text-muted-foreground">
-                        {tenant["end-date"]
-                          ? t("fromTo", { from: tenant["start-date"], to: tenant["end-date"] })
-                          : t("from", { from: tenant["start-date"] })}
-                      </p>
+                      <div className="space-y-0.5">
+                        <p className="text-xs text-muted-foreground">
+                          {tenant["end-date"]
+                            ? t("fromTo", { from: tenant["start-date"], to: tenant["end-date"] })
+                            : t("from", { from: tenant["start-date"] })}
+                        </p>
+                        {rentDuration && (
+                          <p className="text-xs font-medium text-primary">{rentDuration}</p>
+                        )}
+                      </div>
                     )}
+
+                    {total > 0 && (
+                      <div className="rounded-md bg-muted/50 px-3 py-2 space-y-1">
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>{t("rent.kaltmiete")}</span>
+                          <span className="tabular-nums">€ {fmt(kalt)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>{t("rent.nebenkostenWarm")}</span>
+                          <span className="tabular-nums">€ {fmt(nk)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs font-semibold border-t pt-1 mt-1">
+                          <span>{t("rent.total")}</span>
+                          <span className="tabular-nums">€ {fmt(total)}</span>
+                        </div>
+                      </div>
+                    )}
+
                     <Button
                       variant="outline"
                       size="sm"

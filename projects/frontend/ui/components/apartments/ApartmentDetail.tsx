@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, ChevronRight, Copy, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Copy, Pencil, Plus, Trash2, UserCheck } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { Checkbox } from "../ui/checkbox";
@@ -516,54 +516,46 @@ export default function ApartmentDetail({
     );
   };
 
-  function RentRow({ month }: { month: number }) {
-    const entry     = rentEntryFor(month);
-    const fields    = rentInput[month];
-    const isEditing = fields != null;
+  const RentRow = ({ month }: { month: number }) => {
+    const entry      = rentEntryFor(month);
+    const fields     = rentInput[month];
+    const isEditing  = fields != null;
     const tenantKalt = parseFloat(String(selectedTenant?.kaltmiete ?? 0).replace(",", ".")) || 0;
     const tenantNk   = parseFloat(String(selectedTenant?.["nebenkosten-warm"] ?? 0).replace(",", ".")) || 0;
-    const hasTenantData = tenantKalt > 0 || tenantNk > 0;
+    const hasTenant  = selectedTenant != null;
 
     if (isEditing) {
       const kalt  = parseFloat(fields!.kaltmiete.replace(",", ".")) || 0;
       const nk    = parseFloat(fields!.nebenkostenWarm.replace(",", ".")) || 0;
       const total = kalt + nk;
       return (
-        <div className="px-4 py-3 text-sm border-b last:border-b-0 space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="flex-1 font-medium capitalize">{monthName(month)}</span>
-            {hasTenantData && (
-              <Button variant="outline" size="sm" className="h-7 px-2 text-xs shrink-0"
-                onClick={() => setRentInput(prev => ({ ...prev, [month]: { kaltmiete: tenantKalt.toFixed(2), nebenkostenWarm: tenantNk.toFixed(2) } }))}>
-                {t("fillFromTenant")}
-              </Button>
-            )}
-            <Button size="sm" className="h-7 px-3" disabled={rentSaving || total <= 0} onClick={() => commitRent(month)}>{t("save")}</Button>
-            <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => closeRentEdit(month)}>{t("cancel")}</Button>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">{t("rent.kaltmiete")} (€)</p>
-              <Input autoFocus type="text" inputMode="decimal"
-                value={fields!.kaltmiete}
-                onChange={e => setRentInput(prev => ({ ...prev, [month]: { ...prev[month]!, kaltmiete: e.target.value } }))}
-                onKeyDown={e => { if (e.key === "Enter") commitRent(month); if (e.key === "Escape") closeRentEdit(month); }}
-                className="h-7 text-sm text-right" />
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">{t("rent.nebenkostenWarm")} (€)</p>
-              <Input type="text" inputMode="decimal"
-                value={fields!.nebenkostenWarm}
-                onChange={e => setRentInput(prev => ({ ...prev, [month]: { ...prev[month]!, nebenkostenWarm: e.target.value } }))}
-                onKeyDown={e => { if (e.key === "Enter") commitRent(month); if (e.key === "Escape") closeRentEdit(month); }}
-                className="h-7 text-sm text-right" />
-            </div>
-          </div>
+        <div className="flex items-center gap-2 px-4 py-3 text-sm border-b last:border-b-0">
+          <span className="font-medium capitalize shrink-0">{monthName(month)}</span>
+          <Input autoFocus type="text" inputMode="decimal"
+            placeholder={t("rent.kaltmiete")}
+            value={fields!.kaltmiete}
+            onChange={e => setRentInput(prev => ({ ...prev, [month]: { ...prev[month]!, kaltmiete: e.target.value } }))}
+            onKeyDown={e => { if (e.key === "Enter") commitRent(month); if (e.key === "Escape") closeRentEdit(month); }}
+            className="h-7 text-sm text-right flex-1 min-w-0" />
+          <Input type="text" inputMode="decimal"
+            placeholder={t("rent.nebenkostenWarm")}
+            value={fields!.nebenkostenWarm}
+            onChange={e => setRentInput(prev => ({ ...prev, [month]: { ...prev[month]!, nebenkostenWarm: e.target.value } }))}
+            onKeyDown={e => { if (e.key === "Enter") commitRent(month); if (e.key === "Escape") closeRentEdit(month); }}
+            className="h-7 text-sm text-right flex-1 min-w-0" />
           {total > 0 && (
-            <div className="flex justify-end text-xs text-muted-foreground pt-0.5">
-              {t("rent.total")}: <span className="font-semibold text-foreground ml-1 tabular-nums">€ {total.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            </div>
+            <span className="text-xs tabular-nums text-muted-foreground shrink-0 whitespace-nowrap">
+              = € {total.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
           )}
+          {hasTenant && (
+            <Button variant="outline" size="sm" className="h-7 px-2 text-xs shrink-0"
+              onClick={() => setRentInput(prev => ({ ...prev, [month]: { kaltmiete: tenantKalt > 0 ? tenantKalt.toFixed(2) : "", nebenkostenWarm: tenantNk > 0 ? tenantNk.toFixed(2) : "" } }))}>
+              {t("fillFromTenant")}
+            </Button>
+          )}
+          <Button size="sm" className="h-7 px-3 shrink-0" disabled={rentSaving || total <= 0} onClick={() => commitRent(month)}>{t("save")}</Button>
+          <Button variant="ghost" size="sm" className="h-7 px-2 shrink-0" onClick={() => closeRentEdit(month)}>{t("cancel")}</Button>
         </div>
       );
     }
@@ -586,16 +578,27 @@ export default function ApartmentDetail({
         ) : (
           <>
             <span className="text-muted-foreground w-28 text-right">—</span>
+            {hasTenant ? (
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                title={t("fillFromTenant")} disabled={rentSaving || tenantKalt + tenantNk <= 0}
+                onClick={() => {
+                  const value = tenantKalt + tenantNk;
+                  if (value > 0) onAddRentPayment?.({ apartmentId: apartment.id, year, month, value });
+                }}>
+                <UserCheck className="h-3.5 w-3.5" />
+              </Button>
+            ) : (
+              <div className="w-7" />
+            )}
             <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground"
               onClick={() => openRentEdit(month)}>
               <Plus className="h-3.5 w-3.5" />
             </Button>
-            <div className="w-7" />
           </>
         )}
       </div>
     );
-  }
+  };
 
   const YearNav = () => (
     <div className="flex items-center gap-1">
@@ -699,7 +702,7 @@ export default function ApartmentDetail({
                 ) : (
                   <Card>
                     <CardContent className="p-0">
-                      {visibleMonths.map(m => <RentRow key={m} month={m} />)}
+                      {visibleMonths.map(m => <React.Fragment key={m}>{RentRow({ month: m })}</React.Fragment>)}
                     </CardContent>
                   </Card>
                 )}
