@@ -1,4 +1,4 @@
-(ns app.main-ui.views
+﻿(ns app.main-ui.views
   (:require [reagent.core  :as r]
             [re-frame.core :as re-frame]
             [app.main-ui.subs   :as subs]
@@ -83,7 +83,9 @@
         has-active-plan?     @(re-frame/subscribe [::subs/has-active-plan?])
         is-super-admin?      @(re-frame/subscribe [::subs/is-super-admin?])
         admin-users          @(re-frame/subscribe [::subs/admin-users])
-        admin-loading?       @(re-frame/subscribe [::subs/admin-loading?])]
+        admin-loading?       @(re-frame/subscribe [::subs/admin-loading?])
+        survey-questions     @(re-frame/subscribe [::subs/survey-questions])
+        survey-q-loading?    @(re-frame/subscribe [::subs/survey-questions-loading?])]
     [main
      {:activeComponent
       (r/as-element
@@ -341,8 +343,17 @@
            :adminPanel         (when is-super-admin?
                                  (r/as-element
                                   [admin-panel
-                                   {:users       (clj->js admin-users)
-                                    :isLoading   admin-loading?
-                                    :onLoad      #(re-frame/dispatch [::events/load-admin-users])
-                                    :onSetPlan   (fn [email tier]
-                                                   (re-frame/dispatch [::events/admin-set-plan email tier]))}]))}]))}]))
+                                   {:users            (clj->js admin-users)
+                                    :isLoading        admin-loading?
+                                    :onLoad           #(re-frame/dispatch [::events/load-admin-users])
+                                    :onSetPlan        (fn [email tier]
+                                                        (re-frame/dispatch [::events/admin-set-plan email tier]))
+                                    :questions        (clj->js survey-questions)
+                                    :questionsLoading survey-q-loading?
+                                    :onLoadQuestions  #(re-frame/dispatch [::events/load-survey-questions])
+                                    :onAddQuestion    (fn [text order]
+                                                        (re-frame/dispatch [::events/admin-create-question text order]))
+                                    :onUpdateQuestion (fn [id text]
+                                                        (re-frame/dispatch [::events/admin-update-question id text]))
+                                    :onDeleteQuestion (fn [id]
+                                                        (re-frame/dispatch [::events/admin-delete-question id]))}]))}]))}]))

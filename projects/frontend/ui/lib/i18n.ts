@@ -630,7 +630,7 @@ const resources = {
         items: {
           tenants: { title: "Tenant Onboarding", desc: "Applications, contracts, and communications handled professionally." },
           payments: { title: "Payment Tracking", desc: "Automated reminders, late payment alerts, and monthly summaries." },
-          comms: { title: "AI Communications", desc: "Instant responses to tenant inquiries via email and WhatsApp." },
+          comms: { title: "Tenant Communications", desc: "Keep tenants informed with clear, professional messages via email." },
           reports: { title: "Monthly Reports", desc: "Occupancy, revenue, and maintenance — delivered to your inbox." },
         },
       },
@@ -1436,7 +1436,7 @@ const resources = {
         items: {
           tenants: { title: "Mieteraufnahme", desc: "Bewerbungen, Verträge und Kommunikation professionell gehandhabt." },
           payments: { title: "Zahlungsverfolgung", desc: "Automatische Erinnerungen, Mahnbescheide und monatliche Übersichten." },
-          comms: { title: "KI-Kommunikation", desc: "Sofortige Antworten auf Mieteranfragen per E-Mail und WhatsApp." },
+          comms: { title: "Mieter-Kommunikation", desc: "Halten Sie Mieter mit klaren, professionellen Nachrichten per E-Mail auf dem Laufenden." },
           reports: { title: "Monatsberichte", desc: "Belegung, Einnahmen und Wartung — direkt in Ihr Postfach." },
         },
       },

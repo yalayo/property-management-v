@@ -1,13 +1,15 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Building2, Users, Trash2, Tags, FileText, ChevronRight, UserPlus } from "lucide-react";
+import { Building2, Users, Tags, FileText, UserPlus, Settings } from "lucide-react";
 import { Button } from "../ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
-import { Input } from "../ui/input";
-import { Label } from "../ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import ApartmentsList from "../apartments/ApartmentsList";
+import AddApartment from "../apartments/AddApartment";
 import ApartmentDetail from "../apartments/ApartmentDetail";
+import PropertyDetail from "../dashboard/PropertyDetail";
+import TenantsList from "../tenants/TenantsList";
+import AddTenant from "../tenants/AddTenant";
+import ManageTenant from "../tenants/ManageTenant";
 import ExpenseTypes from "../settings/ExpenseTypes";
 import NebenkostenAbrechnung from "../billing/NebenkostenAbrechnung";
 
@@ -40,6 +42,13 @@ export interface GuestTenant {
   firstName: string;
   lastName: string;
   startDate: string;
+  endDate?: string;
+  email?: string;
+  phone?: string;
+  birthday?: string;
+  householdMembers?: string;
+  kaltmiete?: string;
+  nebenkostenWarm?: string;
 }
 
 export interface GuestExpenseType {
@@ -92,12 +101,26 @@ export interface GuestUser {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function aptToComp(apt: GuestApartment) {
-  return { id: apt.id, code: apt.code, "property-id": apt.propertyId, property_id: apt.propertyId, occupied: false };
+function aptToComp(apt: GuestApartment, tenants: GuestTenant[]) {
+  const occupied = tenants.some(t => t.apartmentId === apt.id && !t.endDate);
+  return { id: apt.id, code: apt.code, "property-id": apt.propertyId, property_id: apt.propertyId, occupied };
 }
 
 function tenantToComp(ten: GuestTenant) {
-  return { id: ten.id, "apartment-id": ten.apartmentId, "first-name": ten.firstName, "last-name": ten.lastName, "start-date": ten.startDate };
+  return {
+    id: ten.id,
+    "apartment-id": ten.apartmentId,
+    "first-name": ten.firstName,
+    "last-name": ten.lastName,
+    "start-date": ten.startDate,
+    "end-date": ten.endDate,
+    email: ten.email,
+    phone: ten.phone,
+    birthday: ten.birthday,
+    "household-members": ten.householdMembers,
+    kaltmiete: ten.kaltmiete,
+    "nebenkosten-warm": ten.nebenkostenWarm,
+  };
 }
 
 function propToComp(p: GuestProperty) {
@@ -128,28 +151,24 @@ interface Props {
 export default function GuestDashboard({ guestUser, onGuestUserChange, onSignUp, onOpenAddPropertyDialog }: Props) {
   const { t } = useTranslation("landing");
 
+  // Drill-down views
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [selectedAptId, setSelectedAptId] = useState<string | null>(null);
+  const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null);
   const [abrAptId, setAbrAptId] = useState<string | null>(null);
 
+  // Apartment add form state
   const [showAddApartment, setShowAddApartment] = useState(false);
-  const [aptForm, setAptForm] = useState({ propertyId: "", code: "" });
-  const [aptError, setAptError] = useState("");
+  const [newAptCode, setNewAptCode] = useState("");
+  const [newAptPropertyId, setNewAptPropertyId] = useState("");
 
+  // Tenant add dialog
   const [showAddTenant, setShowAddTenant] = useState(false);
-  const [tenantForm, setTenantForm] = useState({ apartmentId: "", firstName: "", lastName: "", startDate: "" });
-  const [tenantError, setTenantError] = useState("");
 
   const guestPropCount   = guestUser.properties.length;
   const guestAptCount    = guestUser.apartments.length;
   const guestTenantCount = guestUser.tenants.length;
   const guestEtCount     = (guestUser.expenseTypes ?? []).length;
-
-  const propName = (id: string) => guestUser.properties.find(p => p.id === id)?.name ?? id;
-  const aptLabel = (id: string) => {
-    const a = guestUser.apartments.find(a => a.id === id);
-    if (!a) return id;
-    return `${a.code} — ${propName(a.propertyId)}`;
-  };
 
   // ── Property handlers ─────────────────────────────────────────────────────
   const handleDeleteProperty = (id: string) => {
@@ -165,16 +184,35 @@ export default function GuestDashboard({ guestUser, onGuestUserChange, onSignUp,
     });
   };
 
+  // ── Property cost handlers ────────────────────────────────────────────────
+  const handleAddCost = (data: { propertyId: string; line: string; name: string; year: number; value: number }) => {
+    const newCost: GuestCost = { id: crypto.randomUUID(), "property-id": data.propertyId, line: data.line, name: data.name, year: data.year, value: data.value };
+    onGuestUserChange({ ...guestUser, costs: [...(guestUser.costs ?? []), newCost] });
+  };
+
+  const handleUpdateCost = (data: { id: string; value: number }) => {
+    onGuestUserChange({
+      ...guestUser,
+      costs: (guestUser.costs ?? []).map(c => c.id === data.id ? { ...c, value: data.value } : c),
+    });
+  };
+
+  const handleDeleteCost = (id: string) => {
+    onGuestUserChange({ ...guestUser, costs: (guestUser.costs ?? []).filter(c => c.id !== id) });
+  };
+
   // ── Apartment handlers ────────────────────────────────────────────────────
-  const handleAddApartmentSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!aptForm.code.trim())  { setAptError(t("addApartment.codeRequired"));   return; }
-    if (!aptForm.propertyId)   { setAptError(t("addApartment.selectProperty")); return; }
-    const newApt: GuestApartment = { id: crypto.randomUUID(), propertyId: aptForm.propertyId, code: aptForm.code.trim() };
-    onGuestUserChange({ ...guestUser, apartments: [...guestUser.apartments, newApt] });
-    setAptForm({ propertyId: "", code: "" });
-    setAptError("");
+  const closeAddApartment = () => {
     setShowAddApartment(false);
+    setNewAptCode("");
+    setNewAptPropertyId("");
+  };
+
+  const handleAddApartmentSubmit = () => {
+    if (!newAptCode.trim() || !newAptPropertyId) return;
+    const newApt: GuestApartment = { id: crypto.randomUUID(), propertyId: newAptPropertyId, code: newAptCode.trim() };
+    onGuestUserChange({ ...guestUser, apartments: [...guestUser.apartments, newApt] });
+    closeAddApartment();
   };
 
   const handleDeleteApartment = (id: string) => {
@@ -189,32 +227,51 @@ export default function GuestDashboard({ guestUser, onGuestUserChange, onSignUp,
   };
 
   // ── Tenant handlers ───────────────────────────────────────────────────────
-  const handleAddTenantSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!tenantForm.firstName.trim()) { setTenantError(t("addTenant.firstNameRequired")); return; }
-    if (!tenantForm.apartmentId)      { setTenantError(t("addTenant.selectApartment"));   return; }
-    const apt = guestUser.apartments.find(a => a.id === tenantForm.apartmentId);
+  const handleAddTenantSubmit = (data: any) => {
+    const apt = data.apartmentId ? guestUser.apartments.find(a => a.id === data.apartmentId) : undefined;
     const newTenant: GuestTenant = {
       id:          crypto.randomUUID(),
-      apartmentId: tenantForm.apartmentId,
+      apartmentId: data.apartmentId ?? "",
       propertyId:  apt?.propertyId ?? "",
-      firstName:   tenantForm.firstName.trim(),
-      lastName:    tenantForm.lastName.trim(),
-      startDate:   tenantForm.startDate,
+      firstName:   data.firstName,
+      lastName:    data.lastName ?? "",
+      startDate:   data.startDate ?? "",
     };
     onGuestUserChange({ ...guestUser, tenants: [...guestUser.tenants, newTenant] });
-    setTenantForm({ apartmentId: "", firstName: "", lastName: "", startDate: "" });
-    setTenantError("");
     setShowAddTenant(false);
   };
 
-  const handleDeleteTenant = (id: string) => {
-    onGuestUserChange({ ...guestUser, tenants: guestUser.tenants.filter(ten => ten.id !== id) });
+  const handleUpdateTenant = (id: string | number, data: Record<string, string>) => {
+    onGuestUserChange({
+      ...guestUser,
+      tenants: guestUser.tenants.map(ten =>
+        ten.id === String(id)
+          ? {
+              ...ten,
+              firstName:        data.firstName || ten.firstName,
+              lastName:         data.lastName ?? ten.lastName,
+              startDate:        data.startDate || ten.startDate,
+              endDate:          data.endDate || undefined,
+              email:            data.email || undefined,
+              phone:            data.phone || undefined,
+              birthday:         data.birthday || undefined,
+              householdMembers: data.householdMembers || undefined,
+              kaltmiete:        data.kaltmiete || undefined,
+              nebenkostenWarm:  data.nebenkostenWarm || undefined,
+            }
+          : ten
+      ),
+    });
+  };
+
+  const handleDeleteTenant = (id: string | number) => {
+    onGuestUserChange({ ...guestUser, tenants: guestUser.tenants.filter(ten => ten.id !== String(id)) });
+    setSelectedTenantId(null);
   };
 
   // ── ApartmentDetail callbacks ─────────────────────────────────────────────
-  const selectedApt            = selectedAptId ? guestUser.apartments.find(a => a.id === selectedAptId) ?? null : null;
-  const aptCostsForSelected    = (guestUser.aptCosts ?? []).filter(c => c["apartment-id"] === selectedAptId);
+  const selectedApt             = selectedAptId ? guestUser.apartments.find(a => a.id === selectedAptId) ?? null : null;
+  const aptCostsForSelected     = (guestUser.aptCosts ?? []).filter(c => c["apartment-id"] === selectedAptId);
   const rentPaymentsForSelected = (guestUser.rentPayments ?? []).filter(r => r["apartment-id"] === selectedAptId);
 
   const handleAddAptCost = (data: any) => {
@@ -231,7 +288,6 @@ export default function GuestDashboard({ guestUser, onGuestUserChange, onSignUp,
       anteil:    data.anteil,
       schluessel: data.schluessel,
     };
-    // Ensure a property-level cost stub exists so Abrechnung can detect this line as active
     const existingPropCost = propertyId && (guestUser.costs ?? []).find(
       c => c["property-id"] === propertyId && c.line === data.line && c.year === data.year
     );
@@ -310,11 +366,32 @@ export default function GuestDashboard({ guestUser, onGuestUserChange, onSignUp,
     });
   };
 
-  // ── ApartmentDetail drill-down view ──────────────────────────────────────
+  // ── Drill-down: PropertyDetail ────────────────────────────────────────────
+  const selectedProperty = selectedPropertyId ? guestUser.properties.find(p => p.id === selectedPropertyId) ?? null : null;
+  const costsForSelectedProperty = (guestUser.costs ?? []).filter(c => c["property-id"] === selectedPropertyId);
+
+  if (selectedProperty) {
+    return (
+      <PropertyDetail
+        property={propToComp(selectedProperty)}
+        expenseTypes={guestUser.expenseTypes ?? []}
+        costs={costsForSelectedProperty}
+        costsLoading={false}
+        costsSaving={false}
+        onLoadCosts={() => {}}
+        onAddCost={handleAddCost}
+        onUpdateCost={handleUpdateCost}
+        onDeleteCost={handleDeleteCost}
+        onBack={() => setSelectedPropertyId(null)}
+      />
+    );
+  }
+
+  // ── Drill-down: ApartmentDetail ───────────────────────────────────────────
   if (selectedApt) {
     return (
       <ApartmentDetail
-        apartment={aptToComp(selectedApt)}
+        apartment={aptToComp(selectedApt, guestUser.tenants)}
         properties={guestUser.properties.map(propToComp)}
         tenants={guestUser.tenants.filter(ten => ten.apartmentId === selectedAptId).map(tenantToComp)}
         expenseTypes={guestUser.expenseTypes ?? []}
@@ -336,118 +413,28 @@ export default function GuestDashboard({ guestUser, onGuestUserChange, onSignUp,
     );
   }
 
+  // ── Drill-down: ManageTenant ──────────────────────────────────────────────
+  const selectedTenant = selectedTenantId ? guestUser.tenants.find(t => t.id === selectedTenantId) ?? null : null;
+
+  if (selectedTenant) {
+    return (
+      <ManageTenant
+        tenant={tenantToComp(selectedTenant) as any}
+        isSaving={false}
+        onBack={() => setSelectedTenantId(null)}
+        onDelete={(id) => handleDeleteTenant(id)}
+        onUpdate={(id, data) => handleUpdateTenant(id, data)}
+      />
+    );
+  }
+
   // ── Tabbed view ───────────────────────────────────────────────────────────
+
+  const allAptsForComp = guestUser.apartments.map(a => aptToComp(a, guestUser.tenants)) as any[];
+  const allTenantsForComp = guestUser.tenants.map(tenantToComp) as any[];
 
   return (
     <>
-      {/* Add apartment modal */}
-      <Dialog open={showAddApartment} onOpenChange={setShowAddApartment}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t("addApartment.modalTitle")}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleAddApartmentSubmit} className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label>{t("addApartment.propertyLabel")}</Label>
-              <Select
-                value={aptForm.propertyId}
-                onValueChange={(v) => { setAptForm(f => ({ ...f, propertyId: v })); setAptError(""); }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t("addApartment.selectProperty")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {guestUser.properties.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="apt-code">{t("addApartment.codeLabel")}</Label>
-              <Input
-                id="apt-code"
-                placeholder={t("addApartment.codePlaceholder")}
-                value={aptForm.code}
-                onChange={(e) => { setAptForm(f => ({ ...f, code: e.target.value })); setAptError(""); }}
-              />
-            </div>
-            {aptError && <p className="text-sm text-destructive">{aptError}</p>}
-            <DialogFooter>
-              <Button type="submit" className="w-full">
-                <Plus className="mr-2 h-4 w-4" />
-                {t("addApartment.submit")}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add tenant modal */}
-      <Dialog open={showAddTenant} onOpenChange={setShowAddTenant}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t("addTenant.modalTitle")}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleAddTenantSubmit} className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label>{t("addTenant.apartmentLabel")}</Label>
-              <Select
-                value={tenantForm.apartmentId}
-                onValueChange={(v) => { setTenantForm(f => ({ ...f, apartmentId: v })); setTenantError(""); }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t("addTenant.selectApartment")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {guestUser.apartments.map(a => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.code} — {propName(a.propertyId)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="tenant-first">{t("addTenant.firstNameLabel")}</Label>
-                <Input
-                  id="tenant-first"
-                  placeholder={t("addTenant.firstNamePlaceholder")}
-                  value={tenantForm.firstName}
-                  onChange={(e) => { setTenantForm(f => ({ ...f, firstName: e.target.value })); setTenantError(""); }}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="tenant-last">{t("addTenant.lastNameLabel")}</Label>
-                <Input
-                  id="tenant-last"
-                  placeholder={t("addTenant.lastNamePlaceholder")}
-                  value={tenantForm.lastName}
-                  onChange={(e) => setTenantForm(f => ({ ...f, lastName: e.target.value }))}
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="tenant-start">{t("addTenant.startDateLabel")}</Label>
-              <Input
-                id="tenant-start"
-                type="date"
-                value={tenantForm.startDate}
-                onChange={(e) => setTenantForm(f => ({ ...f, startDate: e.target.value }))}
-              />
-            </div>
-            {tenantError && <p className="text-sm text-destructive">{tenantError}</p>}
-            <DialogFooter>
-              <Button type="submit" className="w-full">
-                <Plus className="mr-2 h-4 w-4" />
-                {t("addTenant.submit")}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
       {/* Section header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
@@ -490,7 +477,6 @@ export default function GuestDashboard({ guestUser, onGuestUserChange, onSignUp,
         <TabsContent value="properties">
           <div className="flex justify-end mb-3">
             <Button size="sm" variant="outline" onClick={onOpenAddPropertyDialog}>
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
               {t("addProperty.submit")}
             </Button>
           </div>
@@ -504,24 +490,23 @@ export default function GuestDashboard({ guestUser, onGuestUserChange, onSignUp,
               {guestUser.properties.map(p => {
                 const aptCount = guestUser.apartments.filter(a => a.propertyId === p.id).length;
                 return (
-                  <div key={p.id} className="bg-white rounded-xl border border-slate-100 p-4 flex items-start gap-3 group">
-                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Building2 className="h-4 w-4 text-primary" />
+                  <div key={p.id} className="bg-white rounded-xl border border-slate-100 p-4 flex flex-col gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <Building2 className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-slate-900 truncate">{p.name}</p>
+                        <p className="text-xs text-slate-500 truncate">{p.address}, {p.city}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {p.units} unit{p.units !== 1 ? "s" : ""} · {aptCount} apt{aptCount !== 1 ? "s" : ""}
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-slate-900 truncate">{p.name}</p>
-                      <p className="text-xs text-slate-500 truncate">{p.address}, {p.city}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        {p.units} unit{p.units !== 1 ? "s" : ""} · {aptCount} apt{aptCount !== 1 ? "s" : ""}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleDeleteProperty(p.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 p-1"
-                      title={t("demo.deleteConfirm")}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    <Button variant="outline" size="sm" className="w-full h-7 text-xs" onClick={() => setSelectedPropertyId(p.id)}>
+                      <Settings className="h-3 w-3 mr-1.5" />
+                      {t("demo.manageApartment")}
+                    </Button>
                   </div>
                 );
               })}
@@ -529,96 +514,44 @@ export default function GuestDashboard({ guestUser, onGuestUserChange, onSignUp,
           )}
         </TabsContent>
 
-        {/* Apartments tab */}
+        {/* Apartments tab — real ApartmentsList component */}
         <TabsContent value="apartments">
-          <div className="flex justify-end mb-3">
-            <Button size="sm" variant="outline" onClick={() => setShowAddApartment(true)}>
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              {t("demo.addApartment")}
-            </Button>
-          </div>
-          {guestAptCount === 0 ? (
-            <div className="text-center py-16 text-slate-400">
-              <Building2 className="h-10 w-10 mx-auto mb-3 opacity-40" />
-              <p className="text-sm">{t("demo.noApartments")}</p>
-            </div>
-          ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {guestUser.apartments.map(a => {
-                const tenantCount = guestUser.tenants.filter(ten => ten.apartmentId === a.id).length;
-                return (
-                  <div key={a.id} className="bg-white rounded-xl border border-slate-100 p-4 flex items-start gap-3 group">
-                    <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
-                      <Building2 className="h-4 w-4 text-indigo-500" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-slate-900">{a.code}</p>
-                      <p className="text-xs text-slate-500 truncate">{propName(a.propertyId)}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        {tenantCount} tenant{tenantCount !== 1 ? "s" : ""}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-0.5">
-                      <button
-                        onClick={() => setSelectedAptId(a.id)}
-                        className="text-slate-400 hover:text-primary p-1 transition-colors"
-                        title={t("demo.manageApartment")}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteApartment(a.id)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 p-1"
-                        title={t("demo.deleteConfirm")}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <ApartmentsList
+            apartments={allAptsForComp}
+            isAddApartmentDialogOpen={showAddApartment}
+            onChangeAddApartmentDialogOpen={() => setShowAddApartment(true)}
+            onCloseAddApartmentDialog={closeAddApartment}
+            onSelectApartment={(id) => setSelectedAptId(String(id))}
+            onManageApartment={(id) => setSelectedAptId(String(id))}
+            onAssignTenant={(id) => setSelectedAptId(String(id))}
+          >
+            <AddApartment
+              properties={guestUser.properties.map(p => ({ id: p.id, name: p.name })) as any}
+              apartments={allAptsForComp}
+              code={newAptCode}
+              onChangeCode={(e) => setNewAptCode(e.target.value)}
+              onChangeProperty={(v) => setNewAptPropertyId(v)}
+              onChangeAddApartmentDialogClose={closeAddApartment}
+              submitApartment={handleAddApartmentSubmit}
+            />
+          </ApartmentsList>
         </TabsContent>
 
-        {/* Tenants tab */}
+        {/* Tenants tab — real TenantsList component */}
         <TabsContent value="tenants">
-          <div className="flex justify-end mb-3">
-            <Button size="sm" variant="outline" onClick={() => setShowAddTenant(true)}>
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              {t("demo.addTenant")}
-            </Button>
-          </div>
-          {guestTenantCount === 0 ? (
-            <div className="text-center py-16 text-slate-400">
-              <Users className="h-10 w-10 mx-auto mb-3 opacity-40" />
-              <p className="text-sm">{t("demo.noTenants")}</p>
-            </div>
-          ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {guestUser.tenants.map(ten => (
-                <div key={ten.id} className="bg-white rounded-xl border border-slate-100 p-4 flex items-start gap-3 group">
-                  <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                    <Users className="h-4 w-4 text-emerald-600" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-slate-900">{ten.firstName} {ten.lastName}</p>
-                    <p className="text-xs text-slate-500 truncate">{aptLabel(ten.apartmentId)}</p>
-                    {ten.startDate && (
-                      <p className="text-xs text-slate-400 mt-0.5">from {ten.startDate}</p>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => handleDeleteTenant(ten.id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 p-1"
-                    title={t("demo.deleteConfirm")}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+          <TenantsList
+            tenants={allTenantsForComp}
+            isAddTenantDialogOpen={showAddTenant}
+            onOpenAddTenantDialog={() => setShowAddTenant(true)}
+            onManageTenant={(id) => setSelectedTenantId(String(id))}
+          >
+            <AddTenant
+              apartments={guestUser.apartments.map(a => ({ id: a.id, code: a.code })) as any}
+              tenants={allTenantsForComp}
+              onClose={() => setShowAddTenant(false)}
+              onSubmit={handleAddTenantSubmit}
+            />
+          </TenantsList>
         </TabsContent>
 
         {/* Expense Types tab */}
@@ -635,7 +568,7 @@ export default function GuestDashboard({ guestUser, onGuestUserChange, onSignUp,
         <TabsContent value="abrechnung">
           <NebenkostenAbrechnung
             properties={guestUser.properties.map(propToComp)}
-            apartments={guestUser.apartments.map(aptToComp)}
+            apartments={guestUser.apartments.map(a => aptToComp(a, guestUser.tenants))}
             tenants={guestUser.tenants.map(tenantToComp)}
             costs={guestUser.costs ?? []}
             aptCosts={(guestUser.aptCosts ?? []).filter(c => !abrAptId || c["apartment-id"] === abrAptId)}

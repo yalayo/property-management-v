@@ -41,7 +41,8 @@
       "Bash(grep -E \"\\\\.\\(tsx|cljs|ts\\)$\")",
       "Bash(Get-ChildItem -Path \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\" -Recurse -Directory -Name)",
       "Bash(Select-Object -First 30)",
-      "Bash(grep -r \"logout\" \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\" --include=\"*.tsx\" --include=\"*.ts\" --include=\"*.cljs\" --include=\"*.clj\" ! -path \"*/node_modules/*\" ! -path \"*/.shadow-cljs/*\" ! -path \"*/resources/*\")"
+      "Bash(grep -r \"logout\" \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\" --include=\"*.tsx\" --include=\"*.ts\" --include=\"*.cljs\" --include=\"*.clj\" ! -path \"*/node_modules/*\" ! -path \"*/.shadow-cljs/*\" ! -path \"*/resources/*\")",
+      "Bash(powershell -Command ' *)"
     ]
   }
 }

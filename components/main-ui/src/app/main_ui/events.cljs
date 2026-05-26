@@ -150,3 +150,56 @@
                {:email email :tier tier}
                [::admin-set-plan-ok email tier]
                [::admin-set-plan-error]]}))
+
+(re-frame/reg-event-fx
+ ::load-survey-questions
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:admin :questions-loading?] true)
+    :dispatch [::core-events/query
+               {:entity :survey-questions}
+               [::survey-questions-loaded]
+               [::survey-questions-error]]}))
+
+(re-frame/reg-event-db
+ ::survey-questions-loaded
+ (fn [db [_ response]]
+   (-> db
+       (assoc-in [:admin :questions] (:questions response))
+       (assoc-in [:admin :questions-loading?] false))))
+
+(re-frame/reg-event-db
+ ::survey-questions-error
+ (fn [db [_ _error]]
+   (assoc-in db [:admin :questions-loading?] false)))
+
+(re-frame/reg-event-fx
+ ::admin-create-question
+ (fn [{:keys [_db]} [_ text order]]
+   {:dispatch [::core-events/command
+               :admin-create-question
+               {:text text :order order}
+               [::survey-questions-mutated]
+               [::survey-questions-error]]}))
+
+(re-frame/reg-event-fx
+ ::admin-update-question
+ (fn [{:keys [_db]} [_ id text]]
+   {:dispatch [::core-events/command
+               :admin-update-question
+               {:id id :text text}
+               [::survey-questions-mutated]
+               [::survey-questions-error]]}))
+
+(re-frame/reg-event-fx
+ ::admin-delete-question
+ (fn [{:keys [_db]} [_ id]]
+   {:dispatch [::core-events/command
+               :admin-delete-question
+               {:id id}
+               [::survey-questions-mutated]
+               [::survey-questions-error]]}))
+
+(re-frame/reg-event-fx
+ ::survey-questions-mutated
+ (fn [{:keys [_db]} _]
+   {:dispatch [::load-survey-questions]}))

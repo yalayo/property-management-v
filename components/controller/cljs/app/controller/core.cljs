@@ -630,6 +630,23 @@
                                           {:tx-id tx-id})))))))))
 
 ;; ---------------------------------------------------------------------------
+;; Survey handlers
+;; ---------------------------------------------------------------------------
+
+(defn- handle-get-survey-questions! [storage]
+  (js-await [eids      ((:find-by-type storage) "survey-question")
+             questions (pull-many+ storage eids '[*])]
+            {:questions (sort-by :question/order questions)}))
+
+(defn- handle-submit-survey! [storage data]
+  (let [{:keys [email responses]} data]
+    (js-await [_ ((:transact! storage)
+                  [{:db/type           "survey-response"
+                    :response/email    email
+                    :response/answers  (js/JSON.stringify (clj->js responses))}] nil)]
+              {:ok true})))
+
+;; ---------------------------------------------------------------------------
 ;; Admin handlers
 ;; ---------------------------------------------------------------------------
 
@@ -661,6 +678,33 @@
                                     :account/plan tier}] nil)]
                               {:ok true :email email :plan tier})
                     {:error :not-found}))))))
+
+(defn- handle-admin-create-question! [storage data user]
+  (admin-guard user
+    (fn []
+      (let [{:keys [text order]} data]
+        (js-await [{:keys [tx-id entity-ids]}
+                   ((:transact! storage)
+                    [{:db/type          "survey-question"
+                      :question/text   text
+                      :question/order  (or order 0)}] nil)]
+                  {:tx-id tx-id :question-id (first entity-ids)})))))
+
+(defn- handle-admin-update-question! [storage data user]
+  (admin-guard user
+    (fn []
+      (let [eid (:id data)]
+        (js-await [_ ((:transact! storage)
+                      [(cond-> {:db/id eid}
+                         (:text data)  (assoc :question/text  (:text data))
+                         (:order data) (assoc :question/order (:order data)))] nil)]
+                  {:ok true})))))
+
+(defn- handle-admin-delete-question! [storage data user]
+  (admin-guard user
+    (fn []
+      (js-await [_ ((:transact! storage) [[:db/retractEntity (:id data)]] nil)]
+                {:ok true}))))
 
 ;; ---------------------------------------------------------------------------
 ;; Dispatcher
@@ -710,4 +754,9 @@
     :activate-plan                   (handle-activate-plan! storage data user)
     :admin-list-users                (handle-admin-list-users! storage user)
     :admin-set-plan                  (handle-admin-set-plan! storage data user)
+    :admin-create-question           (handle-admin-create-question! storage data user)
+    :admin-update-question           (handle-admin-update-question! storage data user)
+    :admin-delete-question           (handle-admin-delete-question! storage data user)
+    :get-survey-questions            (handle-get-survey-questions! storage)
+    :submit-survey                   (handle-submit-survey! storage data)
     {:error :unknown-command}))

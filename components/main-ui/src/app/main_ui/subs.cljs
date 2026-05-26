@@ -45,3 +45,13 @@
  ::admin-loading?
  (fn [db _]
    (get-in db [:admin :loading?] false)))
+
+(re-frame/reg-sub
+ ::survey-questions
+ (fn [db _]
+   (get-in db [:admin :questions] [])))
+
+(re-frame/reg-sub
+ ::survey-questions-loading?
+ (fn [db _]
+   (get-in db [:admin :questions-loading?] false)))

@@ -16,15 +16,35 @@
                             (cf/response-edn result {:status 200})))))))
 
 (def ^:private entity->command
-  {:property        :get-properties
-   :apartment       :get-apartments
-   :tenant          :get-tenants
-   :onboarding      :get-onboardings
-   :cost            :get-costs
-   :apartment-cost  :get-apartment-costs
-   :rent-payment    :get-rent-payments
-   :expense-type    :get-expense-types
-   :admin-users     :admin-list-users})
+  {:property         :get-properties
+   :apartment        :get-apartments
+   :tenant           :get-tenants
+   :onboarding       :get-onboardings
+   :cost             :get-costs
+   :apartment-cost   :get-apartment-costs
+   :rent-payment     :get-rent-payments
+   :expense-type     :get-expense-types
+   :admin-users      :admin-list-users
+   :survey-questions :get-survey-questions})
+
+(defn survey-questions
+  "Public GET handler — returns all survey questions, no auth required."
+  [_core _storage controller]
+  (fn [{:keys [env]}]
+    (js-await [result (controller {:command :get-survey-questions :data {} :user nil :env env})]
+              (if (:error result)
+                (cf/response-edn result {:status 400})
+                (cf/response-edn result {:status 200})))))
+
+(defn survey-submit
+  "Public POST handler — saves a visitor's survey response, no auth required."
+  [_core _storage controller]
+  (fn [{:keys [request env]}]
+    (js-await [body (cf/request->edn request)]
+              (js-await [result (controller {:command :submit-survey :data body :user nil :env env})]
+                        (if (:error result)
+                          (cf/response-edn result {:status 400})
+                          (cf/response-edn result {:status 200}))))))
 
 (defn query
   "Returns a Reitit route handler for POST queries.
