@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Building2, Users, Tags, FileText, UserPlus, Settings } from "lucide-react";
+import { Building2, Users, Tags, FileText, UserPlus } from "lucide-react";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import PropertyList from "../dashboard/PropertyList";
+import PropertyDetail from "../dashboard/PropertyDetail";
 import ApartmentsList from "../apartments/ApartmentsList";
 import AddApartment from "../apartments/AddApartment";
 import ApartmentDetail from "../apartments/ApartmentDetail";
-import PropertyDetail from "../dashboard/PropertyDetail";
 import TenantsList from "../tenants/TenantsList";
 import AddTenant from "../tenants/AddTenant";
 import ManageTenant from "../tenants/ManageTenant";
@@ -148,8 +149,11 @@ interface Props {
   onOpenAddPropertyDialog?: () => void;
 }
 
-export default function GuestDashboard({ guestUser, onGuestUserChange, onSignUp, onOpenAddPropertyDialog }: Props) {
+export default function GuestDashboard({ guestUser, onGuestUserChange, onSignUp }: Props) {
   const { t } = useTranslation("landing");
+
+  // Controlled tab state so PropertyList can switch to apartments tab
+  const [activeTab, setActiveTab] = useState("properties");
 
   // Drill-down views
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
@@ -171,6 +175,41 @@ export default function GuestDashboard({ guestUser, onGuestUserChange, onSignUp,
   const guestEtCount     = (guestUser.expenseTypes ?? []).length;
 
   // ── Property handlers ─────────────────────────────────────────────────────
+  const handleAddProperty = (data: any) => {
+    const newProp: GuestProperty = {
+      id:         crypto.randomUUID(),
+      name:       data.name,
+      address:    data.address,
+      city:       data.city,
+      postalCode: data.postalCode,
+      units:      Number(data.units) || 1,
+    };
+    onGuestUserChange({ ...guestUser, properties: [...guestUser.properties, newProp] });
+  };
+
+  const handleUpdateProperty = (id: string | number, data: any) => {
+    onGuestUserChange({
+      ...guestUser,
+      properties: guestUser.properties.map(p =>
+        p.id === String(id)
+          ? {
+              ...p,
+              name:               data.name       ?? p.name,
+              address:            data.address     ?? p.address,
+              city:               data.city        ?? p.city,
+              postalCode:         data.postalCode  ?? p.postalCode,
+              units:              data.units != null ? Number(data.units) : p.units,
+              iban:               data.iban               ?? p.iban,
+              bankName:           data.bankName           ?? p.bankName,
+              landlordName:       data.landlordName       ?? p.landlordName,
+              landlordStreet:     data.landlordStreet     ?? p.landlordStreet,
+              landlordPostalCity: data.landlordPostalCity ?? p.landlordPostalCity,
+            }
+          : p
+      ),
+    });
+  };
+
   const handleDeleteProperty = (id: string) => {
     const affectedAptIds = guestUser.apartments.filter(a => a.propertyId === id).map(a => a.id);
     onGuestUserChange({
@@ -366,6 +405,10 @@ export default function GuestDashboard({ guestUser, onGuestUserChange, onSignUp,
     });
   };
 
+  // ── Derived collections (needed by both drill-downs and tabbed view) ────────
+  const allAptsForComp    = guestUser.apartments.map(a => aptToComp(a, guestUser.tenants)) as any[];
+  const allTenantsForComp = guestUser.tenants.map(tenantToComp) as any[];
+
   // ── Drill-down: PropertyDetail ────────────────────────────────────────────
   const selectedProperty = selectedPropertyId ? guestUser.properties.find(p => p.id === selectedPropertyId) ?? null : null;
   const costsForSelectedProperty = (guestUser.costs ?? []).filter(c => c["property-id"] === selectedPropertyId);
@@ -430,9 +473,6 @@ export default function GuestDashboard({ guestUser, onGuestUserChange, onSignUp,
 
   // ── Tabbed view ───────────────────────────────────────────────────────────
 
-  const allAptsForComp = guestUser.apartments.map(a => aptToComp(a, guestUser.tenants)) as any[];
-  const allTenantsForComp = guestUser.tenants.map(tenantToComp) as any[];
-
   return (
     <>
       {/* Section header */}
@@ -449,7 +489,7 @@ export default function GuestDashboard({ guestUser, onGuestUserChange, onSignUp,
         )}
       </div>
 
-      <Tabs defaultValue="properties">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-6 flex-wrap h-auto gap-1">
           <TabsTrigger value="properties">
             <Building2 className="mr-1.5 h-4 w-4" />
@@ -473,45 +513,18 @@ export default function GuestDashboard({ guestUser, onGuestUserChange, onSignUp,
           </TabsTrigger>
         </TabsList>
 
-        {/* Properties tab */}
+        {/* Properties tab — real PropertyList component */}
         <TabsContent value="properties">
-          <div className="flex justify-end mb-3">
-            <Button size="sm" variant="outline" onClick={onOpenAddPropertyDialog}>
-              {t("addProperty.submit")}
-            </Button>
-          </div>
-          {guestPropCount === 0 ? (
-            <div className="text-center py-16 text-slate-400">
-              <Building2 className="h-10 w-10 mx-auto mb-3 opacity-40" />
-              <p className="text-sm">{t("hero.stats.addFirstProperty")}</p>
-            </div>
-          ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {guestUser.properties.map(p => {
-                const aptCount = guestUser.apartments.filter(a => a.propertyId === p.id).length;
-                return (
-                  <div key={p.id} className="bg-white rounded-xl border border-slate-100 p-4 flex flex-col gap-3">
-                    <div className="flex items-start gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Building2 className="h-4 w-4 text-primary" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-slate-900 truncate">{p.name}</p>
-                        <p className="text-xs text-slate-500 truncate">{p.address}, {p.city}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          {p.units} unit{p.units !== 1 ? "s" : ""} · {aptCount} apt{aptCount !== 1 ? "s" : ""}
-                        </p>
-                      </div>
-                    </div>
-                    <Button variant="outline" size="sm" className="w-full h-7 text-xs" onClick={() => setSelectedPropertyId(p.id)}>
-                      <Settings className="h-3 w-3 mr-1.5" />
-                      {t("demo.manageApartment")}
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <PropertyList
+            properties={guestUser.properties.map(propToComp)}
+            apartments={allAptsForComp}
+            isSaving={false}
+            onAddProperty={handleAddProperty}
+            onEditProperty={(id, data) => handleUpdateProperty(id, data)}
+            onDeleteProperty={(id) => handleDeleteProperty(String(id))}
+            onSelectProperty={(p) => setSelectedPropertyId(String(p.id))}
+            onViewApartments={() => setActiveTab("apartments")}
+          />
         </TabsContent>
 
         {/* Apartments tab — real ApartmentsList component */}

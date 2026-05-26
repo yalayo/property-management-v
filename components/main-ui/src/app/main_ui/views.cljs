@@ -1,4 +1,4 @@
-﻿(ns app.main-ui.views
+(ns app.main-ui.views
   (:require [reagent.core  :as r]
             [re-frame.core :as re-frame]
             [app.main-ui.subs   :as subs]
