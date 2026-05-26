@@ -468,62 +468,6 @@ export default function Home(props) {
         </div>
       )}
 
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center gap-4">
-            <div className="flex items-center gap-2.5 flex-shrink-0">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <HomeIcon className="h-4 w-4 text-white" />
-              </div>
-              <span className="text-base font-bold text-slate-900 tracking-tight">
-                {tCommon("appName")}
-              </span>
-            </div>
-
-            <nav className="hidden lg:flex items-center gap-1">
-              {[
-                { label: t("whatWeHandle.sectionLabel"),   id: "what-we-handle" },
-                { label: t("howItWorks.sectionLabel"),     id: "how-it-works"   },
-                { label: t("serviceOptions.sectionLabel"), id: "options"        },
-              ].map(({ label, id }) => (
-                <button
-                  key={id}
-                  onClick={() => scrollTo(id)}
-                  className="px-3 py-1.5 text-sm text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-md transition-colors"
-                >
-                  {label}
-                </button>
-              ))}
-            </nav>
-
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {onSignIn && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="hidden sm:inline-flex text-slate-600 hover:text-slate-900"
-                  onClick={() => { trackCTA("header_signin", "header"); onSignIn(); }}
-                >
-                  <LogIn className="mr-1.5 h-3.5 w-3.5" />
-                  {tHome("signIn")}
-                </Button>
-              )}
-              {onSignUp && (
-                <Button
-                  size="sm"
-                  className="bg-slate-900 hover:bg-slate-700 text-white rounded-lg px-4"
-                  onClick={handleSignUp}
-                >
-                  <UserPlus className="mr-1.5 h-3.5 w-3.5" />
-                  {tHome("createAccount")}
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
-
       <main className="flex-grow">
 
         {/* ── Hero ────────────────────────────────────────────────────────── */}
