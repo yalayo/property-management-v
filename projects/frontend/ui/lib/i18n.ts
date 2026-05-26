@@ -1,4 +1,4 @@
-import i18n from "i18next";
+﻿import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
 const resources = {
@@ -1523,7 +1523,7 @@ const resources = {
           excel: "Deine Betriebskostenabrechnungen steckst du noch mühsam in Excel-Tabellen zusammen — und hoffst, dass keine Zelle verrutscht.",
           emails: "Mieteranfragen kommen per E-Mail, Fax und Zettel. Den Überblick zu behalten kostet dich Stunden.",
           software: "Du weißt, dass es bessere Software gibt — aber weißt nicht, wo du anfangen sollst, und hast keine Zeit für aufwendige Einführungen.",
-          colleague: "Dein Verwalter-Kollege hat „irgendwas digitalisiert", aber erklärt dir nicht wirklich, wie das in der Praxis läuft.",
+          colleague: "Dein Verwalter-Kollege hat \u201eirgendwas digitalisiert\u201c, aber erklärt dir nicht wirklich, wie das in der Praxis läuft.",
         },
         audienceTitle: "Für wen ist das hier?",
         audience: {
