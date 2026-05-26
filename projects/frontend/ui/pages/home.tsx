@@ -19,6 +19,7 @@ import {
 import WhatWeHandle from "../components/landing/WhatWeHandle";
 import HowItWorks from "../components/landing/HowItWorks";
 import ServiceOptions from "../components/landing/ServiceOptions";
+import SkoolCommunity from "../components/landing/SkoolCommunity";
 import BottomCTA from "../components/landing/BottomCTA";
 import Footer from "../components/landing/Footer";
 import GuestDashboard, { type GuestUser, type GuestProperty } from "../components/landing/GuestDashboard";
@@ -640,6 +641,9 @@ export default function Home(props) {
           onSignUp={handleSignUp}
           trackCTA={trackCTA}
         />
+
+        {/* ── Community (Skool) ───────────────────────────────────────────── */}
+        <SkoolCommunity />
 
         {/* ── Bottom CTA ──────────────────────────────────────────────────── */}
         <BottomCTA onSignUp={handleSignUp} onSignIn={onSignIn} trackCTA={trackCTA} />
