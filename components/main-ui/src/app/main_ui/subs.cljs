@@ -30,3 +30,18 @@
  ::has-active-plan?
  (fn [db _]
    (some? (get-in db [:user :info :plan]))))
+
+(re-frame/reg-sub
+ ::is-super-admin?
+ (fn [db _]
+   (true? (get-in db [:user :info :superadmin]))))
+
+(re-frame/reg-sub
+ ::admin-users
+ (fn [db _]
+   (get-in db [:admin :users] [])))
+
+(re-frame/reg-sub
+ ::admin-loading?
+ (fn [db _]
+   (get-in db [:admin :loading?] false)))

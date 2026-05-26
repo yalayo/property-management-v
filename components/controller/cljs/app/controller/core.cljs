@@ -81,19 +81,24 @@
                                            :provided-hash provided-hash})]
               (if (= :sign-in-ok (:action result))
                 (js-await [membership (fetch-membership storage (get-in result [:user :id]))]
-                          (let [org-id (:membership/organization-id membership)
-                                role   (:membership/role membership)
-                                claims #js {:email   (get-in result [:user :email])
-                                            :user-id (get-in result [:user :id])
-                                            :org-id  org-id
-                                            :role    role
-                                            :exp     (+ (js/Math.floor (/ (.now js/Date) 1000)) 86400)}
-                                token  (jwt/sign claims (aget env "JWT_SECRET"))]
+                          (let [org-id        (:membership/organization-id membership)
+                                role          (:membership/role membership)
+                                email         (get-in result [:user :email])
+                                super-email   (aget env "SUPER_ADMIN_EMAIL")
+                                superadmin?   (and (some? super-email) (= email super-email))
+                                claims        (cond-> #js {:email   email
+                                                           :user-id (get-in result [:user :id])
+                                                           :org-id  org-id
+                                                           :role    role
+                                                           :exp     (+ (js/Math.floor (/ (.now js/Date) 1000)) 86400)}
+                                                superadmin? (doto (aset "superadmin" true)))
+                                token         (jwt/sign claims (aget env "JWT_SECRET"))]
                             {:token token
-                             :user  (assoc (:user result)
-                                           :org-id org-id
-                                           :role   role
-                                           :plan   (:account/plan db-user))}))
+                             :user  (cond-> (assoc (:user result)
+                                                   :org-id org-id
+                                                   :role   role
+                                                   :plan   (:account/plan db-user))
+                                      superadmin? (assoc :superadmin true))}))
                 result))))
 
 (defn- handle-activate-plan! [storage data user]
@@ -625,6 +630,39 @@
                                           {:tx-id tx-id})))))))))
 
 ;; ---------------------------------------------------------------------------
+;; Admin handlers
+;; ---------------------------------------------------------------------------
+
+(defn- admin-guard [user f]
+  (if (:superadmin user)
+    (f)
+    {:error :forbidden}))
+
+(defn- handle-admin-list-users! [storage user]
+  (admin-guard user
+    (fn []
+      (js-await [eids    ((:find-by-type storage) "account")
+                 accounts (pull-many+ storage eids '[*])]
+                {:users (mapv (fn [a]
+                                {:id    (:db/id a)
+                                 :email (:account/email a)
+                                 :name  (:account/name a)
+                                 :plan  (:account/plan a)})
+                              accounts)}))))
+
+(defn- handle-admin-set-plan! [storage data user]
+  (admin-guard user
+    (fn []
+      (let [{:keys [email tier]} data]
+        (js-await [eids ((:find-by-attr storage) :account/email email)]
+                  (if-let [eid (first eids)]
+                    (js-await [_ ((:transact! storage)
+                                  [{:db/id        eid
+                                    :account/plan tier}] nil)]
+                              {:ok true :email email :plan tier})
+                    {:error :not-found}))))))
+
+;; ---------------------------------------------------------------------------
 ;; Dispatcher
 ;; ---------------------------------------------------------------------------
 
@@ -670,4 +708,6 @@
     :get-all-apartment-costs         (handle-get-all-apartment-costs! storage user)
     :get-all-rent-payments           (handle-get-all-rent-payments! storage user)
     :activate-plan                   (handle-activate-plan! storage data user)
+    :admin-list-users                (handle-admin-list-users! storage user)
+    :admin-set-plan                  (handle-admin-set-plan! storage data user)
     {:error :unknown-command}))

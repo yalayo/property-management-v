@@ -34,7 +34,8 @@
             ["/pages/waiting-list$default"        :as waiting-list-js]
             ["/pages/features-pricing$default"    :as features-pricing-js]
             ["/pages/not-found$default"           :as not-found-js]
-            ["/components/settings/ExpenseTypes$default" :as expense-types-js]))
+            ["/components/settings/ExpenseTypes$default" :as expense-types-js]
+            ["/components/admin/AdminPanel$default"      :as admin-panel-js]))
 
 (def main              (r/adapt-react-class main-js))
 (def home              (r/adapt-react-class home-js))
@@ -47,6 +48,7 @@
 (def features-pricing  (r/adapt-react-class features-pricing-js))
 (def not-found         (r/adapt-react-class not-found-js))
 (def expense-types-comp (r/adapt-react-class expense-types-js))
+(def admin-panel       (r/adapt-react-class admin-panel-js))
 
 (defn component [{:keys []}]
   (let [active               @(re-frame/subscribe [::subs/active-section])
@@ -78,7 +80,10 @@
         all-costs            @(re-frame/subscribe [::cost-subs/all-costs])
         all-apt-costs        @(re-frame/subscribe [::cost-subs/all-apt-costs])
         all-rent-payments    @(re-frame/subscribe [::cost-subs/all-rent-payments])
-        has-active-plan?     @(re-frame/subscribe [::subs/has-active-plan?])]
+        has-active-plan?     @(re-frame/subscribe [::subs/has-active-plan?])
+        is-super-admin?      @(re-frame/subscribe [::subs/is-super-admin?])
+        admin-users          @(re-frame/subscribe [::subs/admin-users])
+        admin-loading?       @(re-frame/subscribe [::subs/admin-loading?])]
     [main
      {:activeComponent
       (r/as-element
@@ -106,7 +111,7 @@
          "payment"            [payment-ui/component {}]
          [dashboard
           {:onLogout           #(re-frame/dispatch [::events/sign-out])
-           :isReadOnly         (not has-active-plan?)
+           :isReadOnly         (and (not has-active-plan?) (not is-super-admin?))
            :onUpgrade          #(re-frame/dispatch [::events/change-active-section "features-pricing"])
            :activeTab          dashboard-tab
            :onChangeTab        #(re-frame/dispatch [::events/set-dashboard-tab %])
@@ -239,7 +244,8 @@
            :onImportDemoData    (when has-active-plan?
                                   (fn [guest-data]
                                     (let [d         (js->clj guest-data :keywordize-keys true)
-                                          props-list (:properties d [])]
+                                          props-list (:properties d [])
+                                          et-list    (:expenseTypes d [])]
                                       (doseq [p props-list]
                                         (re-frame/dispatch
                                          [::property-events/add-property
@@ -247,7 +253,13 @@
                                            :address     (:address p)
                                            :city        (:city p)
                                            :postal-code (:postalCode p)
-                                           :units       (:units p)}])))))
+                                           :units       (:units p)}]))
+                                      (doseq [et et-list]
+                                        (re-frame/dispatch
+                                         [::cost-events/create-expense-type
+                                          {:key     (:key et)
+                                           :name-en (:name-en et)
+                                           :name-de (:name-de et)}])))))
            :onAddProperty      (when has-active-plan?
                                  (fn [data]
                                    (let [d (js->clj data :keywordize-keys true)]
@@ -324,4 +336,13 @@
                                  (re-frame/dispatch [::cost-events/delete-cost id]))
            :allCosts           (clj->js all-costs)
            :allAptCosts        (clj->js all-apt-costs)
-           :allRentPayments    (clj->js all-rent-payments)}]))}]))
+           :allRentPayments    (clj->js all-rent-payments)
+           :isSuperAdmin       is-super-admin?
+           :adminPanel         (when is-super-admin?
+                                 (r/as-element
+                                  [admin-panel
+                                   {:users       (clj->js admin-users)
+                                    :isLoading   admin-loading?
+                                    :onLoad      #(re-frame/dispatch [::events/load-admin-users])
+                                    :onSetPlan   (fn [email tier]
+                                                   (re-frame/dispatch [::events/admin-set-plan email tier]))}]))}]))}]))

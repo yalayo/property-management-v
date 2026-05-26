@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect } from "react";
-import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2, Landmark, Receipt, Tags, Download, Lock, ArrowUpRight } from "lucide-react";
+import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2, Landmark, Receipt, Tags, Download, Lock, ArrowUpRight, Shield } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../components/ui/sheet";
@@ -17,7 +17,7 @@ import NebenkostenAbrechnung from "../components/billing/NebenkostenAbrechnung";
 
 const PENDING_MIGRATION_KEY = "pm-pending-migration";
 
-function SidebarContent({ activeTab, onSelect, onLogout }) {
+function SidebarContent({ activeTab, onSelect, onLogout, isSuperAdmin = false }) {
   const { t } = useTranslation("nav");
 
   const NAV_ITEMS = [
@@ -30,6 +30,7 @@ function SidebarContent({ activeTab, onSelect, onLogout }) {
     { id: "expenses",    label: t("expenses"),    icon: Tags },
     { id: "documents",   label: t("documents"),   icon: FileText },
     { id: "analytics",   label: t("analytics"),   icon: BarChart2 },
+    ...(isSuperAdmin ? [{ id: "admin", label: "Admin", icon: Shield }] : []),
   ];
 
   return (
@@ -103,6 +104,7 @@ export default function Dashboard(props) {
     expenses:   t("expenses"),
     documents:  t("documents"),
     analytics:  t("analytics"),
+    admin:      "Admin",
   };
 
   const handleSelect = (id: string) => {
@@ -167,6 +169,7 @@ export default function Dashboard(props) {
           activeTab={activeTab}
           onSelect={handleSelect}
           onLogout={() => props.onLogout()}
+          isSuperAdmin={props.isSuperAdmin}
         />
       </aside>
 
@@ -180,6 +183,7 @@ export default function Dashboard(props) {
             activeTab={activeTab}
             onSelect={handleSelect}
             onLogout={() => props.onLogout()}
+            isSuperAdmin={props.isSuperAdmin}
           />
         </SheetContent>
       </Sheet>
@@ -305,6 +309,7 @@ export default function Dashboard(props) {
               allRentPayments={props.allRentPayments}
             />
           )}
+          {activeTab === "admin" && props.isSuperAdmin && props.adminPanel}
         </main>
       </div>
     </div>

@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Home as HomeIcon, LogIn, UserPlus, ArrowRight,
-  Star, Plus, ThumbsUp, ThumbsDown, Building2, Trash2,
-  Users, ChevronRight,
+  Star, Plus, ThumbsUp, ThumbsDown, Building2,
+  ChevronRight,
 } from "lucide-react";
 
 import { Button } from "../components/ui/button";
@@ -13,7 +13,6 @@ import {
 } from "../components/ui/dialog";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "../components/ui/select";
@@ -22,6 +21,7 @@ import HowItWorks from "../components/landing/HowItWorks";
 import ServiceOptions from "../components/landing/ServiceOptions";
 import BottomCTA from "../components/landing/BottomCTA";
 import Footer from "../components/landing/Footer";
+import GuestDashboard, { type GuestUser, type GuestProperty } from "../components/landing/GuestDashboard";
 import { usePageTracking } from "../hooks/use-page-tracking";
 
 // ── API URL helper ────────────────────────────────────────────────────────────
@@ -39,34 +39,8 @@ const SESSION_ID_KEY = "pm-session-id";
 export const PENDING_MIGRATION_KEY = "pm-pending-migration";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-interface GuestProperty {
-  id: string;
-  name: string;
-  address: string;
-  city: string;
-  postalCode: string;
-  units: number;
-}
-interface GuestApartment {
-  id: string;
-  propertyId: string;
-  code: string;
-}
-interface GuestTenant {
-  id: string;
-  apartmentId: string;
-  propertyId: string;
-  firstName: string;
-  lastName: string;
-  startDate: string;
-}
-interface GuestUser {
-  name: string;
-  email: string;
-  properties: GuestProperty[];
-  apartments: GuestApartment[];
-  tenants: GuestTenant[];
-}
+// GuestUser and GuestProperty are imported from GuestDashboard
+
 interface PlatformStats {
   landlords: number;
   properties: number;
@@ -109,16 +83,6 @@ export default function Home(props) {
   const [propForm, setPropForm]                     = useState({ name: "", address: "", city: "", postalCode: "", units: "1" });
   const [propError, setPropError]                   = useState("");
 
-  // Add apartment modal
-  const [showAddApartment, setShowAddApartment]      = useState(false);
-  const [aptForm, setAptForm]                       = useState({ propertyId: "", code: "" });
-  const [aptError, setAptError]                     = useState("");
-
-  // Add tenant modal
-  const [showAddTenant, setShowAddTenant]            = useState(false);
-  const [tenantForm, setTenantForm]                 = useState({ apartmentId: "", firstName: "", lastName: "", startDate: "" });
-  const [tenantError, setTenantError]               = useState("");
-
   // Satisfaction
   const [showSatisfaction, setShowSatisfaction]      = useState(false);
   const [satisfactionDone, setSatisfactionDone]      = useState(false);
@@ -135,11 +99,14 @@ export default function Home(props) {
       const raw = localStorage.getItem(GUEST_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        // Migrate old format that may lack apartments/tenants arrays
         setGuestUser({
           ...parsed,
-          apartments: parsed.apartments ?? [],
-          tenants: parsed.tenants ?? [],
+          apartments:   parsed.apartments   ?? [],
+          tenants:      parsed.tenants      ?? [],
+          expenseTypes: parsed.expenseTypes ?? [],
+          costs:        parsed.costs        ?? [],
+          aptCosts:     parsed.aptCosts     ?? [],
+          rentPayments: parsed.rentPayments ?? [],
         });
       }
     } catch (_) {}
@@ -189,7 +156,8 @@ export default function Home(props) {
   const guestPropCount      = guestUser?.properties?.length ?? 0;
   const guestAptCount       = guestUser?.apartments?.length ?? 0;
   const guestTenantCount    = guestUser?.tenants?.length ?? 0;
-  const hasDemoData = guestPropCount > 0 || guestAptCount > 0 || guestTenantCount > 0;
+  const hasDemoData = guestPropCount > 0 || guestAptCount > 0 || guestTenantCount > 0
+    || (guestUser?.expenseTypes?.length ?? 0) > 0;
 
   // ── Guest profile handlers ────────────────────────────────────────────────
   const handleGetStarted = () => {
@@ -207,11 +175,15 @@ export default function Home(props) {
     const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestForm.email.trim());
     if (!emailOk) { setGuestError(t("guest.emailInvalid")); return; }
     const guest: GuestUser = {
-      name: guestForm.name.trim(),
-      email: guestForm.email.trim(),
-      properties: [],
-      apartments: [],
-      tenants: [],
+      name:         guestForm.name.trim(),
+      email:        guestForm.email.trim(),
+      properties:   [],
+      apartments:   [],
+      tenants:      [],
+      expenseTypes: [],
+      costs:        [],
+      aptCosts:     [],
+      rentPayments: [],
     };
     setGuestUser(guest);
     saveGuest(guest);
@@ -242,76 +214,6 @@ export default function Home(props) {
     setPropForm({ name: "", address: "", city: "", postalCode: "", units: "1" });
     setPropError("");
     setShowAddProperty(false);
-  };
-
-  const handleDeleteProperty = (id: string) => {
-    if (!guestUser) return;
-    const updated: GuestUser = {
-      ...guestUser,
-      properties: guestUser.properties.filter(p => p.id !== id),
-      apartments: guestUser.apartments.filter(a => a.propertyId !== id),
-      tenants:    guestUser.tenants.filter(ten => ten.propertyId !== id),
-    };
-    setGuestUser(updated);
-    saveGuest(updated);
-  };
-
-  // ── Apartment handlers ────────────────────────────────────────────────────
-  const handleAddApartmentSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!aptForm.code.trim())       { setAptError(t("addApartment.codeRequired"));    return; }
-    if (!aptForm.propertyId)        { setAptError(t("addApartment.selectProperty"));  return; }
-    const newApt: GuestApartment = {
-      id:         crypto.randomUUID(),
-      propertyId: aptForm.propertyId,
-      code:       aptForm.code.trim(),
-    };
-    const updated = { ...guestUser!, apartments: [...(guestUser?.apartments ?? []), newApt] };
-    setGuestUser(updated);
-    saveGuest(updated);
-    setAptForm({ propertyId: "", code: "" });
-    setAptError("");
-    setShowAddApartment(false);
-  };
-
-  const handleDeleteApartment = (id: string) => {
-    if (!guestUser) return;
-    const updated: GuestUser = {
-      ...guestUser,
-      apartments: guestUser.apartments.filter(a => a.id !== id),
-      tenants:    guestUser.tenants.filter(ten => ten.apartmentId !== id),
-    };
-    setGuestUser(updated);
-    saveGuest(updated);
-  };
-
-  // ── Tenant handlers ───────────────────────────────────────────────────────
-  const handleAddTenantSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!tenantForm.firstName.trim()) { setTenantError(t("addTenant.firstNameRequired")); return; }
-    if (!tenantForm.apartmentId)      { setTenantError(t("addTenant.selectApartment"));   return; }
-    const apt = guestUser?.apartments.find(a => a.id === tenantForm.apartmentId);
-    const newTenant: GuestTenant = {
-      id:          crypto.randomUUID(),
-      apartmentId: tenantForm.apartmentId,
-      propertyId:  apt?.propertyId ?? "",
-      firstName:   tenantForm.firstName.trim(),
-      lastName:    tenantForm.lastName.trim(),
-      startDate:   tenantForm.startDate,
-    };
-    const updated = { ...guestUser!, tenants: [...(guestUser?.tenants ?? []), newTenant] };
-    setGuestUser(updated);
-    saveGuest(updated);
-    setTenantForm({ apartmentId: "", firstName: "", lastName: "", startDate: "" });
-    setTenantError("");
-    setShowAddTenant(false);
-  };
-
-  const handleDeleteTenant = (id: string) => {
-    if (!guestUser) return;
-    const updated = { ...guestUser, tenants: guestUser.tenants.filter(ten => ten.id !== id) };
-    setGuestUser(updated);
-    saveGuest(updated);
   };
 
   // ── Sign-up with migration check ──────────────────────────────────────────
@@ -354,15 +256,6 @@ export default function Home(props) {
       });
     } catch (_) {}
   }, []);
-
-  // ── Helper to get property name ───────────────────────────────────────────
-  const propName = (id: string) =>
-    guestUser?.properties.find(p => p.id === id)?.name ?? id;
-  const aptLabel = (id: string) => {
-    const a = guestUser?.apartments.find(a => a.id === id);
-    if (!a) return id;
-    return `${a.code} — ${propName(a.propertyId)}`;
-  };
 
   return (
     <div className="min-h-screen bg-white flex flex-col font-sans">
@@ -465,114 +358,6 @@ export default function Home(props) {
               <Button type="submit" className="w-full">
                 <Plus className="mr-2 h-4 w-4" />
                 {t("addProperty.submit")}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Add Apartment modal ────────────────────────────────────────────── */}
-      <Dialog open={showAddApartment} onOpenChange={setShowAddApartment}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t("addApartment.modalTitle")}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleAddApartmentSubmit} className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label>{t("addApartment.propertyLabel")}</Label>
-              <Select
-                value={aptForm.propertyId}
-                onValueChange={(v) => { setAptForm(f => ({ ...f, propertyId: v })); setAptError(""); }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t("addApartment.selectProperty")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {(guestUser?.properties ?? []).map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="apt-code">{t("addApartment.codeLabel")}</Label>
-              <Input
-                id="apt-code"
-                placeholder={t("addApartment.codePlaceholder")}
-                value={aptForm.code}
-                onChange={(e) => { setAptForm(f => ({ ...f, code: e.target.value })); setAptError(""); }}
-              />
-            </div>
-            {aptError && <p className="text-sm text-destructive">{aptError}</p>}
-            <DialogFooter>
-              <Button type="submit" className="w-full">
-                <Plus className="mr-2 h-4 w-4" />
-                {t("addApartment.submit")}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Add Tenant modal ───────────────────────────────────────────────── */}
-      <Dialog open={showAddTenant} onOpenChange={setShowAddTenant}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t("addTenant.modalTitle")}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleAddTenantSubmit} className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label>{t("addTenant.apartmentLabel")}</Label>
-              <Select
-                value={tenantForm.apartmentId}
-                onValueChange={(v) => { setTenantForm(f => ({ ...f, apartmentId: v })); setTenantError(""); }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t("addTenant.selectApartment")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {(guestUser?.apartments ?? []).map(a => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.code} — {propName(a.propertyId)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="tenant-first">{t("addTenant.firstNameLabel")}</Label>
-                <Input
-                  id="tenant-first"
-                  placeholder={t("addTenant.firstNamePlaceholder")}
-                  value={tenantForm.firstName}
-                  onChange={(e) => { setTenantForm(f => ({ ...f, firstName: e.target.value })); setTenantError(""); }}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="tenant-last">{t("addTenant.lastNameLabel")}</Label>
-                <Input
-                  id="tenant-last"
-                  placeholder={t("addTenant.lastNamePlaceholder")}
-                  value={tenantForm.lastName}
-                  onChange={(e) => setTenantForm(f => ({ ...f, lastName: e.target.value }))}
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="tenant-start">{t("addTenant.startDateLabel")}</Label>
-              <Input
-                id="tenant-start"
-                type="date"
-                value={tenantForm.startDate}
-                onChange={(e) => setTenantForm(f => ({ ...f, startDate: e.target.value }))}
-              />
-            </div>
-            {tenantError && <p className="text-sm text-destructive">{tenantError}</p>}
-            <DialogFooter>
-              <Button type="submit" className="w-full">
-                <Plus className="mr-2 h-4 w-4" />
-                {t("addTenant.submit")}
               </Button>
             </DialogFooter>
           </form>
@@ -860,167 +645,12 @@ export default function Home(props) {
         {guestUser && (
           <section className="bg-slate-50 border-b border-slate-200 py-10" id="demo-dashboard">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              {/* Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">{t("demo.sectionTitle")}</h2>
-                  <p className="text-sm text-slate-500 mt-0.5">{t("demo.sectionSubtitle")}</p>
-                </div>
-                {onSignUp && (
-                  <Button
-                    size="sm"
-                    onClick={handleSignUp}
-                    className="flex-shrink-0"
-                  >
-                    <UserPlus className="mr-1.5 h-4 w-4" />
-                    {t("demo.createAccountCta")}
-                  </Button>
-                )}
-              </div>
-
-              {/* Tabs */}
-              <Tabs defaultValue="properties">
-                <TabsList className="mb-6">
-                  <TabsTrigger value="properties">
-                    <Building2 className="mr-1.5 h-4 w-4" />
-                    {t("demo.tabProperties", { count: guestPropCount })}
-                  </TabsTrigger>
-                  <TabsTrigger value="apartments" disabled={guestPropCount === 0}>
-                    <Building2 className="mr-1.5 h-4 w-4" />
-                    {t("demo.tabApartments", { count: guestAptCount })}
-                  </TabsTrigger>
-                  <TabsTrigger value="tenants" disabled={guestAptCount === 0}>
-                    <Users className="mr-1.5 h-4 w-4" />
-                    {t("demo.tabTenants", { count: guestTenantCount })}
-                  </TabsTrigger>
-                </TabsList>
-
-                {/* Properties tab */}
-                <TabsContent value="properties">
-                  <div className="flex justify-end mb-3">
-                    <Button size="sm" variant="outline" onClick={() => setShowAddProperty(true)}>
-                      <Plus className="mr-1.5 h-3.5 w-3.5" />
-                      {t("addProperty.submit")}
-                    </Button>
-                  </div>
-                  {guestPropCount === 0 ? (
-                    <div className="text-center py-16 text-slate-400">
-                      <Building2 className="h-10 w-10 mx-auto mb-3 opacity-40" />
-                      <p className="text-sm">{t("hero.stats.addFirstProperty")}</p>
-                    </div>
-                  ) : (
-                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {guestUser.properties.map(p => {
-                        const aptCount = guestUser.apartments.filter(a => a.propertyId === p.id).length;
-                        return (
-                          <div key={p.id} className="bg-white rounded-xl border border-slate-100 p-4 flex items-start gap-3 group">
-                            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                              <Building2 className="h-4 w-4 text-primary" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-slate-900 truncate">{p.name}</p>
-                              <p className="text-xs text-slate-500 truncate">{p.address}, {p.city}</p>
-                              <p className="text-xs text-slate-400 mt-0.5">
-                                {p.units} unit{p.units !== 1 ? "s" : ""} · {aptCount} apt{aptCount !== 1 ? "s" : ""}
-                              </p>
-                            </div>
-                            <button
-                              onClick={() => handleDeleteProperty(p.id)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 p-1"
-                              title={t("demo.deleteConfirm")}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </TabsContent>
-
-                {/* Apartments tab */}
-                <TabsContent value="apartments">
-                  <div className="flex justify-end mb-3">
-                    <Button size="sm" variant="outline" onClick={() => setShowAddApartment(true)}>
-                      <Plus className="mr-1.5 h-3.5 w-3.5" />
-                      {t("demo.addApartment")}
-                    </Button>
-                  </div>
-                  {guestAptCount === 0 ? (
-                    <div className="text-center py-16 text-slate-400">
-                      <Building2 className="h-10 w-10 mx-auto mb-3 opacity-40" />
-                      <p className="text-sm">{t("demo.noApartments")}</p>
-                    </div>
-                  ) : (
-                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {guestUser.apartments.map(a => {
-                        const tenantCount = guestUser.tenants.filter(ten => ten.apartmentId === a.id).length;
-                        return (
-                          <div key={a.id} className="bg-white rounded-xl border border-slate-100 p-4 flex items-start gap-3 group">
-                            <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
-                              <Building2 className="h-4 w-4 text-indigo-500" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-slate-900">{a.code}</p>
-                              <p className="text-xs text-slate-500 truncate">{propName(a.propertyId)}</p>
-                              <p className="text-xs text-slate-400 mt-0.5">
-                                {tenantCount} tenant{tenantCount !== 1 ? "s" : ""}
-                              </p>
-                            </div>
-                            <button
-                              onClick={() => handleDeleteApartment(a.id)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 p-1"
-                              title={t("demo.deleteConfirm")}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </TabsContent>
-
-                {/* Tenants tab */}
-                <TabsContent value="tenants">
-                  <div className="flex justify-end mb-3">
-                    <Button size="sm" variant="outline" onClick={() => setShowAddTenant(true)}>
-                      <Plus className="mr-1.5 h-3.5 w-3.5" />
-                      {t("demo.addTenant")}
-                    </Button>
-                  </div>
-                  {guestTenantCount === 0 ? (
-                    <div className="text-center py-16 text-slate-400">
-                      <Users className="h-10 w-10 mx-auto mb-3 opacity-40" />
-                      <p className="text-sm">{t("demo.noTenants")}</p>
-                    </div>
-                  ) : (
-                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {guestUser.tenants.map(ten => (
-                        <div key={ten.id} className="bg-white rounded-xl border border-slate-100 p-4 flex items-start gap-3 group">
-                          <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                            <Users className="h-4 w-4 text-emerald-600" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-slate-900">{ten.firstName} {ten.lastName}</p>
-                            <p className="text-xs text-slate-500 truncate">{aptLabel(ten.apartmentId)}</p>
-                            {ten.startDate && (
-                              <p className="text-xs text-slate-400 mt-0.5">from {ten.startDate}</p>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => handleDeleteTenant(ten.id)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 p-1"
-                            title={t("demo.deleteConfirm")}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-              </Tabs>
+              <GuestDashboard
+                guestUser={guestUser}
+                onGuestUserChange={(updated) => { setGuestUser(updated); saveGuest(updated); }}
+                onSignUp={onSignUp ? handleSignUp : undefined}
+                onOpenAddPropertyDialog={() => setShowAddProperty(true)}
+              />
             </div>
           </section>
         )}

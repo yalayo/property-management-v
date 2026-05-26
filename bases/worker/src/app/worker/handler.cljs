@@ -23,7 +23,8 @@
    :cost            :get-costs
    :apartment-cost  :get-apartment-costs
    :rent-payment    :get-rent-payments
-   :expense-type    :get-expense-types})
+   :expense-type    :get-expense-types
+   :admin-users     :admin-list-users})
 
 (defn query
   "Returns a Reitit route handler for POST queries.

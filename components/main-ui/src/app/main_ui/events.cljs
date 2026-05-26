@@ -4,7 +4,8 @@
             [app.main-ui.db :as db]
             [day8.re-frame.http-fx]
             [ajax.edn :as ajax-edn]
-            [app.auth-ui.config :as config]))
+            [app.auth-ui.config :as config]
+            [app.core-ui.events :as core-events]))
 
 (def local-storage-interceptor (after db/db->local-store))
 
@@ -106,3 +107,46 @@
  (fn [{:keys [db]} [_ property]]
    {:db       (assoc-in db [:ui :selected-property] property)
     :dispatch [:app.apartment-ui.events/set-property-filter property]}))
+
+(re-frame/reg-event-fx
+ ::load-admin-users
+ (fn [{:keys [db]} _]
+   {:db         (assoc-in db [:admin :loading?] true)
+    :dispatch   [::core-events/query
+                 {:entity :admin-users}
+                 [::admin-users-loaded]
+                 [::admin-users-error]]}))
+
+(re-frame/reg-event-db
+ ::admin-users-loaded
+ (fn [db [_ response]]
+   (-> db
+       (assoc-in [:admin :users] (:users response))
+       (assoc-in [:admin :loading?] false))))
+
+(re-frame/reg-event-db
+ ::admin-users-error
+ (fn [db [_ _error]]
+   (assoc-in db [:admin :loading?] false)))
+
+(re-frame/reg-event-db
+ ::admin-set-plan-ok
+ (fn [db [_ email tier _response]]
+   (update-in db [:admin :users]
+              (fn [users]
+                (mapv (fn [u] (if (= (:email u) email) (assoc u :plan tier) u))
+                      (or users []))))))
+
+(re-frame/reg-event-db
+ ::admin-set-plan-error
+ (fn [db [_ _error]]
+   db))
+
+(re-frame/reg-event-fx
+ ::admin-set-plan
+ (fn [{:keys [_db]} [_ email tier]]
+   {:dispatch [::core-events/command
+               :admin-set-plan
+               {:email email :tier tier}
+               [::admin-set-plan-ok email tier]
+               [::admin-set-plan-error]]}))
