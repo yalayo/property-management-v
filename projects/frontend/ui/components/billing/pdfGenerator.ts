@@ -49,6 +49,8 @@ export interface BillingData {
   closingName?: string;
   billingDays?: number;
   personCount?: number;
+  billingPeriodStart?: string;
+  billingPeriodEnd?: string;
 }
 
 function formatEur(v: number): string {
@@ -127,7 +129,7 @@ export async function generateBillingPdf(data: BillingData): Promise<Uint8Array>
   const infoRows: Array<{ label: string; value: string; header?: boolean }> = [
     { label: "Objekt",                  value: data.propertyName ?? "",      header: true },
     { label: "Wohnung",                  value: data.apartmentCode },
-    { label: "Zeitraum",                 value: `01.01.${data.year} – 31.12.${data.year}` },
+    { label: "Zeitraum",                 value: `${data.billingPeriodStart ?? `01.01.${data.year}`} – ${data.billingPeriodEnd ?? `31.12.${data.year}`}` },
     { label: "Abrechnungstage",          value: String(billingDays) },
     { label: "Abrechnungstage×Pers.", value: String(billingDays * personCount) },
   ];
@@ -189,9 +191,11 @@ export async function generateBillingPdf(data: BillingData): Promise<Uint8Array>
   // ── Greeting + body ───────────────────────────────────────────────────────
   page.drawText(`Sehr geehrte(r) ${data.recipientName},`, { x: L, y, font: fontR, size: 9.5, color: black });
   y -= 14;
+  const periodStart = data.billingPeriodStart ?? `01.01.${data.year}`;
+  const periodEnd   = data.billingPeriodEnd   ?? `31.12.${data.year}`;
   const bodyLines = [
     `hiermit erhalten Sie die Betriebskostenabrechnung gemäß §556 BGB Abs. 3`,
-    `für das Abrechnungsjahr ${data.year} (01.01.${data.year} – 31.12.${data.year}).`,
+    `für das Abrechnungsjahr ${data.year} (${periodStart} – ${periodEnd}).`,
   ];
   for (const line of bodyLines) {
     page.drawText(line, { x: L, y, font: fontR, size: 9.5, color: black });

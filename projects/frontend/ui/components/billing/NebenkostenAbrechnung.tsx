@@ -9,7 +9,6 @@ import type { CostLineItem } from "./pdfGenerator";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-
 type Props = {
   properties?: any[];
   apartments?: any[];
@@ -57,6 +56,44 @@ function effectiveCostValue(costs: any[], lineKey: string, year: number): number
   return inherited ? Number(inherited.value) : null;
 }
 
+function isLeapYear(y: number): boolean {
+  return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+}
+
+/** Days the tenant occupied the apartment within the given year (clamped to Jan 1 – Dec 31). */
+function tenantDaysInYear(tenant: any, year: number): number {
+  const yearStart = new Date(year, 0, 1);
+  const yearEnd   = new Date(year, 11, 31);
+  const start = tenant["start-date"] ? new Date(tenant["start-date"] + "T00:00:00") : yearStart;
+  const end   = tenant["end-date"]   ? new Date(tenant["end-date"]   + "T00:00:00") : yearEnd;
+  const effStart = start < yearStart ? yearStart : start;
+  const effEnd   = end   > yearEnd   ? yearEnd   : end;
+  return Math.max(0, Math.round((effEnd.getTime() - effStart.getTime()) / 86400000) + 1);
+}
+
+/** Months (1-12) in which the tenant was present at least one day in the given year. */
+function tenantActiveMonthsFor(tenant: any, year: number): number[] {
+  const start = tenant["start-date"] ? new Date(tenant["start-date"] + "T00:00:00") : null;
+  const end   = tenant["end-date"]   ? new Date(tenant["end-date"]   + "T00:00:00") : null;
+  const months: number[] = [];
+  for (let m = 1; m <= 12; m++) {
+    const mStart  = new Date(year, m - 1, 1);
+    const mEnd    = new Date(year, m, 0);
+    const effStart = start ?? new Date(year, 0, 1);
+    const effEnd   = end   ?? new Date(9999, 11, 31);
+    if (effStart <= mEnd && effEnd >= mStart) months.push(m);
+  }
+  return months;
+}
+
+function fmtGermanDate(d: Date): string {
+  return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+}
+
+function tenantDisplayName(t: any): string {
+  return [t["first-name"], t["last-name"]].filter(Boolean).join(" ") || t.name || "Mieter";
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function NebenkostenAbrechnung({
@@ -88,6 +125,7 @@ export default function NebenkostenAbrechnung({
   const [landlordStreetInput, setLandlordStreetInput] = useState("");
   const [landlordPostalCityInput, setLandlordPostalCityInput] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null);
 
   const selectedProperty = properties.find((p: any) => String(p.id) === selectedPropertyId);
   const propertyApts     = apartments.filter((a: any) => String(a["property-id"]) === selectedPropertyId);
@@ -126,6 +164,7 @@ export default function NebenkostenAbrechnung({
       onLoadCosts?.(selectedPropertyId);
     }
     setSelectedAptId(null);
+    setSelectedTenantId(null);
   }, [selectedPropertyId, year]);
 
   useEffect(() => {
@@ -146,28 +185,38 @@ export default function NebenkostenAbrechnung({
 
   // ── Readiness computation ─────────────────────────────────────────────────
 
-  const tenantForApt = selectedApt
-    ? tenants.find((t: any) => String(t["apartment-id"]) === String(selectedApt.id))
+  /** All tenants who occupied this apartment at any point during the selected year. */
+  const tenantsForApt = useMemo(() => {
+    if (!selectedApt) return [] as any[];
+    const yearStart = new Date(year, 0, 1);
+    const yearEnd   = new Date(year, 11, 31);
+    return tenants.filter((t: any) => {
+      if (String(t["apartment-id"]) !== String(selectedApt.id)) return false;
+      const s = t["start-date"] ? new Date(t["start-date"] + "T00:00:00") : new Date(0);
+      const e = t["end-date"]   ? new Date(t["end-date"]   + "T00:00:00") : new Date(9999, 11, 31);
+      return s <= yearEnd && e >= yearStart;
+    });
+  }, [tenants, selectedApt, year]);
+
+  // When a specific tenant row was clicked, focus only on that tenant
+  const focusedTenants = useMemo(() => {
+    if (!selectedTenantId) return tenantsForApt;
+    return tenantsForApt.filter((t: any) => String(t.id) === selectedTenantId);
+  }, [tenantsForApt, selectedTenantId]);
+
+  const selectedTenant = selectedTenantId
+    ? (tenantsForApt.find((t: any) => String(t.id) === selectedTenantId) ?? null)
     : null;
 
-  const hasTenant = !!tenantForApt;
-  const hasIban = !!(selectedProperty?.iban);
+  const hasTenant = focusedTenants.length > 0;
+  const hasIban   = !!(selectedProperty?.iban);
 
-  // Months the tenant was active in the selected year
+  // Union of all months the focused tenant(s) were active
   const tenantActiveMonths = useMemo(() => {
-    if (!tenantForApt) return [] as number[];
-    const startDate = tenantForApt["start-date"] ? new Date(tenantForApt["start-date"] + "T00:00:00") : null;
-    const endDate   = tenantForApt["end-date"]   ? new Date(tenantForApt["end-date"]   + "T00:00:00") : null;
-    const months: number[] = [];
-    for (let m = 1; m <= 12; m++) {
-      const monthStart = new Date(year, m - 1, 1);
-      const monthEnd   = new Date(year, m, 0);
-      const effStart   = startDate ?? new Date(year, 0, 1);
-      const effEnd     = endDate   ?? new Date(9999, 11, 31);
-      if (effStart <= monthEnd && effEnd >= monthStart) months.push(m);
-    }
-    return months;
-  }, [tenantForApt, year]);
+    const monthSet = new Set<number>();
+    focusedTenants.forEach((t: any) => tenantActiveMonthsFor(t, year).forEach(m => monthSet.add(m)));
+    return [...monthSet].sort((a, b) => a - b);
+  }, [focusedTenants, year]);
 
   // Cost lines missing an apt-cost entry for this exact year
   const missingCostLines = useMemo(
@@ -181,7 +230,7 @@ export default function NebenkostenAbrechnung({
     [rentPayments, year]
   );
 
-  // Tenant-active months that have no rent payment
+  // Active months (union) that have no recorded rent payment
   const missingRentMonths = useMemo(
     () => tenantActiveMonths.filter(m => !paidMonths.has(m)),
     [tenantActiveMonths, paidMonths]
@@ -194,6 +243,31 @@ export default function NebenkostenAbrechnung({
     missingCostLines.length === 0 &&
     (tenantActiveMonths.length === 0 || missingRentMonths.length === 0);
 
+  // ── Per-tenant billing info ───────────────────────────────────────────────
+
+  const perTenantInfo = useMemo(() => {
+    const yearDays = isLeapYear(year) ? 366 : 365;
+    return focusedTenants.map((tenant: any) => {
+      const days   = tenantDaysInYear(tenant, year);
+      const ratio  = days / yearDays;
+      const months = tenantActiveMonthsFor(tenant, year);
+
+      const missingMonths = months.filter(m => !paidMonths.has(m));
+
+      const proratedTotal = activeCostLines.reduce((sum, key) => {
+        const entry = costEntryFor(aptCosts, key, year);
+        return sum + Number(entry?.value ?? 0) * ratio;
+      }, 0);
+
+      const paidMonthCount = months.filter(m => paidMonths.has(m)).length;
+      const prepayment = Number(tenant["nebenkosten-warm"] ?? 0) * paidMonthCount;
+      const net = proratedTotal - prepayment;
+
+      const canGenerate = hasIban && missingCostLines.length === 0 && missingMonths.length === 0;
+
+      return { tenant, days, ratio, months, missingMonths, proratedTotal, prepayment, net, canGenerate };
+    });
+  }, [focusedTenants, year, paidMonths, activeCostLines, aptCosts, hasIban, missingCostLines]);
 
   // ── Bank info save ────────────────────────────────────────────────────────
 
@@ -219,28 +293,28 @@ export default function NebenkostenAbrechnung({
 
   // ── PDF generation ────────────────────────────────────────────────────────
 
-  const handleGenerate = async () => {
-    if (!selectedProperty || !selectedApt || !tenantForApt) return;
+  const handleGenerateForTenant = async (info: typeof perTenantInfo[0]) => {
+    if (!selectedProperty || !selectedApt) return;
     setGenerating(true);
     try {
+      const { tenant, days, ratio, prepayment } = info;
+
       const costLines: CostLineItem[] = activeCostLines.map(key => {
-        const aptEntry = costEntryFor(aptCosts, key, year);
+        const aptEntry  = costEntryFor(aptCosts, key, year);
+        const fullShare = Number(aptEntry?.value ?? 0);
         return {
           name:      lineName(key),
           total:     effectiveCostValue(propertyCosts, key, year),
-          share:     Number(aptEntry?.value ?? 0),
+          share:     fullShare * ratio,
           verteiler: aptEntry?.verteiler ?? null,
           schluessel: aptEntry?.schluessel ?? null,
           anteil:    aptEntry?.anteil ?? null,
         };
       });
 
-      const prepayment = nebenkostenWarmPerMonth * paidMonths.size;
-
-      const billingDays = ((y: number) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0 ? 366 : 365)(year);
       let personCount = 1;
       try {
-        const members = JSON.parse(tenantForApt["household-members"] ?? "[]");
+        const members = JSON.parse(tenant["household-members"] ?? "[]");
         if (Array.isArray(members)) personCount += members.length;
       } catch { /* ignore */ }
 
@@ -249,29 +323,40 @@ export default function NebenkostenAbrechnung({
       const landlordStreet     = selectedProperty["landlord-street"] || street;
       const landlordPostalCity = selectedProperty["landlord-postal-city"] || postalCity;
 
+      // Clamp tenant's period to the billing year for the PDF header
+      const yearStart = new Date(year, 0, 1);
+      const yearEnd   = new Date(year, 11, 31);
+      const tStart    = tenant["start-date"] ? new Date(tenant["start-date"] + "T00:00:00") : yearStart;
+      const tEnd      = tenant["end-date"]   ? new Date(tenant["end-date"]   + "T00:00:00") : yearEnd;
+      const effStart  = tStart < yearStart ? yearStart : tStart;
+      const effEnd    = tEnd   > yearEnd   ? yearEnd   : tEnd;
+
       const bytes = await generateBillingPdf({
-        senderName:         selectedProperty.name ?? "Vermieter",
-        senderStreet:       landlordStreet,
-        senderPostalCity:   landlordPostalCity,
-        senderAddress:      [landlordStreet, landlordPostalCity].filter(Boolean).join(", "),
-        city:               selectedProperty.city ?? "",
-        recipientName:      [tenantForApt["first-name"], tenantForApt["last-name"]].filter(Boolean).join(" ") || tenantForApt.name,
-        recipientStreet:    street,
+        senderName:          selectedProperty.name ?? "Vermieter",
+        senderStreet:        landlordStreet,
+        senderPostalCity:    landlordPostalCity,
+        senderAddress:       [landlordStreet, landlordPostalCity].filter(Boolean).join(", "),
+        city:                selectedProperty.city ?? "",
+        recipientName:       tenantDisplayName(tenant),
+        recipientStreet:     street,
         recipientPostalCity: postalCity,
-        propertyName:       selectedProperty.name,
-        propertyAddress:    [street, postalCity].filter(Boolean).join(", "),
-        apartmentCode:      selectedApt.code,
+        propertyName:        selectedProperty.name,
+        propertyAddress:     [street, postalCity].filter(Boolean).join(", "),
+        apartmentCode:       selectedApt.code,
         year,
-        iban:               selectedProperty.iban ?? ibanInput,
-        bankName:           selectedProperty["bank-name"] ?? bankNameInput,
+        iban:                selectedProperty.iban ?? ibanInput,
+        bankName:            selectedProperty["bank-name"] ?? bankNameInput,
         costLines,
         prepayment,
-        closingName:        selectedProperty["landlord-name"] || selectedProperty.name || "Vermieter",
-        billingDays,
+        closingName:         selectedProperty["landlord-name"] || selectedProperty.name || "Vermieter",
+        billingDays:         days,
+        billingPeriodStart:  fmtGermanDate(effStart),
+        billingPeriodEnd:    fmtGermanDate(effEnd),
         personCount,
       });
 
-      downloadPdf(bytes, `Nebenkostenabrechnung_${selectedApt.code}_${year}.pdf`);
+      const fname = tenantDisplayName(tenant).replace(/\s+/g, "_");
+      downloadPdf(bytes, `Nebenkostenabrechnung_${selectedApt.code}_${fname}_${year}.pdf`);
     } finally {
       setGenerating(false);
     }
@@ -457,25 +542,55 @@ export default function NebenkostenAbrechnung({
         ) : (
           <Card>
             <CardContent className="p-0">
-              {propertyApts.map((apt: any) => {
-                const tenant = tenants.find((te: any) => String(te["apartment-id"]) === String(apt.id));
-                return (
-                  <div
-                    key={apt.id}
-                    className="flex items-center gap-3 px-4 py-3 border-b last:border-b-0 hover:bg-muted/30 cursor-pointer"
-                    onClick={() => setSelectedAptId(String(apt.id))}
-                  >
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold">{apt.code}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {tenant
-                          ? ([tenant["first-name"], tenant["last-name"]].filter(Boolean).join(" ") || tenant.name)
-                          : t("noTenant")}
-                      </p>
+              {propertyApts.flatMap((apt: any) => {
+                const yearStart = new Date(year, 0, 1);
+                const yearEnd   = new Date(year, 11, 31);
+                const aptTenantsInYear = tenants.filter((te: any) => {
+                  if (String(te["apartment-id"]) !== String(apt.id)) return false;
+                  const s = te["start-date"] ? new Date(te["start-date"] + "T00:00:00") : new Date(0);
+                  const e = te["end-date"]   ? new Date(te["end-date"]   + "T00:00:00") : new Date(9999, 11, 31);
+                  return s <= yearEnd && e >= yearStart;
+                });
+
+                if (aptTenantsInYear.length === 0) {
+                  return [(
+                    <div
+                      key={apt.id}
+                      className="flex items-center gap-3 px-4 py-3 border-b last:border-b-0 hover:bg-muted/30 cursor-pointer"
+                      onClick={() => { setSelectedAptId(String(apt.id)); setSelectedTenantId(null); }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold">{apt.code}</p>
+                        <p className="text-xs text-muted-foreground">{t("noTenant")}</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                     </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                );
+                  )];
+                }
+
+                return aptTenantsInYear.map((tenant: any) => {
+                  const tStart   = tenant["start-date"] ? new Date(tenant["start-date"] + "T00:00:00") : yearStart;
+                  const tEnd     = tenant["end-date"]   ? new Date(tenant["end-date"]   + "T00:00:00") : new Date(9999, 11, 31);
+                  const effStart = tStart < yearStart ? yearStart : tStart;
+                  const effEnd   = tEnd   > yearEnd   ? yearEnd   : tEnd;
+                  return (
+                    <div
+                      key={`${apt.id}-${tenant.id}`}
+                      className="flex items-center gap-3 px-4 py-3 border-b last:border-b-0 hover:bg-muted/30 cursor-pointer"
+                      onClick={() => { setSelectedAptId(String(apt.id)); setSelectedTenantId(String(tenant.id)); }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold">
+                          {apt.code} — {tenantDisplayName(tenant)}
+                        </p>
+                        <p className="text-xs text-muted-foreground tabular-nums">
+                          {fmtGermanDate(effStart)} – {fmtGermanDate(effEnd)}
+                        </p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                    </div>
+                  );
+                });
               })}
             </CardContent>
           </Card>
@@ -488,46 +603,63 @@ export default function NebenkostenAbrechnung({
 
   const isLoading = aptCostsLoading || rentLoading;
 
-  const totalShare = activeCostLines.reduce((sum, key) => {
+  const totalAnnualShare = activeCostLines.reduce((sum, key) => {
     return sum + Number(costEntryFor(aptCosts, key, year)?.value ?? 0);
   }, 0);
-
-  const nebenkostenWarmPerMonth = Number(tenantForApt?.["nebenkosten-warm"] ?? 0);
-  const prepaymentTotal = nebenkostenWarmPerMonth * paidMonths.size;
-
-  const net = totalShare - prepaymentTotal;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => setSelectedAptId(null)}>
+          <Button variant="ghost" size="sm" onClick={() => { setSelectedAptId(null); setSelectedTenantId(null); }}>
             <ChevronLeft className="h-4 w-4 mr-1" />
             {t("backToApartments")}
           </Button>
           <h2 className="text-xl font-bold">
             {selectedProperty?.name} — {selectedApt?.code}
+            {selectedTenant && ` — ${tenantDisplayName(selectedTenant)}`}
           </h2>
         </div>
         <YearNav />
       </div>
 
-      {/* Tenant info */}
+      {/* Tenant(s) info */}
       <Card>
-        <CardContent className="pt-4 pb-4 grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
-          <div>
-            <p className="text-xs text-muted-foreground mb-0.5">{t("tenant")}</p>
-            <p className="font-medium">{tenantForApt
-              ? ([tenantForApt["first-name"], tenantForApt["last-name"]].filter(Boolean).join(" ") || tenantForApt.name)
-              : <span className="text-muted-foreground">{t("noTenant")}</span>}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-0.5">IBAN</p>
-            <p className="font-mono text-xs">{selectedProperty?.iban || "—"}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-0.5">{t("bankName")}</p>
-            <p>{selectedProperty?.["bank-name"] || "—"}</p>
+        <CardContent className="pt-4 pb-4">
+          <p className="text-xs text-muted-foreground mb-2">{t("tenant")}</p>
+          {focusedTenants.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("noTenant")}</p>
+          ) : (
+            <div className="space-y-1">
+              {focusedTenants.map((tenant: any, i: number) => {
+                const yearStart = new Date(year, 0, 1);
+                const yearEnd   = new Date(year, 11, 31);
+                const tStart    = tenant["start-date"] ? new Date(tenant["start-date"] + "T00:00:00") : yearStart;
+                const tEnd      = tenant["end-date"]   ? new Date(tenant["end-date"]   + "T00:00:00") : yearEnd;
+                const effStart  = tStart < yearStart ? yearStart : tStart;
+                const effEnd    = tEnd   > yearEnd   ? yearEnd   : tEnd;
+                const days      = tenantDaysInYear(tenant, year);
+                return (
+                  <div key={i} className="flex items-center justify-between text-sm">
+                    <span className="font-medium">{tenantDisplayName(tenant)}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {fmtGermanDate(effStart)} – {fmtGermanDate(effEnd)}
+                      <span className="ml-1.5 tabular-nums">({days} Tage)</span>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div className="mt-3 pt-3 border-t grid grid-cols-2 gap-2 text-sm">
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">IBAN</p>
+              <p className="font-mono text-xs">{selectedProperty?.iban || "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">{t("bankName")}</p>
+              <p>{selectedProperty?.["bank-name"] || "—"}</p>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -536,7 +668,7 @@ export default function NebenkostenAbrechnung({
         <p className="text-sm text-muted-foreground">Laden...</p>
       ) : (
         <>
-          {/* Status */}
+          {/* Readiness status */}
           <Card>
             <CardContent className="pt-4 pb-4">
               <div className="flex items-center justify-between mb-3">
@@ -586,7 +718,7 @@ export default function NebenkostenAbrechnung({
             </CardContent>
           </Card>
 
-          {/* Cost summary table */}
+          {/* Cost breakdown table — annual apartment-level shares */}
           <Card>
             <CardContent className="p-0">
               <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] text-xs font-medium text-muted-foreground border-b px-4 py-2 gap-1">
@@ -622,35 +754,56 @@ export default function NebenkostenAbrechnung({
                   );
                 })
               )}
-              {/* Summary rows */}
               <div className="flex items-center justify-between px-4 py-2 border-t border-dashed text-sm">
                 <span className="font-medium">{t("totalCosts")}</span>
-                <span className="tabular-nums font-medium">€ {formatEur(totalShare)}</span>
-              </div>
-              <div className="flex items-center justify-between px-4 py-2 text-sm">
-                <span className="text-muted-foreground">{t("prepayment")}</span>
-                <span className="tabular-nums text-muted-foreground">− € {formatEur(prepaymentTotal)}</span>
-              </div>
-              <div className="flex items-center justify-between px-4 py-2 border-t bg-muted/30 text-sm">
-                <span className="font-bold">{net >= 0 ? t("netPayment") : t("refund")}</span>
-                <span className={`tabular-nums font-bold ${net >= 0 ? "text-destructive" : "text-green-600"}`}>
-                  € {formatEur(Math.abs(net))}
-                </span>
+                <span className="tabular-nums font-medium">€ {formatEur(totalAnnualShare)}</span>
               </div>
             </CardContent>
           </Card>
 
-          {/* Generate button */}
-          <div className="flex justify-end">
-            <Button
-              disabled={!isFullyReady || generating}
-              onClick={handleGenerate}
-              className="gap-2"
-            >
-              <FileText className="h-4 w-4" />
-              {generating ? t("generating") : t("generate")}
-            </Button>
-          </div>
+          {/* Per-tenant prorated billing */}
+          {perTenantInfo.length > 0 && (
+            <Card>
+              <CardContent className="p-0">
+                <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] text-xs font-medium text-muted-foreground border-b px-4 py-2 gap-2">
+                  <span>{t("tenant")}</span>
+                  <span className="text-right">{t("share")}</span>
+                  <span className="text-right">{t("prepayment")}</span>
+                  <span className="text-right">{t("netPayment")}</span>
+                  <span />
+                </div>
+                {perTenantInfo.map((info, i) => (
+                  <div
+                    key={i}
+                    className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] items-center px-4 py-3 border-b last:border-b-0 gap-2"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{tenantDisplayName(info.tenant)}</p>
+                      <p className="text-xs text-muted-foreground tabular-nums">{info.days} Tage</p>
+                    </div>
+                    <span className="text-right tabular-nums text-sm">
+                      € {formatEur(info.proratedTotal)}
+                    </span>
+                    <span className="text-right tabular-nums text-sm text-muted-foreground">
+                      − € {formatEur(info.prepayment)}
+                    </span>
+                    <span className={`text-right tabular-nums text-sm font-semibold ${info.net >= 0 ? "text-destructive" : "text-green-600"}`}>
+                      € {formatEur(Math.abs(info.net))}
+                    </span>
+                    <Button
+                      size="sm"
+                      disabled={!info.canGenerate || generating}
+                      onClick={() => handleGenerateForTenant(info)}
+                      className="h-7 gap-1.5 shrink-0"
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      {generating ? t("generating") : t("generate")}
+                    </Button>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </div>
