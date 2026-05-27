@@ -82,6 +82,7 @@
         all-rent-payments    @(re-frame/subscribe [::cost-subs/all-rent-payments])
         has-active-plan?     @(re-frame/subscribe [::subs/has-active-plan?])
         is-super-admin?      @(re-frame/subscribe [::subs/is-super-admin?])
+        can-create?          (or has-active-plan? is-super-admin?)
         admin-users          @(re-frame/subscribe [::subs/admin-users])
         admin-loading?       @(re-frame/subscribe [::subs/admin-loading?])
         survey-questions     @(re-frame/subscribe [::subs/survey-questions])
@@ -113,7 +114,7 @@
          "payment"            [payment-ui/component {}]
          [dashboard
           {:onLogout           #(re-frame/dispatch [::events/sign-out])
-           :isReadOnly         (and (not has-active-plan?) (not is-super-admin?))
+           :isReadOnly         (not can-create?)
            :onUpgrade          #(re-frame/dispatch [::events/change-active-section "features-pricing"])
            :activeTab          dashboard-tab
            :onChangeTab        #(re-frame/dispatch [::events/set-dashboard-tab %])
@@ -140,7 +141,7 @@
            :paymentsLoading    false
            :apartmentsView     (r/as-element [apartment-ui/component
                                               {:properties         properties
-                                               :is-read-only?      (not has-active-plan?)
+                                               :is-read-only?      (not can-create?)
                                                :tenants            tenants
                                                :expense-types      expense-types
                                                :all-costs          all-costs
@@ -210,7 +211,7 @@
                                                :on-delete-rent-payment      (fn [id]
                                                                               (re-frame/dispatch [::rent-events/delete-rent-payment id]))}])
            :rentSaving         rent-saving?
-           :onAssignPayment    (when has-active-plan?
+           :onAssignPayment    (when can-create?
                                  (fn [data]
                                    (let [d (js->clj data :keywordize-keys true)]
                                      (re-frame/dispatch
@@ -222,10 +223,10 @@
                                         :date         (:date d)
                                         :description  (:description d)}]))))
            :tenantsView        (r/as-element [tenant-ui/component {:apartments    available-apartments
-                                                                               :is-read-only? (not has-active-plan?)}])
+                                                                               :is-read-only? (not can-create?)}])
            :expensesView       (r/as-element [expense-types-comp
                                               {:expenseTypes (clj->js expense-types)
-                                               :isReadOnly   (not has-active-plan?)
+                                               :isReadOnly   (not can-create?)
                                                :isLoading    expense-types-loading?
                                                :isSaving     expense-types-saving?
                                                :saveError    expense-types-error?
@@ -243,7 +244,7 @@
                                                                                    :name-de name-de}]))
                                                :onDelete     (fn [id]
                                                                (re-frame/dispatch [::cost-events/delete-expense-type id]))}])
-           :onImportDemoData    (when has-active-plan?
+           :onImportDemoData    (when can-create?
                                   (fn [guest-data]
                                     (let [d         (js->clj guest-data :keywordize-keys true)
                                           props-list (:properties d [])
@@ -262,7 +263,7 @@
                                           {:key     (:key et)
                                            :name-en (:name-en et)
                                            :name-de (:name-de et)}])))))
-           :onAddProperty      (when has-active-plan?
+           :onAddProperty      (when can-create?
                                  (fn [data]
                                    (let [d (js->clj data :keywordize-keys true)]
                                      (re-frame/dispatch
@@ -274,7 +275,7 @@
                                         :units          (:units d)
                                         :purchase-price (:purchasePrice d)
                                         :current-value  (:currentValue d)}]))))
-           :onEditProperty     (when has-active-plan?
+           :onEditProperty     (when can-create?
                                  (fn [id data]
                                    (let [d (js->clj data :keywordize-keys true)]
                                      (re-frame/dispatch
@@ -291,7 +292,7 @@
                                         :landlord-name        (:landlordName d)
                                         :landlord-street      (:landlordStreet d)
                                         :landlord-postal-city (:landlordPostalCity d)}]))))
-           :onDeleteProperty   (when has-active-plan?
+           :onDeleteProperty   (when can-create?
                                  (fn [id]
                                    (re-frame/dispatch [::property-events/delete-property id])))
            :aptCosts           (clj->js apt-costs)
