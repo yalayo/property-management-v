@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Shield, RefreshCw, ChevronDown, Plus, Pencil, Trash2, Check, X } from "lucide-react";
+import { Shield, RefreshCw, ChevronDown, Plus, Pencil, Trash2, Check, X, UserCheck } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
@@ -37,6 +37,7 @@ type Props = {
   isLoading?: boolean;
   onLoad?: () => void;
   onSetPlan?: (email: string, tier: string) => void;
+  onImpersonate?: (email: string) => void;
   questions?: SurveyQuestion[];
   questionsLoading?: boolean;
   onLoadQuestions?: () => void;
@@ -54,6 +55,7 @@ export default function AdminPanel({
   isLoading = false,
   onLoad,
   onSetPlan,
+  onImpersonate,
   questions = [],
   questionsLoading = false,
   onLoadQuestions,
@@ -181,6 +183,16 @@ export default function AdminPanel({
                         ))}
                       </DropdownMenuContent>
                     </DropdownMenu>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                      onClick={() => onImpersonate?.(u.email)}
+                    >
+                      <UserCheck className="h-3.5 w-3.5 mr-1" />
+                      View as
+                    </Button>
                   </div>
                 </div>
               ))}

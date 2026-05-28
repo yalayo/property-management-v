@@ -86,13 +86,17 @@
         admin-users          @(re-frame/subscribe [::subs/admin-users])
         admin-loading?       @(re-frame/subscribe [::subs/admin-loading?])
         survey-questions     @(re-frame/subscribe [::subs/survey-questions])
-        survey-q-loading?    @(re-frame/subscribe [::subs/survey-questions-loading?])]
-    [main
-     {:activeComponent
-      (r/as-element
+        survey-q-loading?    @(re-frame/subscribe [::subs/survey-questions-loading?])
+        is-impersonating?    @(re-frame/subscribe [::subs/is-impersonating?])
+        impersonated-email   @(re-frame/subscribe [::subs/impersonated-user-email])]
+    [:<>
+     [main
+      {:activeComponent
+       (r/as-element
        (case active         
          "onboarding"         [onboarding {}]
-         "bank-accounts"      [bank-accounts {:user current-user}]
+         "bank-accounts"      [bank-accounts {:user                  current-user
+                                              :onNavigateToDashboard #(re-frame/dispatch [::events/change-active-section "home"])}]
          "change-password"    [change-password {:user current-user}]
          "subscription-tiers" [subscription-tiers {}]
          "waiting-list"       [waiting-list
@@ -118,6 +122,7 @@
            :onUpgrade          #(re-frame/dispatch [::events/change-active-section "features-pricing"])
            :activeTab          dashboard-tab
            :onChangeTab        #(re-frame/dispatch [::events/set-dashboard-tab %])
+           :userKey            (:email current-user)
            :onLoadData         (fn []
                                  (property-ui/load-properties)
                                  (re-frame/dispatch [::apartment-events/load-apartments])
@@ -340,8 +345,11 @@
            :allCosts           (clj->js all-costs)
            :allAptCosts        (clj->js all-apt-costs)
            :allRentPayments    (clj->js all-rent-payments)
-           :isSuperAdmin       is-super-admin?
-           :adminPanel         (when is-super-admin?
+           :isSuperAdmin        is-super-admin?
+           :isImpersonating     is-impersonating?
+           :impersonatedEmail   impersonated-email
+           :onExitImpersonation #(re-frame/dispatch [::events/exit-impersonation])
+           :adminPanel          (when (and is-super-admin? (not is-impersonating?))
                                  (r/as-element
                                   [admin-panel
                                    {:users            (clj->js admin-users)
@@ -349,6 +357,8 @@
                                     :onLoad           #(re-frame/dispatch [::events/load-admin-users])
                                     :onSetPlan        (fn [email tier]
                                                         (re-frame/dispatch [::events/admin-set-plan email tier]))
+                                    :onImpersonate    (fn [email]
+                                                        (re-frame/dispatch [::events/admin-impersonate-user email]))
                                     :questions        (clj->js survey-questions)
                                     :questionsLoading survey-q-loading?
                                     :onLoadQuestions  #(re-frame/dispatch [::events/load-survey-questions])
@@ -357,4 +367,4 @@
                                     :onUpdateQuestion (fn [id text]
                                                         (re-frame/dispatch [::events/admin-update-question id text]))
                                     :onDeleteQuestion (fn [id]
-                                                        (re-frame/dispatch [::events/admin-delete-question id]))}]))}]))}]))
+                                                        (re-frame/dispatch [::events/admin-delete-question id]))}]))}]))}]]))

@@ -77,6 +77,9 @@ export default function Dashboard(props) {
 
   useEffect(() => {
     if (props.onLoadData) props.onLoadData();
+  }, [props.userKey]);
+
+  useEffect(() => {
     const raw = localStorage.getItem(PENDING_MIGRATION_KEY);
     if (raw) {
       try {
@@ -190,6 +193,20 @@ export default function Dashboard(props) {
 
       {/* Main column */}
       <div className="md:pl-64 flex flex-col flex-1 min-w-0">
+        {props.isImpersonating && (
+          <div className="flex items-center justify-between bg-amber-950 px-4 py-2 text-sm font-semibold text-amber-100 shrink-0">
+            <div className="flex items-center gap-2">
+              <Shield className="h-4 w-4 shrink-0" />
+              <span>Viewing as <strong className="text-white">{props.impersonatedEmail}</strong></span>
+            </div>
+            <button
+              className="rounded bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-950 hover:bg-white transition-colors"
+              onClick={props.onExitImpersonation}
+            >
+              Exit Impersonation
+            </button>
+          </div>
+        )}
         {/* Top bar — hamburger on mobile, section title + language switcher */}
         <header className="bg-white border-b border-gray-200 h-14 flex items-center px-4 gap-3">
           <Button

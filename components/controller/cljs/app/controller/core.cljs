@@ -706,6 +706,34 @@
       (js-await [_ ((:transact! storage) [[:db/retractEntity (:id data)]] nil)]
                 {:ok true}))))
 
+(defn- handle-admin-impersonate! [storage data user env]
+  (admin-guard user
+    (fn []
+      (let [{:keys [email]} data]
+        (js-await [target-eids ((:find-by-attr storage) :account/email email)]
+                  (if-let [target-eid (first target-eids)]
+                    (js-await [target-account    ((:pull storage) target-eid '*)
+                               target-membership (fetch-membership storage target-eid)]
+                              (if (nil? target-membership)
+                                {:error :not-found}
+                                (let [org-id  (:membership/organization-id target-membership)
+                                      role    (:membership/role target-membership)
+                                      claims  #js {:email          email
+                                                   :user-id        target-eid
+                                                   :org-id         org-id
+                                                   :role           role
+                                                   :impersonated-by (:email user)
+                                                   :exp            (+ (js/Math.floor (/ (.now js/Date) 1000)) 3600)}
+                                      token   (jwt/sign claims (aget env "JWT_SECRET"))]
+                                  {:token token
+                                   :user  {:email          email
+                                           :name           (:account/name target-account)
+                                           :org-id         org-id
+                                           :role           role
+                                           :plan           (:account/plan target-account)
+                                           :impersonated-by (:email user)}})))
+                    {:error :not-found}))))))
+
 ;; ---------------------------------------------------------------------------
 ;; Dispatcher
 ;; ---------------------------------------------------------------------------
@@ -757,6 +785,7 @@
     :admin-create-question           (handle-admin-create-question! storage data user)
     :admin-update-question           (handle-admin-update-question! storage data user)
     :admin-delete-question           (handle-admin-delete-question! storage data user)
+    :admin-impersonate               (handle-admin-impersonate! storage data user env)
     :get-survey-questions            (handle-get-survey-questions! storage)
     :submit-survey                   (handle-submit-survey! storage data)
     {:error :unknown-command}))

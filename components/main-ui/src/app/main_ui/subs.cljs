@@ -55,3 +55,13 @@
  ::survey-questions-loading?
  (fn [db _]
    (get-in db [:admin :questions-loading?] false)))
+
+(re-frame/reg-sub
+ ::is-impersonating?
+ (fn [db _]
+   (true? (get-in db [:impersonation :active?]))))
+
+(re-frame/reg-sub
+ ::impersonated-user-email
+ (fn [db _]
+   (get-in db [:user :info :email])))

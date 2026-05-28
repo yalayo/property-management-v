@@ -203,3 +203,47 @@
  ::survey-questions-mutated
  (fn [{:keys [_db]} _]
    {:dispatch [::load-survey-questions]}))
+
+;; ---------------------------------------------------------------------------
+;; Impersonation
+;; ---------------------------------------------------------------------------
+
+(re-frame/reg-event-fx
+ ::admin-impersonate-user
+ (fn [{:keys [db]} [_ email]]
+   {:dispatch [::core-events/command
+               :admin-impersonate
+               {:email email}
+               [::impersonation-ok]
+               [::impersonation-error]]}))
+
+(re-frame/reg-event-db
+ ::impersonation-ok
+ [local-storage-interceptor]
+ (fn [db [_ response]]
+   (let [original-token (get-in db [:user :token])
+         original-info  (get-in db [:user :info])]
+     {:impersonation   {:active?     true
+                        :admin-token original-token
+                        :admin-info  original-info}
+      :current-section :dashboard
+      :user            {:token      (:token response)
+                        :info       (:user response)
+                        :logged-in? true}})))
+
+(re-frame/reg-event-db
+ ::impersonation-error
+ (fn [db [_ _error]]
+   (js/console.error "Impersonation failed")
+   db))
+
+(re-frame/reg-event-db
+ ::exit-impersonation
+ [local-storage-interceptor]
+ (fn [db _]
+   (let [admin-token (get-in db [:impersonation :admin-token])
+         admin-info  (get-in db [:impersonation :admin-info])]
+     {:current-section :dashboard
+      :user            {:token      admin-token
+                        :info       admin-info
+                        :logged-in? true}})))

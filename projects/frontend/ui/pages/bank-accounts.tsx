@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, Edit, Trash2, FileText, Download, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
-import { useLocation } from 'wouter';
 import { useToast } from '../hooks/use-toast';
 
 // UI Components
@@ -47,7 +46,6 @@ type BankStatement = {
 const BankAccountsPage = (props) => {
   const { user } = props;
   const { toast } = useToast();
-  const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState<string>('accounts');
   const [selectedAccount, setSelectedAccount] = useState<BankAccount | null>(null);
   const [isNewAccountDialogOpen, setIsNewAccountDialogOpen] = useState(false);
@@ -278,7 +276,7 @@ const BankAccountsPage = (props) => {
                     <Button variant="outline" onClick={() => refetchStatements()}>
                       <RefreshCw className="mr-2 h-4 w-4" /> Refresh
                     </Button>
-                    <Button variant="outline" onClick={() => navigate('/dashboard')}>
+                    <Button variant="outline" onClick={() => props.onNavigateToDashboard?.()}>
                       <Plus className="mr-2 h-4 w-4" /> Upload Statement
                     </Button>
                   </div>
@@ -295,7 +293,7 @@ const BankAccountsPage = (props) => {
                       <p className="text-muted-foreground mb-4">
                         Upload bank statements from the File Upload section on the dashboard.
                       </p>
-                      <Button onClick={() => navigate('/dashboard')}>
+                      <Button onClick={() => props.onNavigateToDashboard?.()}>
                         Go to Dashboard
                       </Button>
                     </CardContent>
