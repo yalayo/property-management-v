@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, Copy, Pencil, Plus, Trash2, UserCheck } from "lucide-react";
+import { useToast } from "../../hooks/use-toast";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { Checkbox } from "../ui/checkbox";
@@ -133,6 +134,8 @@ export default function ApartmentDetail({
   onBack,
 }: Props) {
   const { t, i18n } = useTranslation("costs");
+  const { t: tCommon } = useTranslation("common");
+  const { toast } = useToast();
   const [year, setYear] = useState(new Date().getFullYear());
   const [activeTenantTab, setActiveTenantTab] = useState<string | null>(null);
   const [costInput, setCostInput] = useState<Record<string, CostEditFields | null>>({});
@@ -255,6 +258,7 @@ export default function ApartmentDetail({
       onAddAptCost?.({ apartmentId: apartment.id, line: lineKey, name: costLineName(line, i18n.language), year, ...payload });
       setSavingKeys(prev => new Set([...prev, lineKey]));
     }
+    toast({ title: tCommon("saved") });
   };
 
   // ── Ordering: active lines follow aptCosts insertion order ────────────────
@@ -342,6 +346,7 @@ export default function ApartmentDetail({
       onAddRentPayment?.({ apartmentId: apartment.id, year, month, value });
     }
     closeRentEdit(month);
+    toast({ title: tCommon("saved") });
   };
 
   const monthName = (m: number) =>
@@ -506,7 +511,7 @@ export default function ApartmentDetail({
             </Button>
             <Button
               variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-              disabled={aptCostsSaving} onClick={() => onDeleteAptCost?.(entry.id)}
+              disabled={aptCostsSaving} onClick={() => { onDeleteAptCost?.(entry.id); toast({ title: tCommon("deleted") }); }}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
@@ -571,7 +576,7 @@ export default function ApartmentDetail({
               <Pencil className="h-3.5 w-3.5" />
             </Button>
             <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
-              disabled={rentSaving} onClick={() => onDeleteRentPayment?.(entry.id)}>
+              disabled={rentSaving} onClick={() => { onDeleteRentPayment?.(entry.id); toast({ title: tCommon("deleted") }); }}>
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </>
@@ -583,7 +588,7 @@ export default function ApartmentDetail({
                 title={t("fillFromTenant")} disabled={rentSaving || tenantKalt + tenantNk <= 0}
                 onClick={() => {
                   const value = tenantKalt + tenantNk;
-                  if (value > 0) onAddRentPayment?.({ apartmentId: apartment.id, year, month, value });
+                  if (value > 0) { onAddRentPayment?.({ apartmentId: apartment.id, year, month, value }); toast({ title: tCommon("saved") }); }
                 }}>
                 <UserCheck className="h-3.5 w-3.5" />
               </Button>

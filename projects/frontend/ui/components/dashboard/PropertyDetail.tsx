@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, Copy, Pencil, Plus, Trash2 } from "lucide-react";
+import { useToast } from "../../hooks/use-toast";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
@@ -45,6 +46,8 @@ export default function PropertyDetail({
   onBack,
 }: Props) {
   const { t, i18n } = useTranslation("costs");
+  const { t: tCommon } = useTranslation("common");
+  const { toast } = useToast();
   const [year, setYear] = useState(new Date().getFullYear());
   const [inputState, setInputState] = useState<Record<string, string | null>>({});
   const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
@@ -98,6 +101,7 @@ export default function PropertyDetail({
       onAddCost?.({ propertyId: property.id, line: line.key, name: costLineName(line, i18n.language), year, value });
       setSavingKeys(prev => new Set([...prev, line.key]));
     }
+    toast({ title: tCommon("saved") });
   };
 
   const handleSelectLine = (key: string) => {
@@ -230,7 +234,7 @@ export default function PropertyDetail({
                                 <Pencil className="h-3.5 w-3.5" />
                               </Button>
                               <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                disabled={costsSaving || isReadOnly} onClick={() => onDeleteCost?.(entry.id)}>
+                                disabled={costsSaving || isReadOnly} onClick={() => { onDeleteCost?.(entry.id); toast({ title: tCommon("deleted") }); }}>
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </>

@@ -5,6 +5,7 @@ import {
   Search, Pencil, Check, X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useToast } from "../../hooks/use-toast";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
@@ -115,6 +116,7 @@ export default function ManageApartment({
   const { t } = useTranslation("apartments");
   const { t: tTenants } = useTranslation("tenants");
   const { t: tCommon } = useTranslation("common");
+  const { toast } = useToast();
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [year, setYear] = useState(new Date().getFullYear());
@@ -175,7 +177,7 @@ export default function ManageApartment({
   };
 
   const handleToggle = (checked: boolean) => onToggleOccupied?.(apartment.id, checked);
-  const handleDelete = () => { onDelete?.(apartment.id); setConfirmDelete(false); };
+  const handleDelete = () => { onDelete?.(apartment.id); setConfirmDelete(false); toast({ title: tCommon("deleted") }); };
 
   const handleOnboarding = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -197,12 +199,14 @@ export default function ManageApartment({
       endDate: addForm.endDate || undefined,
     });
     setAddForm({ firstName: "", lastName: "", email: "", phone: "", startDate: `${year}-01-01`, endDate: "" });
+    toast({ title: tCommon("saved") });
   };
 
   const handleAssignExisting = (tenant: Tenant) => {
     setLocalAssignedTenant(tenant);
     onAssignExistingTenant?.(apartment.id, tenant.id);
     onAfterAssign?.();
+    toast({ title: tCommon("saved") });
   };
 
   const startEdit = (tenant: Tenant) => {
@@ -223,6 +227,7 @@ export default function ManageApartment({
     onUpdateTenant?.(tenantId, editForm);
     setEditingTenantId(null);
     setEditForm({});
+    toast({ title: tCommon("saved") });
   };
 
   return (

@@ -174,6 +174,7 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
     }
     if (onAddProperty) {
       onAddProperty(data);
+      toast({ title: tCommon("saved") });
     } else {
       toast({ title: tCommon("comingSoon"), description: "Property management is being connected." });
     }
@@ -204,6 +205,7 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
     }
     if (onEditProperty && editingProperty) {
       onEditProperty(editingProperty.id, data);
+      toast({ title: tCommon("saved") });
     }
     setEditingProperty(null);
     editForm.reset();
@@ -212,6 +214,7 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
   const handleDelete = () => {
     if (onDeleteProperty && deletingProperty) {
       onDeleteProperty(deletingProperty.id);
+      toast({ title: tCommon("deleted") });
     }
     setDeletingProperty(null);
   };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Pencil, Trash2, Tags, AlertCircle, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useToast } from "../../hooks/use-toast";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Input } from "../ui/input";
@@ -48,6 +49,7 @@ export default function ExpenseTypes({
 }: Props) {
   const { t, i18n } = useTranslation("expenseTypes");
   const { t: tCommon } = useTranslation("common");
+  const { toast } = useToast();
 
   const [addForm, setAddForm] = useState({ key: "", nameEn: "", nameDe: "" });
   const [addOpen, setAddOpen] = useState(false);
@@ -66,6 +68,7 @@ export default function ExpenseTypes({
     onAdd?.({ key: addForm.key.trim(), nameEn: addForm.nameEn.trim(), nameDe: addForm.nameDe.trim() });
     setAddForm({ key: "", nameEn: "", nameDe: "" });
     setAddOpen(false);
+    toast({ title: tCommon("saved") });
   };
 
   const handleOpenEdit = (et: ExpenseType) => {
@@ -80,12 +83,14 @@ export default function ExpenseTypes({
     setEditId(null);
     setEditNameEn("");
     setEditNameDe("");
+    toast({ title: tCommon("saved") });
   };
 
   const handleDelete = () => {
     if (!deleteId) return;
     onDelete?.(deleteId);
     setDeleteId(null);
+    toast({ title: tCommon("deleted") });
   };
 
   const deletingItem = expenseTypes.find((et) => et.id === deleteId);

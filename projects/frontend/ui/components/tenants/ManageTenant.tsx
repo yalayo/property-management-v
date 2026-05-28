@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ArrowLeft, Trash2, Loader2, Plus, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useToast } from "../../hooks/use-toast";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Input } from "../ui/input";
@@ -52,6 +53,7 @@ export default function ManageTenant({
 }: Props) {
   const { t } = useTranslation("tenants");
   const { t: tCommon } = useTranslation("common");
+  const { toast } = useToast();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [firstName, setFirstName] = useState(tenant?.["first-name"] ?? tenant?.name ?? "");
   const [lastName, setLastName] = useState(tenant?.["last-name"] ?? "");
@@ -102,11 +104,13 @@ export default function ManageTenant({
       kaltmiete,
       nebenkostenWarm,
     });
+    toast({ title: tCommon("saved") });
   };
 
   const handleDelete = () => {
     onDelete?.(tenant.id);
     setConfirmDelete(false);
+    toast({ title: tCommon("deleted") });
   };
 
   return (

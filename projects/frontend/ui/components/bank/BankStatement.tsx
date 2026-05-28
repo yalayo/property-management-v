@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Upload, Landmark, Check } from "lucide-react";
+import { useToast } from "../../hooks/use-toast";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
@@ -131,6 +132,8 @@ function formatEur(v: number) {
 
 export default function BankStatement({ apartments = [], isSaving, onAssignPayment }: Props) {
   const { t } = useTranslation("bank");
+  const { t: tCommon } = useTranslation("common");
+  const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [parsing, setParsing] = useState(false);
@@ -177,6 +180,7 @@ export default function BankStatement({ apartments = [], isSaving, onAssignPayme
       description: tx.description,
     });
     setSavedRows(prev => ({ ...prev, [idx]: true }));
+    toast({ title: tCommon("saved") });
   };
 
   const reset = () => {

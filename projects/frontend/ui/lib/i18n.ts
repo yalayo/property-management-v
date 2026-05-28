@@ -18,6 +18,8 @@ const resources = {
       dangerZone: "Danger zone",
       actionUndone: "This action cannot be undone.",
       search: "Search...",
+      saved: "Saved",
+      deleted: "Deleted",
     },
     nav: {
       readOnly: {
@@ -845,6 +847,8 @@ const resources = {
       dangerZone: "Gefahrenbereich",
       actionUndone: "Diese Aktion kann nicht rückgängig gemacht werden.",
       search: "Suchen...",
+      saved: "Gespeichert",
+      deleted: "Gelöscht",
     },
     nav: {
       readOnly: {

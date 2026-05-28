@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslation } from "react-i18next";
+import { useToast } from "../../hooks/use-toast";
 import { Button } from "../ui/button";
 import { DialogHeader, DialogTitle } from "../ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../ui/form";
@@ -38,6 +39,7 @@ export default function AddTenant({
 }: Props) {
   const { t } = useTranslation("tenants");
   const { t: tCommon } = useTranslation("common");
+  const { toast } = useToast();
 
   const tenantSchema = z.object({
     firstName: z.string().min(1, t("validation.firstNameRequired")),
@@ -64,6 +66,7 @@ export default function AddTenant({
       return;
     }
     onSubmit?.(data);
+    toast({ title: tCommon("saved") });
     form.reset();
   };
 
