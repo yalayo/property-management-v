@@ -242,6 +242,7 @@ const resources = {
       household: {
         title: "Household Members",
         hint: "Add all people living in the apartment. This information is used for the Wohnbescheinigung.",
+        residentsCount: "Total persons in household",
         memberName: "Name",
         memberBirthday: "Date of Birth (optional)",
       },
@@ -292,6 +293,16 @@ const resources = {
           completed: "Completed",
         },
       },
+      tabs: {
+        tenants:  "Tenants",
+        rent:     "Rent",
+        costs:    "Costs",
+        settings: "Settings",
+      },
+      openEnded:     "open-ended",
+      leasePeriod:   "Lease Period",
+      totalPerMonth: "Total / Mo.",
+      vacantMessage: "Vacant — no tenant assigned",
       addApartmentHint: "Choose the property this unit belongs to, then give it a short code.",
       addPreview: "Will be created as",
       fields: {
@@ -1099,6 +1110,7 @@ const resources = {
       household: {
         title: "Mitbewohner",
         hint: "Alle Personen hinzufügen, die in der Wohnung leben. Diese Daten werden für die Wohnbescheinigung verwendet.",
+        residentsCount: "Personen im Haushalt gesamt",
         memberName: "Name",
         memberBirthday: "Geburtsdatum (optional)",
       },
@@ -1149,6 +1161,16 @@ const resources = {
           completed: "Abgeschlossen",
         },
       },
+      tabs: {
+        tenants:  "Mieter",
+        rent:     "Miete",
+        costs:    "Kosten",
+        settings: "Einstellungen",
+      },
+      openEnded:     "unbefristet",
+      leasePeriod:   "Mietzeit",
+      totalPerMonth: "Gesamt / Mo.",
+      vacantMessage: "Leer — kein Mieter zugewiesen",
       addApartmentHint: "Wählen Sie die Immobilie aus und vergeben Sie dann einen kurzen Code für diese Einheit.",
       addPreview: "Wird erstellt als",
       fields: {

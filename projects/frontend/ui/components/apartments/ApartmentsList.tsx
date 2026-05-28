@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Settings, UserPlus, DoorOpen, DoorClosed, ArrowLeft, Clock, Search } from "lucide-react";
+import { Plus, UserPlus, DoorOpen, DoorClosed, ArrowLeft, Clock, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
@@ -33,8 +33,21 @@ type OnboardingRecord = {
   email: string;
 };
 
+type TenantSummary = {
+  id: string;
+  "first-name"?: string;
+  "last-name"?: string;
+  name?: string;
+  "apartment-id"?: string | number;
+  "start-date"?: string;
+  "end-date"?: string;
+  kaltmiete?: number | string;
+  "nebenkosten-warm"?: number | string;
+};
+
 type Props = {
   apartments?: Apartment[];
+  tenants?: TenantSummary[];
   onboardingsByApartment?: Record<number, OnboardingRecord>;
   isLoading?: boolean;
   isReadOnly?: boolean;
@@ -51,8 +64,15 @@ type Props = {
   assignDialogContent?: React.ReactNode;
 };
 
+function tenantName(t: TenantSummary): string {
+  const first = t["first-name"] ?? t.name ?? "";
+  const last  = t["last-name"] ?? "";
+  return [first, last].filter(Boolean).join(" ");
+}
+
 export default function ApartmentsList({
   apartments,
+  tenants = [],
   onboardingsByApartment = {},
   isLoading = false,
   isReadOnly = false,
@@ -76,6 +96,18 @@ export default function ApartmentsList({
   const empty = safeApartments.length - occupied;
   const [page, setPage] = useState(1);
   const [filterText, setFilterText] = useState("");
+
+  const today = new Date().toISOString().split("T")[0];
+  const currentTenantByApt: Record<number, TenantSummary> = {};
+  for (const tn of tenants) {
+    const aptId = tn["apartment-id"];
+    if (!aptId) continue;
+    const end   = tn["end-date"]   ?? "";
+    const start = tn["start-date"] ?? "";
+    if ((!end || end >= today) && (!start || start <= today)) {
+      currentTenantByApt[Number(aptId)] = tn;
+    }
+  }
 
   useEffect(() => { setPage(1); }, [apartments, filterText]);
 
@@ -131,8 +163,12 @@ export default function ApartmentsList({
           <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {pagedApartments.map((apt) => {
-              const isOccupied = !!apt.occupied;
-              const onboarding = onboardingsByApartment[apt.id];
+              const isOccupied  = !!apt.occupied;
+              const onboarding  = onboardingsByApartment[apt.id];
+              const curTenant   = currentTenantByApt[apt.id] ?? null;
+              const kalt        = parseFloat(String(curTenant?.kaltmiete ?? 0).replace(",", ".")) || 0;
+              const nk          = parseFloat(String(curTenant?.["nebenkosten-warm"] ?? 0).replace(",", ".")) || 0;
+              const monthlyRent = kalt + nk;
               return (
                 <Card key={apt.id} className="overflow-hidden">
                   <div className="p-4 flex flex-col gap-3">
@@ -155,6 +191,40 @@ export default function ApartmentsList({
                         {isOccupied ? t("occupied") : t("available")}
                       </Badge>
                     </div>
+
+                    {curTenant && (
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold truncate">{tenantName(curTenant)}</p>
+                        {(kalt > 0 || nk > 0) && (
+                          <div className="text-xs text-muted-foreground space-y-0.5">
+                            {kalt > 0 && (
+                              <div className="flex justify-between tabular-nums">
+                                <span>Kaltmiete</span>
+                                <span>€ {kalt.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                              </div>
+                            )}
+                            {nk > 0 && (
+                              <div className="flex justify-between tabular-nums">
+                                <span>Nebenkosten</span>
+                                <span>€ {nk.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                              </div>
+                            )}
+                            {monthlyRent > 0 && (
+                              <div className="flex justify-between tabular-nums font-medium text-foreground border-t pt-0.5 mt-0.5">
+                                <span>Gesamt / Mo.</span>
+                                <span>€ {monthlyRent.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {curTenant["start-date"] && (
+                          <p className="text-xs text-muted-foreground">
+                            {curTenant["start-date"]} → {curTenant["end-date"] || t("openEnded", { defaultValue: "unbefristet" })}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     {onboarding && (
                       <div className="flex items-center gap-1.5 text-xs text-amber-600">
                         <Clock className="h-3 w-3 shrink-0" />
@@ -164,28 +234,17 @@ export default function ApartmentsList({
                         </span>
                       </div>
                     )}
-                    <div className="flex gap-2">
+                    {!isOccupied && (
                       <Button
-                        variant="outline"
                         size="sm"
-                        className="flex-1"
-                        onClick={() => onManageApartment?.(apt.id)}
+                        className="w-full"
+                        disabled={isReadOnly}
+                        onClick={() => onAssignTenant?.(apt.id)}
                       >
-                        <Settings className="h-3.5 w-3.5 mr-1.5" />
-                        {t("manage")}
+                        <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+                        {t("assign")}
                       </Button>
-                      {!isOccupied && (
-                        <Button
-                          size="sm"
-                          className="flex-1"
-                          disabled={isReadOnly}
-                          onClick={() => onAssignTenant?.(apt.id)}
-                        >
-                          <UserPlus className="h-3.5 w-3.5 mr-1.5" />
-                          {t("assign")}
-                        </Button>
-                      )}
-                    </div>
+                    )}
                   </div>
                 </Card>
               );

@@ -3,17 +3,15 @@
             [re-frame.core :as re-frame]
             [app.apartment-ui.subs :as subs]
             [app.apartment-ui.events :as events]
-            ["/components/apartments/ApartmentsList$default"  :as apartments-list-js]
-            ["/components/apartments/AddApartment$default"    :as add-apartment-js]
-            ["/components/apartments/ManageApartment$default" :as manage-apartment-js]
-            ["/components/apartments/ApartmentDetail$default" :as apartment-detail-js]
-            ["/components/apartments/AssignTenant$default"    :as assign-tenant-js]))
+            ["/components/apartments/ApartmentsList$default" :as apartments-list-js]
+            ["/components/apartments/AddApartment$default"   :as add-apartment-js]
+            ["/components/apartments/ApartmentView$default"  :as apartment-view-js]
+            ["/components/apartments/AssignTenant$default"   :as assign-tenant-js]))
 
-(def apartments-list  (r/adapt-react-class apartments-list-js))
-(def add-apartment    (r/adapt-react-class add-apartment-js))
-(def manage-apartment (r/adapt-react-class manage-apartment-js))
-(def apartment-detail (r/adapt-react-class apartment-detail-js))
-(def assign-tenant    (r/adapt-react-class assign-tenant-js))
+(def apartments-list (r/adapt-react-class apartments-list-js))
+(def add-apartment   (r/adapt-react-class add-apartment-js))
+(def apartment-view  (r/adapt-react-class apartment-view-js))
+(def assign-tenant   (r/adapt-react-class assign-tenant-js))
 
 (defn component [_]
   (re-frame/dispatch [::events/load-apartments])
@@ -32,21 +30,36 @@
           onboardings-by-apt    @(re-frame/subscribe [::subs/onboardings-by-apartment])
           add-dialog-open? @(re-frame/subscribe [::subs/add-dialog-open?])
           selected-id      @(re-frame/subscribe [::subs/selected-apartment-id])
-          detail-apt-id    @(re-frame/subscribe [::subs/detail-apartment-id])
           new-code         @(re-frame/subscribe [::subs/new-apartment-code])
           assign-apt-id    @(re-frame/subscribe [::subs/assign-apt-id])
           assign-error     @(re-frame/subscribe [::subs/assign-error])
           selected-apt     (when selected-id (first (filter #(= (:db/id %) selected-id) apartments)))
-          detail-apt       (when detail-apt-id (first (filter #(= (:db/id %) detail-apt-id) apartments)))
           assign-apt       (when assign-apt-id (first (filter #(= (:db/id %) assign-apt-id) apartments)))
           is-read-only?    is-read-only?]
       (cond
         selected-id
-        [manage-apartment
+        [apartment-view
          {:apartment               (clj->js selected-apt)
           :isReadOnly              is-read-only?
           :createTenantError       (when assign-error (name assign-error))
           :tenants                 (clj->js (or tenants []))
+          :properties              (clj->js (or properties []))
+          :expenseTypes            (clj->js (or expense-types []))
+          :aptCosts                (clj->js (or apt-costs []))
+          :aptCostsLoading         apt-costs-loading?
+          :aptCostsSaving          apt-costs-saving?
+          :onLoadAptCosts          on-load-apt-costs
+          :onAddAptCost            on-add-apt-cost
+          :onUpdateAptCost         on-update-apt-cost
+          :onDeleteAptCost         on-delete-apt-cost
+          :allCosts                (clj->js (or all-costs []))
+          :rentPayments            (clj->js (or rent-payments []))
+          :rentLoading             rent-loading?
+          :rentSaving              rent-saving?
+          :onLoadRentPayments      on-load-rent-payments
+          :onAddRentPayment        on-add-rent-payment
+          :onUpdateRentPayment     on-update-rent-payment
+          :onDeleteRentPayment     on-delete-rent-payment
           :isSaving                saving?
           :tenantsSaving           tenants-saving?
           :isOnboarding            onboarding?
@@ -73,41 +86,17 @@
                                                             :end-date   (:endDate d)}
                                                            on-after-assign])))}]
 
-        detail-apt-id
-        [apartment-detail
-         {:apartment           (clj->js detail-apt)
-          :isReadOnly          is-read-only?
-          :properties          (clj->js (or properties []))
-          :tenants             (clj->js (or tenants []))
-          :expenseTypes        (clj->js (or expense-types []))
-          :aptCosts            (clj->js (or apt-costs []))
-          :aptCostsLoading     apt-costs-loading?
-          :aptCostsSaving      apt-costs-saving?
-          :onLoadAptCosts      on-load-apt-costs
-          :onAddAptCost        on-add-apt-cost
-          :onUpdateAptCost     on-update-apt-cost
-          :onDeleteAptCost     on-delete-apt-cost
-          :rentPayments        (clj->js (or rent-payments []))
-          :rentLoading         rent-loading?
-          :rentSaving          rent-saving?
-          :onLoadRentPayments  on-load-rent-payments
-          :onAddRentPayment    on-add-rent-payment
-          :onUpdateRentPayment on-update-rent-payment
-          :onDeleteRentPayment on-delete-rent-payment
-          :allCosts            (clj->js (or all-costs []))
-          :onBack              #(re-frame/dispatch [::events/clear-apartment-detail])}]
-
         :else
         [apartments-list
          {:apartments                     (clj->js apartments)
+          :tenants                        (clj->js (or tenants []))
           :isReadOnly                     is-read-only?
           :onboardingsByApartment         (clj->js onboardings-by-apt)
           :isLoading                      loading?
           :isAddApartmentDialogOpen       add-dialog-open?
           :onChangeAddApartmentDialogOpen #(re-frame/dispatch [::events/open-add-dialog])
           :onCloseAddApartmentDialog      #(re-frame/dispatch [::events/close-add-dialog])
-          :onSelectApartment              (fn [id] (re-frame/dispatch [::events/select-apartment-detail id]))
-          :onManageApartment              (fn [id] (re-frame/dispatch [::events/select-apartment id]))
+          :onSelectApartment              (fn [id] (re-frame/dispatch [::events/select-apartment id]))
           :onAssignTenant                 (fn [id] (re-frame/dispatch [::events/open-assign-dialog id]))
           :onCloseAssignDialog            #(re-frame/dispatch [::events/close-assign-dialog])
           :isAssignDialogOpen             (boolean assign-apt-id)

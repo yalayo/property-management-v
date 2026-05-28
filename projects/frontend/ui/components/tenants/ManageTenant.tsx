@@ -25,6 +25,7 @@ type Tenant = {
   "end-date"?: string;
   birthday?: string;
   "household-members"?: string;
+  "residents-count"?: number | string;
   kaltmiete?: number | string;
   "nebenkosten-warm"?: number | string;
 };
@@ -64,6 +65,7 @@ export default function ManageTenant({
   const [birthday, setBirthday] = useState(tenant?.birthday ?? "");
   const [kaltmiete, setKaltmiete] = useState(tenant?.kaltmiete != null ? String(tenant.kaltmiete) : "");
   const [nebenkostenWarm, setNebenkostenWarm] = useState(tenant?.["nebenkosten-warm"] != null ? String(tenant["nebenkosten-warm"]) : "");
+  const [residentsCount, setResidentsCount] = useState(tenant?.["residents-count"] != null ? String(tenant["residents-count"]) : "");
   const [members, setMembers] = useState<HouseholdMember[]>(parseMembers(tenant?.["household-members"]));
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberBirthday, setNewMemberBirthday] = useState("");
@@ -99,22 +101,24 @@ export default function ManageTenant({
     const origStartDate    = tenant["start-date"] ?? "";
     const origEndDate      = tenant["end-date"] ?? "";
     const origBirthday     = tenant.birthday ?? "";
-    const origKaltmiete    = tenant.kaltmiete != null ? String(tenant.kaltmiete) : "";
-    const origNk           = tenant["nebenkosten-warm"] != null ? String(tenant["nebenkosten-warm"]) : "";
-    const origMembers      = JSON.stringify(parseMembers(tenant["household-members"]));
-    const curMembers       = JSON.stringify(members);
+    const origKaltmiete      = tenant.kaltmiete != null ? String(tenant.kaltmiete) : "";
+    const origNk             = tenant["nebenkosten-warm"] != null ? String(tenant["nebenkosten-warm"]) : "";
+    const origResidentsCount = tenant["residents-count"] != null ? String(tenant["residents-count"]) : "";
+    const origMembers        = JSON.stringify(parseMembers(tenant["household-members"]));
+    const curMembers         = JSON.stringify(members);
 
     const changed: Record<string, string> = {};
-    if (firstName       !== origFirstName)  changed.firstName       = firstName;
-    if (lastName        !== origLastName)   changed.lastName        = lastName;
-    if (email           !== origEmail)      changed.email           = email;
-    if (phone           !== origPhone)      changed.phone           = phone;
-    if (startDate       !== origStartDate)  changed.startDate       = startDate;
-    if (endDate         !== origEndDate)    changed.endDate         = endDate;
-    if (birthday        !== origBirthday)   changed.birthday        = birthday;
-    if (kaltmiete       !== origKaltmiete)  changed.kaltmiete       = kaltmiete;
-    if (nebenkostenWarm !== origNk)         changed.nebenkostenWarm = nebenkostenWarm;
-    if (curMembers      !== origMembers)    changed.householdMembers = curMembers;
+    if (firstName        !== origFirstName)      changed.firstName       = firstName;
+    if (lastName         !== origLastName)       changed.lastName        = lastName;
+    if (email            !== origEmail)          changed.email           = email;
+    if (phone            !== origPhone)          changed.phone           = phone;
+    if (startDate        !== origStartDate)      changed.startDate       = startDate;
+    if (endDate          !== origEndDate)        changed.endDate         = endDate;
+    if (birthday         !== origBirthday)       changed.birthday        = birthday;
+    if (kaltmiete        !== origKaltmiete)      changed.kaltmiete       = kaltmiete;
+    if (nebenkostenWarm  !== origNk)             changed.nebenkostenWarm = nebenkostenWarm;
+    if (residentsCount   !== origResidentsCount) changed.residentsCount  = residentsCount;
+    if (curMembers       !== origMembers)        changed.householdMembers = curMembers;
 
     if (Object.keys(changed).length === 0) return;
     onUpdate?.(tenant.id, changed);
@@ -223,6 +227,19 @@ export default function ManageTenant({
           <div className="rounded-xl border p-4 space-y-3">
             <p className="text-sm font-medium">{t("household.title")}</p>
             <p className="text-xs text-muted-foreground">{t("household.hint")}</p>
+
+            <div className="space-y-2">
+              <Label htmlFor="residentsCount">{t("household.residentsCount")}</Label>
+              <Input
+                id="residentsCount"
+                type="number"
+                min={1}
+                value={residentsCount}
+                onChange={(e) => setResidentsCount(e.target.value)}
+                placeholder="—"
+                className="w-24"
+              />
+            </div>
 
             {members.length > 0 && (
               <div className="space-y-2">

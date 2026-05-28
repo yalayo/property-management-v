@@ -98,6 +98,7 @@
                :end-date          (get data :end-date)
                :birthday          (get data :birthday)
                :household-members (get data :household-members)
+               :residents-count   (get data :residents-count)
                :kaltmiete         (get data :kaltmiete)
                :nebenkosten-warm  (get data :nebenkosten-warm)}}
 

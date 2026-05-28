@@ -368,7 +368,7 @@
                     (let [result ((:process core) {:command :update-tenant :data data})]
                       (if (:error result)
                         result
-                        (let [{:keys [first-name last-name email phone start-date end-date birthday household-members kaltmiete nebenkosten-warm]} (:updates result)
+                        (let [{:keys [first-name last-name email phone start-date end-date birthday household-members residents-count kaltmiete nebenkosten-warm]} (:updates result)
                               facts (cond-> {:db/id eid}
                                       (some? first-name)        (assoc :tenant/first-name first-name)
                                       (some? last-name)         (assoc :tenant/last-name last-name)
@@ -378,6 +378,7 @@
                                       (some? end-date)          (assoc :tenant/end-date end-date)
                                       (some? birthday)          (assoc :tenant/birthday birthday)
                                       (some? household-members) (assoc :tenant/household-members household-members)
+                                      (some? residents-count)   (assoc :tenant/residents-count residents-count)
                                       (some? kaltmiete)         (assoc :tenant/kaltmiete kaltmiete)
                                       (some? nebenkosten-warm)  (assoc :tenant/nebenkosten-warm nebenkosten-warm))]
                           (js-await [{:keys [tx-id]}
