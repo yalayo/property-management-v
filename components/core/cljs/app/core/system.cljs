@@ -42,7 +42,14 @@
                   :units            (or (get data :units) 1)
                   :acquisition-date (get data :acquisition-date)
                   :purchase-price   (get data :purchase-price)
-                  :current-value    (get data :current-value)}}))
+                  :current-value    (get data :current-value)
+                  :land-value       (get data :land-value)
+                  :building-value   (get data :building-value)
+                  :ownership-share  (get data :ownership-share)
+                  :living-area-m2   (get data :living-area-m2)
+                  :rental-area-m2   (get data :rental-area-m2)
+                  :year-built       (get data :year-built)
+                  :usage            (get data :usage)}}))
 
     :update-property
     {:action  :update-property
@@ -58,7 +65,15 @@
                :bank-name            (get data :bank-name)
                :landlord-name        (get data :landlord-name)
                :landlord-street      (get data :landlord-street)
-               :landlord-postal-city (get data :landlord-postal-city)}}
+               :landlord-postal-city (get data :landlord-postal-city)
+               :acquisition-date (get data :acquisition-date)
+               :land-value       (get data :land-value)
+               :building-value   (get data :building-value)
+               :ownership-share  (get data :ownership-share)
+               :living-area-m2   (get data :living-area-m2)
+               :rental-area-m2   (get data :rental-area-m2)
+               :year-built       (get data :year-built)
+               :usage            (get data :usage)}}
 
     :create-apartment
     (let [{:keys [property-id code]} data]

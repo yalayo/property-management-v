@@ -130,24 +130,33 @@
         (if (:error result)
           result
           (let [{:keys [name address city postal-code country units
-                        acquisition-date purchase-price current-value]} (:entity result)]
+                        acquisition-date purchase-price current-value
+                        land-value building-value ownership-share
+                        living-area-m2 rental-area-m2 year-built usage]} (:entity result)]
             (js-await [dups ((:q storage) {:where [['?e :property/organization-id org-id]
                                                     ['?e :property/name name]]})]
                       (if (seq dups)
                         {:error :duplicate-name}
                         (js-await [{:keys [tx-id entity-ids]}
                                    ((:transact! storage)
-                                    [{:db/type                   "property"
-                                      :property/organization-id  org-id
-                                      :property/name             name
-                                      :property/address          address
-                                      :property/city             city
-                                      :property/postal-code      postal-code
-                                      :property/country          country
-                                      :property/units            units
-                                      :property/acquisition-date acquisition-date
-                                      :property/purchase-price   purchase-price
-                                      :property/current-value    current-value}] nil)]
+                                    [(cond-> {:db/type                   "property"
+                                              :property/organization-id  org-id
+                                              :property/name             name
+                                              :property/address          address
+                                              :property/city             city
+                                              :property/postal-code      postal-code
+                                              :property/country          country
+                                              :property/units            units
+                                              :property/acquisition-date acquisition-date
+                                              :property/purchase-price   purchase-price
+                                              :property/current-value    current-value}
+                                       land-value      (assoc :property/land-value land-value)
+                                       building-value  (assoc :property/building-value building-value)
+                                       ownership-share (assoc :property/ownership-share ownership-share)
+                                       living-area-m2  (assoc :property/living-area-m2 living-area-m2)
+                                       rental-area-m2  (assoc :property/rental-area-m2 rental-area-m2)
+                                       year-built      (assoc :property/year-built year-built)
+                                       usage           (assoc :property/usage usage))] nil)]
                                   {:tx-id tx-id :property-id (first entity-ids)})))))))))
 
 (defn- handle-update-property! [core storage data user]
@@ -161,7 +170,9 @@
                       (if (:error result)
                         result
                         (let [{:keys [name address city postal-code country units
-                                      purchase-price current-value iban bank-name landlord-name landlord-street landlord-postal-city]} (:updates result)]
+                                      purchase-price current-value iban bank-name landlord-name landlord-street landlord-postal-city
+                                      acquisition-date land-value building-value ownership-share
+                                      living-area-m2 rental-area-m2 year-built usage]} (:updates result)]
                           (js-await [dups ((:q storage) {:where [['?e :property/organization-id org-id]
                                                                    ['?e :property/name name]]})]
                                     (let [conflicts (filter #(not= % eid) (vec dups))]
@@ -178,11 +189,19 @@
                                                               :property/units          units
                                                               :property/purchase-price purchase-price
                                                               :property/current-value  current-value}
-                                                       iban          (assoc :property/iban          iban)
-                                                       bank-name     (assoc :property/bank-name     bank-name)
+                                                       iban             (assoc :property/iban             iban)
+                                                       bank-name        (assoc :property/bank-name        bank-name)
                                                        landlord-name         (assoc :property/landlord-name         landlord-name)
                                                        landlord-street       (assoc :property/landlord-street       landlord-street)
-                                                       landlord-postal-city  (assoc :property/landlord-postal-city  landlord-postal-city))] nil)]
+                                                       landlord-postal-city  (assoc :property/landlord-postal-city  landlord-postal-city)
+                                                       acquisition-date (assoc :property/acquisition-date acquisition-date)
+                                                       land-value       (assoc :property/land-value       land-value)
+                                                       building-value   (assoc :property/building-value   building-value)
+                                                       ownership-share  (assoc :property/ownership-share  ownership-share)
+                                                       living-area-m2   (assoc :property/living-area-m2   living-area-m2)
+                                                       rental-area-m2   (assoc :property/rental-area-m2   rental-area-m2)
+                                                       year-built       (assoc :property/year-built       year-built)
+                                                       usage            (assoc :property/usage            usage))] nil)]
                                                   {:tx-id tx-id})))))))))))))
 
 (defn- handle-delete-property! [storage data user]
@@ -665,6 +684,88 @@
               {:ok true})))
 
 ;; ---------------------------------------------------------------------------
+;; Property Tax Config handlers
+;; ---------------------------------------------------------------------------
+
+(defn- handle-get-property-tax-configs! [storage user]
+  (with-org user
+    (fn [org-id]
+      (js-await [eids    ((:find-by-attr storage) :property-tax-config/organization-id org-id)
+                 configs (pull-many+ storage eids '[*])]
+                {:property-tax-configs configs}))))
+
+(defn- handle-upsert-property-tax-config! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [{:keys [property-id land-value building-value afa-rate afa-start-date]} data]
+        (js-await [eids ((:q storage) {:where [['?e :property-tax-config/property-id     property-id]
+                                               ['?e :property-tax-config/organization-id org-id]]})]
+                  (let [eid (or (first eids) (str (random-uuid)))]
+                    (js-await [{:keys [tx-id]}
+                               ((:transact! storage)
+                                [(cond-> {:db/id                               eid
+                                          :db/type                             "property-tax-config"
+                                          :property-tax-config/organization-id org-id
+                                          :property-tax-config/property-id     property-id
+                                          :property-tax-config/land-value      land-value
+                                          :property-tax-config/building-value  building-value
+                                          :property-tax-config/afa-rate        afa-rate}
+                                   afa-start-date (assoc :property-tax-config/afa-start-date afa-start-date))] nil)]
+                              {:tx-id tx-id})))))))
+
+;; ---------------------------------------------------------------------------
+;; Property Loan handlers
+;; ---------------------------------------------------------------------------
+
+(defn- handle-get-property-loans! [storage user]
+  (with-org user
+    (fn [org-id]
+      (js-await [eids  ((:find-by-attr storage) :property-loan/organization-id org-id)
+                 loans (pull-many+ storage eids '[*])]
+                {:property-loans loans}))))
+
+(defn- handle-create-property-loan! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [{:keys [property-id year lender-name annual-interest notes]} data]
+        (js-await [{:keys [tx-id entity-ids]}
+                   ((:transact! storage)
+                    [(cond-> {:db/type                      "property-loan"
+                              :property-loan/organization-id org-id
+                              :property-loan/property-id    property-id
+                              :property-loan/year           year
+                              :property-loan/annual-interest annual-interest}
+                       lender-name (assoc :property-loan/lender-name lender-name)
+                       notes       (assoc :property-loan/notes notes))] nil)]
+                  {:tx-id tx-id :loan-id (first entity-ids)})))))
+
+(defn- handle-update-property-loan! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:property-loan/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [{:keys [tx-id]}
+                               ((:transact! storage)
+                                [(cond-> {:db/id eid}
+                                   (some? (:year data))             (assoc :property-loan/year             (:year data))
+                                   (some? (:annual-interest data))  (assoc :property-loan/annual-interest  (:annual-interest data))
+                                   (some? (:lender-name data))      (assoc :property-loan/lender-name      (:lender-name data))
+                                   (some? (:notes data))            (assoc :property-loan/notes            (:notes data)))] nil)]
+                              {:tx-id tx-id})))))))
+
+(defn- handle-delete-property-loan! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:property-loan/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [_ ((:excise! storage) eid nil)]
+                              {:ok true})))))))
+
+;; ---------------------------------------------------------------------------
 ;; Date-range helpers
 ;; ---------------------------------------------------------------------------
 
@@ -845,4 +946,10 @@
     :admin-import                    (handle-admin-import! storage data user)
     :get-survey-questions            (handle-get-survey-questions! storage)
     :submit-survey                   (handle-submit-survey! storage data)
+    :get-property-tax-configs        (handle-get-property-tax-configs! storage user)
+    :upsert-property-tax-config      (handle-upsert-property-tax-config! storage data user)
+    :get-property-loans              (handle-get-property-loans! storage user)
+    :create-property-loan            (handle-create-property-loan! storage data user)
+    :update-property-loan            (handle-update-property-loan! storage data user)
+    :delete-property-loan            (handle-delete-property-loan! storage data user)
     {:error :unknown-command}))

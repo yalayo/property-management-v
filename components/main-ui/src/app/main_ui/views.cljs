@@ -23,6 +23,7 @@
             [app.rent-ui.events       :as rent-events]
             [app.letter.billing       :as billing]
             [app.survey-ui.views :as survey]
+            [app.tax-ui.views    :as tax-ui]
             ;; React page imports (thin wrappers — no separate Polylith component needed)
             ["/pages/main$default"                :as main-js]
             ["/pages/home$default"                :as home-js]
@@ -235,6 +236,12 @@
                                         :description  (:description d)}]))))
            :tenantsView        (r/as-element [tenant-ui/component {:apartments    available-apartments
                                                                                :is-read-only? (not can-create?)}])
+           :taxView            (r/as-element [tax-ui/component
+                                              {:properties       properties
+                                               :apartments       all-apartments
+                                               :all-rent-payments all-rent-payments
+                                               :all-costs        all-costs
+                                               :is-read-only?    (not can-create?)}])
            :expensesView       (r/as-element [expense-types-comp
                                               {:expenseTypes (clj->js expense-types)
                                                :isReadOnly   (not can-create?)
@@ -279,30 +286,46 @@
                                    (let [d (js->clj data :keywordize-keys true)]
                                      (re-frame/dispatch
                                       [::property-events/add-property
-                                       {:name           (:name d)
-                                        :address        (:address d)
-                                        :city           (:city d)
-                                        :postal-code    (:postalCode d)
-                                        :units          (:units d)
-                                        :purchase-price (:purchasePrice d)
-                                        :current-value  (:currentValue d)}]))))
+                                       {:name             (:name d)
+                                        :address          (:address d)
+                                        :city             (:city d)
+                                        :postal-code      (:postalCode d)
+                                        :units            (:units d)
+                                        :acquisition-date (:acquisitionDate d)
+                                        :purchase-price   (:purchasePrice d)
+                                        :current-value    (:currentValue d)
+                                        :land-value       (:landValue d)
+                                        :building-value   (:buildingValue d)
+                                        :ownership-share  (:ownershipShare d)
+                                        :living-area-m2   (:livingAreaM2 d)
+                                        :rental-area-m2   (:rentalAreaM2 d)
+                                        :year-built       (:yearBuilt d)
+                                        :usage            (:usage d)}]))))
            :onEditProperty     (when can-create?
                                  (fn [id data]
                                    (let [d (js->clj data :keywordize-keys true)]
                                      (re-frame/dispatch
                                       [::property-events/update-property id
-                                       {:name           (:name d)
-                                        :address        (:address d)
-                                        :city           (:city d)
-                                        :postal-code    (:postalCode d)
-                                        :units          (:units d)
-                                        :purchase-price (:purchasePrice d)
-                                        :current-value  (:currentValue d)
+                                       {:name             (:name d)
+                                        :address          (:address d)
+                                        :city             (:city d)
+                                        :postal-code      (:postalCode d)
+                                        :units            (:units d)
+                                        :acquisition-date (:acquisitionDate d)
+                                        :purchase-price   (:purchasePrice d)
+                                        :current-value    (:currentValue d)
                                         :iban                 (:iban d)
                                         :bank-name            (:bankName d)
                                         :landlord-name        (:landlordName d)
                                         :landlord-street      (:landlordStreet d)
-                                        :landlord-postal-city (:landlordPostalCity d)}]))))
+                                        :landlord-postal-city (:landlordPostalCity d)
+                                        :land-value       (:landValue d)
+                                        :building-value   (:buildingValue d)
+                                        :ownership-share  (:ownershipShare d)
+                                        :living-area-m2   (:livingAreaM2 d)
+                                        :rental-area-m2   (:rentalAreaM2 d)
+                                        :year-built       (:yearBuilt d)
+                                        :usage            (:usage d)}]))))
            :onDeleteProperty   (when can-create?
                                  (fn [id]
                                    (re-frame/dispatch [::property-events/delete-property id])))

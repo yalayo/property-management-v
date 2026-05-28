@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect } from "react";
-import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2, Landmark, Receipt, Tags, Download, Lock, ArrowUpRight, Shield } from "lucide-react";
+import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2, Landmark, Receipt, Tags, Download, Lock, ArrowUpRight, Shield, Calculator } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../components/ui/sheet";
@@ -30,6 +30,7 @@ function SidebarContent({ activeTab, onSelect, onLogout, isSuperAdmin = false })
     { id: "expenses",    label: t("expenses"),    icon: Tags },
     { id: "documents",   label: t("documents"),   icon: FileText },
     { id: "analytics",   label: t("analytics"),   icon: BarChart2 },
+    { id: "tax",         label: t("tax"),         icon: Calculator },
     ...(isSuperAdmin ? [{ id: "admin", label: "Admin", icon: Shield }] : []),
   ];
 
@@ -107,6 +108,7 @@ export default function Dashboard(props) {
     expenses:   t("expenses"),
     documents:  t("documents"),
     analytics:  t("analytics"),
+    tax:        t("tax"),
     admin:      "Admin",
   };
 
@@ -326,6 +328,7 @@ export default function Dashboard(props) {
               allRentPayments={props.allRentPayments}
             />
           )}
+          {activeTab === "tax" && props.taxView}
           {activeTab === "admin" && props.isSuperAdmin && props.adminPanel}
         </main>
       </div>

@@ -1,0 +1,22 @@
+(ns app.tax-ui.subs
+  (:require [re-frame.core :as re-frame]))
+
+(re-frame/reg-sub
+ ::loading?
+ (fn [db _]
+   (get-in db [:tax :loading?] false)))
+
+(re-frame/reg-sub
+ ::saving?
+ (fn [db _]
+   (get-in db [:tax :saving?] false)))
+
+(re-frame/reg-sub
+ ::tax-configs
+ (fn [db _]
+   (get-in db [:tax :configs] [])))
+
+(re-frame/reg-sub
+ ::loans
+ (fn [db _]
+   (get-in db [:tax :loans] [])))

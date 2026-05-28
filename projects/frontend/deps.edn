@@ -13,7 +13,8 @@
         poly/payment-ui    {:local/root "../../components/payment-ui"}
         poly/cost-ui       {:local/root "../../components/cost-ui"}
         poly/rent-ui       {:local/root "../../components/rent-ui"}
-        poly/letter        {:local/root "../../components/letter"} 
+        poly/tax-ui        {:local/root "../../components/tax-ui"}
+        poly/letter        {:local/root "../../components/letter"}
 
         org.clojure/clojure {:mvn/version "1.12.2"}
         org.clojure/clojurescript {:mvn/version "1.12.42"}

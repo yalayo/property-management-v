@@ -10,6 +10,7 @@ import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
 import { Input } from "../ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../ui/form";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "../ui/pagination";
 
@@ -31,8 +32,16 @@ type PropertyFormValues = {
   city: string;
   postalCode: string;
   units: string;
+  acquisitionDate?: string;
   purchasePrice?: string;
   currentValue?: string;
+  landValue?: string;
+  buildingValue?: string;
+  ownershipShare?: string;
+  livingAreaM2?: string;
+  rentalAreaM2?: string;
+  yearBuilt?: string;
+  usage?: string;
 };
 
 type Props = {
@@ -48,6 +57,14 @@ type Props = {
   onGoBack?: () => void;
 };
 
+function SectionHeading({ label }: { label: string }) {
+  return (
+    <div className="pt-3 pb-1 border-t">
+      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
+    </div>
+  );
+}
+
 function PropertyForm({ form, onSubmit, isSaving, onCancel, submitLabel }: {
   form: any;
   onSubmit: (data: PropertyFormValues) => void;
@@ -60,7 +77,7 @@ function PropertyForm({ form, onSubmit, isSaving, onCancel, submitLabel }: {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
         <FormField control={form.control} name="name" render={({ field }) => (
           <FormItem>
             <FormLabel>{t("fields.name")}</FormLabel>
@@ -75,7 +92,7 @@ function PropertyForm({ form, onSubmit, isSaving, onCancel, submitLabel }: {
             <FormMessage />
           </FormItem>
         )} />
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           <FormField control={form.control} name="city" render={({ field }) => (
             <FormItem>
               <FormLabel>{t("fields.city")}</FormLabel>
@@ -98,7 +115,16 @@ function PropertyForm({ form, onSubmit, isSaving, onCancel, submitLabel }: {
             <FormMessage />
           </FormItem>
         )} />
-        <div className="grid grid-cols-2 gap-4">
+
+        <SectionHeading label={t("sections.financial")} />
+        <div className="grid grid-cols-2 gap-3">
+          <FormField control={form.control} name="acquisitionDate" render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t("fields.acquisitionDate")}</FormLabel>
+              <FormControl><Input type="date" {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
           <FormField control={form.control} name="purchasePrice" render={({ field }) => (
             <FormItem>
               <FormLabel>{t("fields.purchasePrice")}</FormLabel>
@@ -106,15 +132,83 @@ function PropertyForm({ form, onSubmit, isSaving, onCancel, submitLabel }: {
               <FormMessage />
             </FormItem>
           )} />
-          <FormField control={form.control} name="currentValue" render={({ field }) => (
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField control={form.control} name="landValue" render={({ field }) => (
             <FormItem>
-              <FormLabel>{t("fields.currentValue")}</FormLabel>
+              <FormLabel>{t("fields.landValue")}</FormLabel>
+              <FormControl><Input type="number" placeholder={t("placeholders.optional")} {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+          <FormField control={form.control} name="buildingValue" render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t("fields.buildingValue")}</FormLabel>
               <FormControl><Input type="number" placeholder={t("placeholders.optional")} {...field} /></FormControl>
               <FormMessage />
             </FormItem>
           )} />
         </div>
-        <div className="flex justify-end space-x-4 pt-4">
+        <FormField control={form.control} name="currentValue" render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("fields.currentValue")}</FormLabel>
+            <FormControl><Input type="number" placeholder={t("placeholders.optional")} {...field} /></FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+
+        <SectionHeading label={t("sections.propertyDetails")} />
+        <div className="grid grid-cols-2 gap-3">
+          <FormField control={form.control} name="yearBuilt" render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t("fields.yearBuilt")}</FormLabel>
+              <FormControl><Input type="number" placeholder="e.g. 1998" min="1800" max="2099" {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+          <FormField control={form.control} name="ownershipShare" render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t("fields.ownershipShare")}</FormLabel>
+              <FormControl><Input type="number" placeholder="e.g. 100" min="0" max="100" step="0.01" {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField control={form.control} name="livingAreaM2" render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t("fields.livingAreaM2")}</FormLabel>
+              <FormControl><Input type="number" placeholder="m²" min="0" step="0.1" {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+          <FormField control={form.control} name="rentalAreaM2" render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t("fields.rentalAreaM2")}</FormLabel>
+              <FormControl><Input type="number" placeholder="m²" min="0" step="0.1" {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+        </div>
+        <FormField control={form.control} name="usage" render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("fields.usage")}</FormLabel>
+            <Select value={field.value || ""} onValueChange={field.onChange}>
+              <FormControl>
+                <SelectTrigger><SelectValue placeholder={t("placeholders.usage")} /></SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                <SelectItem value="full-rental">{t("usage.fullRental")}</SelectItem>
+                <SelectItem value="partial-rental">{t("usage.partialRental")}</SelectItem>
+                <SelectItem value="owner-occupied">{t("usage.ownerOccupied")}</SelectItem>
+                <SelectItem value="mixed">{t("usage.mixed")}</SelectItem>
+              </SelectContent>
+            </Select>
+            <FormMessage />
+          </FormItem>
+        )} />
+
+        <div className="flex justify-end space-x-4 pt-4 sticky bottom-0 bg-background pb-1">
           <Button type="button" variant="outline" onClick={onCancel}>{tCommon("cancel")}</Button>
           <Button type="submit" disabled={isSaving}>
             {isSaving ? tCommon("saving") : submitLabel}
@@ -125,9 +219,15 @@ function PropertyForm({ form, onSubmit, isSaving, onCancel, submitLabel }: {
   );
 }
 
-const emptyDefaults = {
-  name: "", address: "", city: "", postalCode: "", units: "1", purchasePrice: "", currentValue: "",
+const emptyDefaults: PropertyFormValues = {
+  name: "", address: "", city: "", postalCode: "", units: "1",
+  acquisitionDate: "", purchasePrice: "", currentValue: "",
+  landValue: "", buildingValue: "", ownershipShare: "",
+  livingAreaM2: "", rentalAreaM2: "", yearBuilt: "", usage: "",
 };
+
+function parseNum(val?: string) { return val ? parseFloat(val) : undefined; }
+function parseInt10(val?: string) { return val ? parseInt(val, 10) : undefined; }
 
 export default function PropertyList({ properties = [], apartments = [], isSaving = false, isReadOnly = false, onAddProperty, onEditProperty, onDeleteProperty, onViewApartments, onSelectProperty, onGoBack }: Props) {
   const { t } = useTranslation("properties");
@@ -159,8 +259,16 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
     city: z.string().min(1, t("validation.cityRequired")),
     postalCode: z.string().min(5, t("validation.postalCodeRequired")),
     units: z.string().transform(val => parseInt(val, 10)).refine(val => !isNaN(val) && val > 0, t("validation.unitsInvalid")),
-    purchasePrice: z.string().optional().transform(val => val ? parseInt(val, 10) : undefined),
-    currentValue: z.string().optional().transform(val => val ? parseInt(val, 10) : undefined),
+    acquisitionDate: z.string().optional(),
+    purchasePrice: z.string().optional().transform(parseNum),
+    currentValue: z.string().optional().transform(parseNum),
+    landValue: z.string().optional().transform(parseNum),
+    buildingValue: z.string().optional().transform(parseNum),
+    ownershipShare: z.string().optional().transform(val => val ? parseFloat(val) / 100 : undefined),
+    livingAreaM2: z.string().optional().transform(parseNum),
+    rentalAreaM2: z.string().optional().transform(parseNum),
+    yearBuilt: z.string().optional().transform(parseInt10),
+    usage: z.string().optional(),
   });
 
   const addForm = useForm<PropertyFormValues>({ resolver: zodResolver(propertyFormSchema), defaultValues: emptyDefaults });
@@ -184,14 +292,23 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
 
   const handleOpenEdit = (property: any) => {
     setEditingProperty(property);
+    const ownershipRaw = property["ownership-share"] ?? property.ownershipShare;
     editForm.reset({
       name: property.name || "",
       address: property.address || "",
       city: property.city || "",
-      postalCode: property.postal_code || property.postalCode || "",
+      postalCode: property["postal-code"] || property.postal_code || property.postalCode || "",
       units: String(property.units || 1),
-      purchasePrice: property.purchase_price ? String(property.purchase_price) : "",
-      currentValue: property.current_value ? String(property.current_value) : "",
+      acquisitionDate: property["acquisition-date"] || property.acquisitionDate || "",
+      purchasePrice: property["purchase-price"] != null ? String(property["purchase-price"]) : "",
+      currentValue: property["current-value"] != null ? String(property["current-value"]) : "",
+      landValue: property["land-value"] != null ? String(property["land-value"]) : "",
+      buildingValue: property["building-value"] != null ? String(property["building-value"]) : "",
+      ownershipShare: ownershipRaw != null ? String(parseFloat(String(ownershipRaw)) * 100) : "",
+      livingAreaM2: property["living-area-m2"] != null ? String(property["living-area-m2"]) : "",
+      rentalAreaM2: property["rental-area-m2"] != null ? String(property["rental-area-m2"]) : "",
+      yearBuilt: property["year-built"] != null ? String(property["year-built"]) : "",
+      usage: property.usage || "",
     });
   };
 
@@ -232,7 +349,7 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
           <DialogTrigger asChild>
             <Button size="sm" disabled={isReadOnly}><Plus className="h-4 w-4 mr-2" />{t("addProperty")}</Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[540px]">
             <DialogHeader><DialogTitle>{t("addNew")}</DialogTitle></DialogHeader>
             <PropertyForm form={addForm} onSubmit={handleAdd} isSaving={isSaving} onCancel={() => setIsAddOpen(false)} submitLabel={t("saveProperty")} />
           </DialogContent>
@@ -264,7 +381,7 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
                         {property.name}
                       </button>
                       <p className="text-sm text-gray-500 mt-1">{property.address}</p>
-                      <p className="text-sm text-gray-500">{property.city}, {property.postal_code || property.postalCode}</p>
+                      <p className="text-sm text-gray-500">{property.city}, {property["postal-code"] || property.postal_code || property.postalCode}</p>
                     </div>
                     <div className="flex space-x-2">
                       <Button variant="ghost" size="icon" disabled={isReadOnly} onClick={() => handleOpenEdit(property)}>
@@ -277,8 +394,8 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
                   </div>
                   <div className="mt-4 flex justify-between text-sm">
                     <span>{t("units", { count: property.units })}</span>
-                    {(property.current_value || property.currentValue) && (
-                      <span className="font-medium">€{(property.current_value || property.currentValue).toLocaleString()}</span>
+                    {(property["current-value"] || property.current_value || property.currentValue) && (
+                      <span className="font-medium">€{(property["current-value"] || property.current_value || property.currentValue).toLocaleString()}</span>
                     )}
                   </div>
                   {(() => {
@@ -301,6 +418,9 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
                       </div>
                     );
                   })()}
+                  {property["year-built"] && (
+                    <p className="mt-2 text-xs text-muted-foreground">{t("builtIn", { year: property["year-built"] })}</p>
+                  )}
                   {onViewApartments && (
                     <Button
                       variant="outline"
@@ -350,7 +470,7 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
 
       {/* Edit dialog */}
       <Dialog open={!!editingProperty} onOpenChange={(open) => { if (!open) setEditingProperty(null); }}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[540px]">
           <DialogHeader><DialogTitle>{t("editProperty")}</DialogTitle></DialogHeader>
           <PropertyForm form={editForm} onSubmit={handleEdit} isSaving={isSaving} onCancel={() => setEditingProperty(null)} submitLabel={t("saveChanges")} />
         </DialogContent>

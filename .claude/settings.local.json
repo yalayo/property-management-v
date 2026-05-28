@@ -50,7 +50,10 @@
       "Bash(grep -E \"\\\\.\\(jsx?|tsx?\\)$\")",
       "Bash(Format-Table FullName)",
       "Bash(xxd)",
-      "Bash(grep -E \"\\\\.\\(cljs|tsx|ts|jsx\\)$\")"
+      "Bash(grep -E \"\\\\.\\(cljs|tsx|ts|jsx\\)$\")",
+      "Bash(Get-ChildItem -Path \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\" -Directory -Force)",
+      "Bash(grep -E \"\\\\.\\(clj|cljs|edn\\)$\")",
+      "Bash(dir /b \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\\\\components\")"
     ]
   }
 }

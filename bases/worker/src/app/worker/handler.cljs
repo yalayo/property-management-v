@@ -16,16 +16,18 @@
                             (cf/response-edn result {:status 200})))))))
 
 (def ^:private entity->command
-  {:property         :get-properties
-   :apartment        :get-apartments
-   :tenant           :get-tenants
-   :onboarding       :get-onboardings
-   :cost             :get-costs
-   :apartment-cost   :get-apartment-costs
-   :rent-payment     :get-rent-payments
-   :expense-type     :get-expense-types
-   :admin-users      :admin-list-users
-   :survey-questions :get-survey-questions})
+  {:property              :get-properties
+   :apartment             :get-apartments
+   :tenant                :get-tenants
+   :onboarding            :get-onboardings
+   :cost                  :get-costs
+   :apartment-cost        :get-apartment-costs
+   :rent-payment          :get-rent-payments
+   :expense-type          :get-expense-types
+   :admin-users           :admin-list-users
+   :survey-questions      :get-survey-questions
+   :property-tax-config   :get-property-tax-configs
+   :property-loan         :get-property-loans})
 
 (defn survey-questions
   "Public GET handler — returns all survey questions, no auth required."
