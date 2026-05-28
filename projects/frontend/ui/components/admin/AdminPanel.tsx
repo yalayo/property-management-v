@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Shield, RefreshCw, ChevronDown, Plus, Pencil, Trash2, Check, X, UserCheck } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { Shield, RefreshCw, ChevronDown, Plus, Pencil, Trash2, Check, X, UserCheck, Download, Upload, Loader2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
@@ -44,6 +44,10 @@ type Props = {
   onAddQuestion?: (text: string, order: number) => void;
   onUpdateQuestion?: (id: string | number, text: string) => void;
   onDeleteQuestion?: (id: string | number) => void;
+  onExportData?: (email: string) => void;
+  onImportEdn?: (rawEdn: string) => void;
+  isExporting?: boolean;
+  isImporting?: boolean;
 };
 
 function planLabel(tier?: string): string {
@@ -62,11 +66,18 @@ export default function AdminPanel({
   onAddQuestion,
   onUpdateQuestion,
   onDeleteQuestion,
+  onExportData,
+  onImportEdn,
+  isExporting = false,
+  isImporting = false,
 }: Props) {
   const [setting, setSetting] = useState<string | null>(null);
   const [newQuestionText, setNewQuestionText] = useState("");
   const [editingId, setEditingId] = useState<string | number | null>(null);
   const [editingText, setEditingText] = useState("");
+  const [exportEmail, setExportEmail] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     onLoad?.();
@@ -102,6 +113,23 @@ export default function AdminPanel({
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditingText("");
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setSelectedFile(file);
+  };
+
+  const handleImport = () => {
+    if (!selectedFile) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const content = ev.target?.result as string;
+      onImportEdn?.(content);
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+    reader.readAsText(selectedFile);
   };
 
   const sortedQuestions = [...questions].sort(
@@ -299,6 +327,81 @@ export default function AdminPanel({
               <Plus className="h-3.5 w-3.5 mr-1" />
               Add
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Data Export / Import section */}
+      <Card className="border-amber-200 bg-amber-50/40">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-amber-600" />
+            <CardTitle className="text-amber-800">Data Export / Import</CardTitle>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-5">
+          {/* Export */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-amber-900">Export user data (EDN)</p>
+            <div className="flex gap-2">
+              <Input
+                placeholder="user@example.com"
+                value={exportEmail}
+                onChange={(e) => setExportEmail(e.target.value)}
+                className="flex-1 h-8 text-sm"
+              />
+              <Button
+                size="sm"
+                className="h-8 shrink-0 bg-amber-600 hover:bg-amber-700 text-white"
+                onClick={() => onExportData?.(exportEmail.trim())}
+                disabled={!exportEmail.trim() || isExporting}
+              >
+                {isExporting
+                  ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                  : <Download className="h-3.5 w-3.5 mr-1" />}
+                Export
+              </Button>
+            </div>
+          </div>
+
+          {/* Import */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-amber-900">Import data from EDN file</p>
+            <div className="flex gap-2 items-center">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".edn,.txt"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs border-amber-300 text-amber-700 hover:bg-amber-100"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isImporting}
+              >
+                {selectedFile ? selectedFile.name : "Choose .edn file"}
+              </Button>
+              {selectedFile && (
+                <Button
+                  size="sm"
+                  className="h-8 shrink-0 bg-amber-600 hover:bg-amber-700 text-white"
+                  onClick={handleImport}
+                  disabled={isImporting}
+                >
+                  {isImporting
+                    ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                    : <Upload className="h-3.5 w-3.5 mr-1" />}
+                  Import
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Restores raw DB rows. Existing rows with same IDs will be replaced.
+            </p>
           </div>
         </CardContent>
       </Card>

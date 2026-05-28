@@ -53,8 +53,8 @@ type Props = {
   rentLoading?: boolean;
   rentSaving?: boolean;
   onLoadRentPayments?: (apartmentId: string) => void;
-  onAddRentPayment?: (data: { apartmentId: string; year: number; month: number; value: number }) => void;
-  onUpdateRentPayment?: (data: { id: string; value: number }) => void;
+  onAddRentPayment?: (data: { apartmentId: string; year: number; month: number; value: number; kaltmiete?: number; nebenkostenWarm?: number }) => void;
+  onUpdateRentPayment?: (data: { id: string; value: number; kaltmiete?: number; nebenkostenWarm?: number }) => void;
   onDeleteRentPayment?: (id: string) => void;
   onBack: () => void;
 };
@@ -317,13 +317,23 @@ export default function ApartmentDetail({
   const rentEntryFor = (month: number) =>
     rentPayments.find((r: any) => Number(r.month) === month && Number(r.year) === year) ?? null;
 
-  const openRentEdit = (month: number, initialTotal?: number) => {
-    const tenantKalt = parseFloat(String(selectedTenant?.kaltmiete ?? 0).replace(",", ".")) || 0;
-    const tenantNk   = parseFloat(String(selectedTenant?.["nebenkosten-warm"] ?? 0).replace(",", ".")) || 0;
-    if (initialTotal != null && (tenantKalt + tenantNk).toFixed(2) === initialTotal.toFixed(2)) {
-      setRentInput(prev => ({ ...prev, [month]: { kaltmiete: tenantKalt.toFixed(2), nebenkostenWarm: tenantNk.toFixed(2) } }));
-    } else if (initialTotal != null) {
-      setRentInput(prev => ({ ...prev, [month]: { kaltmiete: initialTotal.toFixed(2), nebenkostenWarm: "" } }));
+  const openRentEdit = (month: number, entry?: any) => {
+    const storedKalt = entry?.kaltmiete;
+    const storedNk   = entry?.["nebenkosten-warm"];
+    if (storedKalt != null) {
+      setRentInput(prev => ({ ...prev, [month]: {
+        kaltmiete: Number(storedKalt).toFixed(2),
+        nebenkostenWarm: storedNk != null ? Number(storedNk).toFixed(2) : "",
+      }}));
+    } else if (entry != null) {
+      const initialTotal = Number(entry.value);
+      const tenantKalt = parseFloat(String(selectedTenant?.kaltmiete ?? 0).replace(",", ".")) || 0;
+      const tenantNk   = parseFloat(String(selectedTenant?.["nebenkosten-warm"] ?? 0).replace(",", ".")) || 0;
+      if ((tenantKalt + tenantNk).toFixed(2) === initialTotal.toFixed(2)) {
+        setRentInput(prev => ({ ...prev, [month]: { kaltmiete: tenantKalt.toFixed(2), nebenkostenWarm: tenantNk.toFixed(2) } }));
+      } else {
+        setRentInput(prev => ({ ...prev, [month]: { kaltmiete: initialTotal.toFixed(2), nebenkostenWarm: "" } }));
+      }
     } else {
       setRentInput(prev => ({ ...prev, [month]: { kaltmiete: "", nebenkostenWarm: "" } }));
     }
@@ -341,9 +351,9 @@ export default function ApartmentDetail({
     if (value <= 0) return;
     const existing = rentEntryFor(month);
     if (existing) {
-      onUpdateRentPayment?.({ id: existing.id, value });
+      onUpdateRentPayment?.({ id: existing.id, value, kaltmiete: kalt, nebenkostenWarm: nk });
     } else {
-      onAddRentPayment?.({ apartmentId: apartment.id, year, month, value });
+      onAddRentPayment?.({ apartmentId: apartment.id, year, month, value, kaltmiete: kalt, nebenkostenWarm: nk });
     }
     closeRentEdit(month);
     toast({ title: tCommon("saved") });
@@ -360,7 +370,11 @@ export default function ApartmentDetail({
   const copyPrevYearRent = () => {
     prevRentMonthsToCopy.forEach(month => {
       const prev = rentPayments.find((r: any) => Number(r.month) === month && Number(r.year) === year - 1);
-      if (prev) onAddRentPayment?.({ apartmentId: apartment.id, year, month, value: Number(prev.value) });
+      if (prev) onAddRentPayment?.({
+        apartmentId: apartment.id, year, month, value: Number(prev.value),
+        ...(prev.kaltmiete != null && { kaltmiete: Number(prev.kaltmiete) }),
+        ...(prev["nebenkosten-warm"] != null && { nebenkostenWarm: Number(prev["nebenkosten-warm"]) }),
+      });
     });
   };
 
@@ -572,7 +586,7 @@ export default function ApartmentDetail({
           <>
             <span className="tabular-nums text-right w-28">€{formatEur(Number(entry.value))}</span>
             <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground"
-              disabled={rentSaving} onClick={() => openRentEdit(month, Number(entry.value))}>
+              disabled={rentSaving} onClick={() => openRentEdit(month, entry)}>
               <Pencil className="h-3.5 w-3.5" />
             </Button>
             <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
@@ -588,7 +602,7 @@ export default function ApartmentDetail({
                 title={t("fillFromTenant")} disabled={rentSaving || tenantKalt + tenantNk <= 0}
                 onClick={() => {
                   const value = tenantKalt + tenantNk;
-                  if (value > 0) { onAddRentPayment?.({ apartmentId: apartment.id, year, month, value }); toast({ title: tCommon("saved") }); }
+                  if (value > 0) { onAddRentPayment?.({ apartmentId: apartment.id, year, month, value, kaltmiete: tenantKalt, nebenkostenWarm: tenantNk }); toast({ title: tCommon("saved") }); }
                 }}>
                 <UserCheck className="h-3.5 w-3.5" />
               </Button>

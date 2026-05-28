@@ -65,3 +65,13 @@
  ::impersonated-user-email
  (fn [db _]
    (get-in db [:user :info :email])))
+
+(re-frame/reg-sub
+ ::admin-exporting?
+ (fn [db _]
+   (get-in db [:admin :exporting?] false)))
+
+(re-frame/reg-sub
+ ::admin-importing?
+ (fn [db _]
+   (get-in db [:admin :importing?] false)))

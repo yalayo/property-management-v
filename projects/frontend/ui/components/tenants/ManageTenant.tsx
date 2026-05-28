@@ -92,18 +92,32 @@ export default function ManageTenant({
   };
 
   const handleSave = () => {
-    onUpdate?.(tenant.id, {
-      firstName,
-      lastName,
-      email,
-      phone,
-      startDate,
-      endDate,
-      birthday,
-      householdMembers: JSON.stringify(members),
-      kaltmiete,
-      nebenkostenWarm,
-    });
+    const origFirstName    = tenant["first-name"] ?? tenant.name ?? "";
+    const origLastName     = tenant["last-name"] ?? "";
+    const origEmail        = tenant.email ?? "";
+    const origPhone        = tenant.phone ?? "";
+    const origStartDate    = tenant["start-date"] ?? "";
+    const origEndDate      = tenant["end-date"] ?? "";
+    const origBirthday     = tenant.birthday ?? "";
+    const origKaltmiete    = tenant.kaltmiete != null ? String(tenant.kaltmiete) : "";
+    const origNk           = tenant["nebenkosten-warm"] != null ? String(tenant["nebenkosten-warm"]) : "";
+    const origMembers      = JSON.stringify(parseMembers(tenant["household-members"]));
+    const curMembers       = JSON.stringify(members);
+
+    const changed: Record<string, string> = {};
+    if (firstName       !== origFirstName)  changed.firstName       = firstName;
+    if (lastName        !== origLastName)   changed.lastName        = lastName;
+    if (email           !== origEmail)      changed.email           = email;
+    if (phone           !== origPhone)      changed.phone           = phone;
+    if (startDate       !== origStartDate)  changed.startDate       = startDate;
+    if (endDate         !== origEndDate)    changed.endDate         = endDate;
+    if (birthday        !== origBirthday)   changed.birthday        = birthday;
+    if (kaltmiete       !== origKaltmiete)  changed.kaltmiete       = kaltmiete;
+    if (nebenkostenWarm !== origNk)         changed.nebenkostenWarm = nebenkostenWarm;
+    if (curMembers      !== origMembers)    changed.householdMembers = curMembers;
+
+    if (Object.keys(changed).length === 0) return;
+    onUpdate?.(tenant.id, changed);
     toast({ title: tCommon("saved") });
   };
 

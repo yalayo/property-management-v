@@ -1,5 +1,6 @@
 (ns app.storage.eav
-  (:require [app.storage.core :as core]))
+  (:require [clojure.string :as str]
+            [app.storage.core :as core]))
 
 (defn- tbl [prefix tname]
   (if (seq prefix) (str prefix "_" tname) tname))
@@ -228,3 +229,66 @@
     (if (seq stmts)
       (.batch db (into-array stmts))
       (js/Promise.resolve []))))
+
+;; ---------------------------------------------------------------------------
+;; Admin export / import — raw row dump and restore
+;; ---------------------------------------------------------------------------
+
+(defn- raw-query+ [^js db sql params]
+  (let [stmt (.prepare db sql)]
+    (-> (.apply (.-bind stmt) stmt (into-array params))
+        .all
+        (.then (fn [^js r]
+                 (mapv (fn [^js row] (js->clj row :keywordize-keys true))
+                       (array-seq (.-results r))))))))
+
+(defn- batch-rows!+ [^js db sql rows col-keys]
+  (if (empty? rows)
+    (js/Promise.resolve nil)
+    (let [stmts  (mapv (fn [row]
+                         (let [vals (mapv #(get row %) col-keys)
+                               stmt (.prepare db sql)]
+                           (.apply (.-bind stmt) stmt (into-array vals))))
+                       rows)
+          chunks (partition-all 50 stmts)]
+      (reduce (fn [p chunk]
+                (.then p (fn [_] (.batch db (into-array chunk)))))
+              (js/Promise.resolve nil)
+              chunks))))
+
+(defn dump-org+ [^js db prefix org-id account-eid membership-eid]
+  (let [encoded-oid (str "\"" org-id "\"")]
+    (-> (raw-query+ db
+                    (str "SELECT DISTINCT entity_id FROM " (tbl prefix "facts")
+                         " WHERE value = ? AND excised_at IS NULL")
+                    [encoded-oid])
+        (.then
+         (fn [ref-rows]
+           (let [all-eids (->> ref-rows
+                               (map :entity_id)
+                               (concat [org-id account-eid membership-eid])
+                               distinct
+                               vec)
+                 in-ph    (str "(" (str/join "," (repeat (count all-eids) "?")) ")")]
+             (-> (raw-query+ db (str "SELECT * FROM " (tbl prefix "entities") " WHERE entity_id IN " in-ph) all-eids)
+                 (.then (fn [entities]
+                          (-> (raw-query+ db (str "SELECT * FROM " (tbl prefix "facts") " WHERE entity_id IN " in-ph) all-eids)
+                              (.then (fn [facts]
+                                       (let [tx-ids (->> facts (map :tx_id) distinct vec)]
+                                         (if (empty? tx-ids)
+                                           {:entities entities :facts facts :transactions []}
+                                           (let [tx-ph (str "(" (str/join "," (repeat (count tx-ids) "?")) ")")]
+                                             (-> (raw-query+ db (str "SELECT * FROM " (tbl prefix "transactions") " WHERE tx_id IN " tx-ph) tx-ids)
+                                                 (.then (fn [transactions]
+                                                          {:entities     entities
+                                                           :facts        facts
+                                                           :transactions transactions}))))))))))))))))))
+
+(defn restore-org!+ [^js db prefix {:keys [entities facts transactions]}]
+  (let [tx-sql   (str "INSERT OR REPLACE INTO " (tbl prefix "transactions") " (tx_id,tx_meta,tx_time) VALUES (?,?,?)")
+        ent-sql  (str "INSERT OR REPLACE INTO " (tbl prefix "entities") " (entity_id,entity_type,created_tx,retracted_tx) VALUES (?,?,?,?)")
+        fact-sql (str "INSERT OR REPLACE INTO " (tbl prefix "facts") " (id,entity_id,attribute,value,tx_id,added,excised_at) VALUES (?,?,?,?,?,?,?)")]
+    (-> (batch-rows!+ db tx-sql   transactions [:tx_id :tx_meta :tx_time])
+        (.then (fn [_] (batch-rows!+ db ent-sql  entities     [:entity_id :entity_type :created_tx :retracted_tx])))
+        (.then (fn [_] (batch-rows!+ db fact-sql facts        [:id :entity_id :attribute :value :tx_id :added :excised_at])))
+        (.then (fn [_] {:ok true})))))

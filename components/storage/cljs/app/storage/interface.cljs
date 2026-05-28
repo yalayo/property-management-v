@@ -70,7 +70,10 @@
            :q             (fn [query]      (q-impl (partial eav/find-by-attr+ db prefix) query))
            :excise!       (fn [eid tx-meta]
                             (open-tx tx-meta
-                                     (fn [tx-id] (eav/excise!+ db prefix eid tx-id))))}]
+                                     (fn [tx-id] (eav/excise!+ db prefix eid tx-id))))
+           :dump-org      (fn [org-id account-eid membership-eid]
+                            (eav/dump-org+ db prefix org-id account-eid membership-eid))
+           :restore-org!  (fn [data] (eav/restore-org!+ db prefix data))}]
     (reset! impl s)
     s))
 
@@ -109,7 +112,11 @@
              :q             (fn [query]      (q-impl (partial mem/find-by-attr+ state) query))
              :excise!       (fn [eid tx-meta]
                               (open-tx tx-meta
-                                       (fn [tx-id] (mem/excise!+ state eid tx-id))))}]
+                                       (fn [tx-id] (mem/excise!+ state eid tx-id))))
+             :dump-org      (fn [_org-id _account-eid _membership-eid]
+                              (js/Promise.resolve {:error :not-supported}))
+             :restore-org!  (fn [_data]
+                              (js/Promise.resolve {:error :not-supported}))}]
       (reset! impl s)
       s)))
 

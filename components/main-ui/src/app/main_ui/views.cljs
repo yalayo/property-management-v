@@ -85,6 +85,8 @@
         can-create?          (or has-active-plan? is-super-admin?)
         admin-users          @(re-frame/subscribe [::subs/admin-users])
         admin-loading?       @(re-frame/subscribe [::subs/admin-loading?])
+        admin-exporting?     @(re-frame/subscribe [::subs/admin-exporting?])
+        admin-importing?     @(re-frame/subscribe [::subs/admin-importing?])
         survey-questions     @(re-frame/subscribe [::subs/survey-questions])
         survey-q-loading?    @(re-frame/subscribe [::subs/survey-questions-loading?])
         is-impersonating?    @(re-frame/subscribe [::subs/is-impersonating?])
@@ -203,16 +205,20 @@
                                                                               (let [d (js->clj data :keywordize-keys true)]
                                                                                 (re-frame/dispatch
                                                                                  [::rent-events/create-rent-payment
-                                                                                  {:apartment-id (:apartmentId d)
-                                                                                   :year         (:year d)
-                                                                                   :month        (:month d)
-                                                                                   :value        (:value d)}])))
+                                                                                  (cond-> {:apartment-id (:apartmentId d)
+                                                                                           :year         (:year d)
+                                                                                           :month        (:month d)
+                                                                                           :value        (:value d)}
+                                                                                    (some? (:kaltmiete d))        (assoc :kaltmiete (:kaltmiete d))
+                                                                                    (some? (:nebenkostenWarm d))  (assoc :nebenkosten-warm (:nebenkostenWarm d)))])))
                                                :on-update-rent-payment      (fn [data]
                                                                               (let [d (js->clj data :keywordize-keys true)]
                                                                                 (re-frame/dispatch
                                                                                  [::rent-events/update-rent-payment
-                                                                                  {:id    (:id d)
-                                                                                   :value (:value d)}])))
+                                                                                  (cond-> {:id    (:id d)
+                                                                                           :value (:value d)}
+                                                                                    (some? (:kaltmiete d))        (assoc :kaltmiete (:kaltmiete d))
+                                                                                    (some? (:nebenkostenWarm d))  (assoc :nebenkosten-warm (:nebenkostenWarm d)))])))
                                                :on-delete-rent-payment      (fn [id]
                                                                               (re-frame/dispatch [::rent-events/delete-rent-payment id]))}])
            :rentSaving         rent-saving?
@@ -367,4 +373,10 @@
                                     :onUpdateQuestion (fn [id text]
                                                         (re-frame/dispatch [::events/admin-update-question id text]))
                                     :onDeleteQuestion (fn [id]
-                                                        (re-frame/dispatch [::events/admin-delete-question id]))}]))}]))}]]))
+                                                        (re-frame/dispatch [::events/admin-delete-question id]))
+                                    :onExportData     (fn [email]
+                                                        (re-frame/dispatch [::events/admin-export-data email]))
+                                    :onImportEdn      (fn [raw-edn]
+                                                        (re-frame/dispatch [::events/admin-import-raw-edn raw-edn]))
+                                    :isExporting      admin-exporting?
+                                    :isImporting      admin-importing?}]))}]))}]]))

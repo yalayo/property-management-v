@@ -47,7 +47,10 @@
       "PowerShell(Get-ChildItem -Recurse \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\\\\projects\\\\frontend\" | Where-Object { $_.Name -match \"landing|i18n|locale|translation\" } | Select-Object FullName | Select-Object -First 30)",
       "Bash(find components/tenant* -type f -name \"*.clj\" -o -name \"*.cljs\")",
       "Bash(find components/cost* -type f -name \"*.clj\" -o -name \"*.cljs\")",
-      "Bash(grep -E \"\\\\.\\(jsx?|tsx?\\)$\")"
+      "Bash(grep -E \"\\\\.\\(jsx?|tsx?\\)$\")",
+      "Bash(Format-Table FullName)",
+      "Bash(xxd)",
+      "Bash(grep -E \"\\\\.\\(cljs|tsx|ts|jsx\\)$\")"
     ]
   }
 }

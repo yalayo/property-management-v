@@ -449,17 +449,19 @@
 (defn- handle-create-rent-payment! [storage data user]
   (with-org user
     (fn [org-id]
-      (let [{:keys [apartment-id year month value date description]} data]
+      (let [{:keys [apartment-id year month value kaltmiete nebenkosten-warm date description]} data]
         (js-await [{:keys [tx-id entity-ids]}
                    ((:transact! storage)
-                    [{:db/type                      "rent-payment"
-                      :rent-payment/organization-id  org-id
-                      :rent-payment/apartment-id     apartment-id
-                      :rent-payment/year             year
-                      :rent-payment/month            month
-                      :rent-payment/value            value
-                      :rent-payment/date             date
-                      :rent-payment/description      description}] nil)]
+                    [(cond-> {:db/type                      "rent-payment"
+                               :rent-payment/organization-id  org-id
+                               :rent-payment/apartment-id     apartment-id
+                               :rent-payment/year             year
+                               :rent-payment/month            month
+                               :rent-payment/value            value
+                               :rent-payment/date             date
+                               :rent-payment/description      description}
+                       (some? kaltmiete)        (assoc :rent-payment/kaltmiete kaltmiete)
+                       (some? nebenkosten-warm) (assoc :rent-payment/nebenkosten-warm nebenkosten-warm))] nil)]
                   {:tx-id tx-id :rent-payment-id (first entity-ids)})))))
 
 (defn- handle-update-rent-payment! [storage data user]
@@ -471,8 +473,10 @@
                     {:error :not-found}
                     (js-await [{:keys [tx-id]}
                                ((:transact! storage)
-                                [{:db/id               eid
-                                  :rent-payment/value  (:value data)}] nil)]
+                                [(cond-> {:db/id              eid
+                                          :rent-payment/value (:value data)}
+                                   (some? (:kaltmiete data))        (assoc :rent-payment/kaltmiete (:kaltmiete data))
+                                   (some? (:nebenkosten-warm data)) (assoc :rent-payment/nebenkosten-warm (:nebenkosten-warm data)))] nil)]
                               {:tx-id tx-id})))))))
 
 (defn- handle-delete-rent-payment! [storage data user]
@@ -735,6 +739,29 @@
                     {:error :not-found}))))))
 
 ;; ---------------------------------------------------------------------------
+;; Admin export / import
+;; ---------------------------------------------------------------------------
+
+(defn- handle-admin-export! [storage data user]
+  (admin-guard user
+    (fn []
+      (let [{:keys [email]} data]
+        (js-await [account-eids ((:find-by-attr storage) :account/email email)]
+                  (if-let [account-eid (first account-eids)]
+                    (js-await [target-membership (fetch-membership storage account-eid)]
+                              (if (nil? target-membership)
+                                {:error :not-found}
+                                (let [org-id         (:membership/organization-id target-membership)
+                                      membership-eid (:db/id target-membership)]
+                                  ((:dump-org storage) org-id account-eid membership-eid))))
+                    {:error :not-found}))))))
+
+(defn- handle-admin-import! [storage data user]
+  (admin-guard user
+    (fn []
+      ((:restore-org! storage) data))))
+
+;; ---------------------------------------------------------------------------
 ;; Dispatcher
 ;; ---------------------------------------------------------------------------
 
@@ -786,6 +813,8 @@
     :admin-update-question           (handle-admin-update-question! storage data user)
     :admin-delete-question           (handle-admin-delete-question! storage data user)
     :admin-impersonate               (handle-admin-impersonate! storage data user env)
+    :admin-export                    (handle-admin-export! storage data user)
+    :admin-import                    (handle-admin-import! storage data user)
     :get-survey-questions            (handle-get-survey-questions! storage)
     :submit-survey                   (handle-submit-survey! storage data)
     {:error :unknown-command}))

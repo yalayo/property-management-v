@@ -224,10 +224,21 @@ export default function ManageApartment({
   const cancelEdit = () => { setEditingTenantId(null); setEditForm({}); };
 
   const saveEdit = (tenantId: string) => {
-    onUpdateTenant?.(tenantId, editForm);
+    const orig = yearTenants.find(t => t.id === tenantId);
+    const changed: TenantUpdateData = {};
+    if ((editForm.firstName ?? "") !== (orig?.["first-name"] ?? orig?.name ?? "")) changed.firstName = editForm.firstName;
+    if ((editForm.lastName  ?? "") !== (orig?.["last-name"]  ?? ""))               changed.lastName  = editForm.lastName;
+    if ((editForm.email     ?? "") !== (orig?.email          ?? ""))               changed.email     = editForm.email;
+    if ((editForm.phone     ?? "") !== (orig?.phone          ?? ""))               changed.phone     = editForm.phone;
+    if ((editForm.startDate ?? "") !== (orig?.["start-date"] ?? ""))               changed.startDate = editForm.startDate;
+    if ((editForm.endDate   ?? "") !== (orig?.["end-date"]   ?? ""))               changed.endDate   = editForm.endDate;
+
+    if (Object.keys(changed).length > 0) {
+      onUpdateTenant?.(tenantId, changed);
+      toast({ title: tCommon("saved") });
+    }
     setEditingTenantId(null);
     setEditForm({});
-    toast({ title: tCommon("saved") });
   };
 
   return (

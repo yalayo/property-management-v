@@ -247,3 +247,63 @@
       :user            {:token      admin-token
                         :info       admin-info
                         :logged-in? true}})))
+
+;; ---------------------------------------------------------------------------
+;; Admin export / import
+;; ---------------------------------------------------------------------------
+
+(re-frame/reg-fx
+ :download-edn-file
+ (fn [{:keys [data filename]}]
+   (let [content (pr-str data)
+         blob    (js/Blob. #js [content] #js {:type "text/plain"})
+         url     (.createObjectURL js/URL blob)
+         a       (.createElement js/document "a")]
+     (set! (.-href a) url)
+     (set! (.-download a) filename)
+     (.appendChild (.-body js/document) a)
+     (.click a)
+     (.removeChild (.-body js/document) a)
+     (.revokeObjectURL js/URL url))))
+
+(re-frame/reg-event-fx
+ ::admin-export-data
+ (fn [{:keys [db]} [_ email]]
+   {:db       (assoc-in db [:admin :exporting?] true)
+    :dispatch [::core-events/command
+               :admin-export
+               {:email email}
+               [::admin-export-success]
+               [::admin-export-error]]}))
+
+(re-frame/reg-event-fx
+ ::admin-export-success
+ (fn [{:keys [db]} [_ response]]
+   {:db                (assoc-in db [:admin :exporting?] false)
+    :download-edn-file {:data     response
+                        :filename (str "export-" (.getTime (js/Date.)) ".edn")}}))
+
+(re-frame/reg-event-db
+ ::admin-export-error
+ (fn [db [_ _error]]
+   (assoc-in db [:admin :exporting?] false)))
+
+(re-frame/reg-event-fx
+ ::admin-import-raw-edn
+ (fn [{:keys [db]} [_ edn-string]]
+   {:db       (assoc-in db [:admin :importing?] true)
+    :dispatch [::core-events/command
+               :admin-import
+               (cljs.reader/read-string edn-string)
+               [::admin-import-success]
+               [::admin-import-error]]}))
+
+(re-frame/reg-event-db
+ ::admin-import-success
+ (fn [db [_ _response]]
+   (assoc-in db [:admin :importing?] false)))
+
+(re-frame/reg-event-db
+ ::admin-import-error
+ (fn [db [_ _error]]
+   (assoc-in db [:admin :importing?] false)))
