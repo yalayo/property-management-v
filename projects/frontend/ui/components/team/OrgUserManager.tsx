@@ -177,28 +177,30 @@ export default function OrgUserManager({
               const isSelf    = u.email === currentUserEmail;
               const sections  = parseSections(u.sections);
               return (
-                <div key={String(u.id)} className="flex items-start justify-between gap-3 rounded-lg border bg-card px-3 py-2.5">
+                <div key={String(u.id)} className="flex items-center justify-between gap-3 rounded-lg border bg-card px-3 py-3">
                   <div className="flex items-start gap-2.5 min-w-0 flex-1">
                     {isAdmin
                       ? <ShieldCheck className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                       : <User className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />}
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate leading-tight">
-                        {u.name || u.email}
-                        {isSelf && <span className="ml-1.5 text-xs text-muted-foreground">({t("you")})</span>}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">{u.email}</p>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        <Badge variant={isAdmin ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate leading-tight">
+                          {u.name || u.email}
+                        </p>
+                        {isSelf && <span className="text-xs text-muted-foreground shrink-0">({t("you")})</span>}
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">{u.email}</p>
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        <Badge variant={isAdmin ? "default" : "secondary"} className="text-[10px] px-2 py-0.5">
                           {t(`roles.${u.role}`)}
                         </Badge>
                         {isAdmin ? (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">{t("fullAccess")}</Badge>
+                          <Badge variant="outline" className="text-[10px] px-2 py-0.5">{t("fullAccess")}</Badge>
                         ) : sections.size === 0 ? (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">{t("noSections")}</Badge>
+                          <Badge variant="outline" className="text-[10px] px-2 py-0.5 text-muted-foreground">{t("noSections")}</Badge>
                         ) : (
                           Array.from(sections).map(sec => (
-                            <Badge key={sec} variant="outline" className="text-[10px] px-1.5 py-0">
+                            <Badge key={sec} variant="outline" className="text-[10px] px-2 py-0.5">
                               {t(`sections.${sec}`)}
                             </Badge>
                           ))
