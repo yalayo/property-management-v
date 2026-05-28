@@ -303,15 +303,7 @@ export default function ApartmentView({
   const propertyId  = apartment["property-id"] ?? (apartment as any).property_id;
   const property    = properties.find((p: any) => p.id === propertyId);
 
-  const today        = new Date().toISOString().split("T")[0];
   const aptTenants   = tenants.filter(tn => String(tn["apartment-id"]) === String(apartment.id));
-  const currentTenant= aptTenants.find(tn =>
-    (!tn["end-date"] || tn["end-date"] >= today) &&
-    (!tn["start-date"] || tn["start-date"] <= today)
-  ) ?? null;
-  const currentKalt  = parseFloat(String(currentTenant?.kaltmiete ?? 0).replace(",", ".")) || 0;
-  const currentNk    = parseFloat(String(currentTenant?.["nebenkosten-warm"] ?? 0).replace(",", ".")) || 0;
-  const monthlyRent  = currentKalt + currentNk;
 
   // Year-filtered tenants (with optimistic local assignment for mgmt tab)
   const aptTenantsWithLocal =
@@ -861,63 +853,23 @@ export default function ApartmentView({
       {/* ── Tenants tab ── */}
       {activeTab === "tenants" && (<div className="space-y-4">
 
-          {/* Current tenant summary */}
-          {currentTenant ? (
-            <div className="rounded-xl border bg-card p-4">
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-0.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{tT("fields.name")}</p>
-                  <p className="font-semibold text-sm">{tenantDisplayName(currentTenant)}</p>
-                  {currentTenant.email && <p className="text-sm text-muted-foreground">{currentTenant.email}</p>}
-                  {currentTenant.phone && <p className="text-sm text-muted-foreground">{currentTenant.phone}</p>}
-                </div>
-                <div className="space-y-0.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{t("tabs.rent")}</p>
-                  {currentKalt > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Kaltmiete</span>
-                      <span className="tabular-nums">€ {formatEur(currentKalt)}</span>
-                    </div>
-                  )}
-                  {currentNk > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Nebenkosten</span>
-                      <span className="tabular-nums">€ {formatEur(currentNk)}</span>
-                    </div>
-                  )}
-                  {monthlyRent > 0 && (
-                    <div className="flex justify-between text-sm font-semibold border-t pt-1 mt-1">
-                      <span>{t("totalPerMonth", { defaultValue: "Gesamt / Mo." })}</span>
-                      <span className="tabular-nums">€ {formatEur(monthlyRent)}</span>
-                    </div>
-                  )}
-                </div>
-                {currentTenant["start-date"] && (
-                  <div className="space-y-0.5">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{t("leasePeriod", { defaultValue: "Mietzeit" })}</p>
-                    <p className="text-sm">{currentTenant["start-date"]}</p>
-                    <p className="text-sm text-muted-foreground">
-                      → {currentTenant["end-date"] || t("openEnded", { defaultValue: "unbefristet" })}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : !isOccupied ? (
-            <div className="rounded-xl border border-dashed p-4 flex items-center gap-3 text-sm text-muted-foreground">
-              <DoorOpen className="h-4 w-4 text-green-500 shrink-0" />
-              {t("vacantMessage", { defaultValue: "Vacant — no tenant assigned" })}
-            </div>
-          ) : null}
-
           {yearTenants.length === 0 ? (
-            <div className="rounded-xl border p-6 text-center text-sm text-muted-foreground">
-              {t("noTenantsInYear", { year })}
-            </div>
+            <>
+              {!isOccupied && (
+                <div className="rounded-xl border border-dashed p-4 flex items-center gap-3 text-sm text-muted-foreground">
+                  <DoorOpen className="h-4 w-4 text-green-500 shrink-0" />
+                  {t("vacantMessage")}
+                </div>
+              )}
+              <div className="rounded-xl border p-6 text-center text-sm text-muted-foreground">
+                {t("noTenantsInYear", { year })}
+              </div>
+            </>
           ) : (
-            <div className="rounded-xl border overflow-hidden">
+            <>
+              {/* Inner tenant selector */}
               {yearTenants.length > 1 && (
-                <div className="flex border-b overflow-x-auto bg-muted/30">
+                <div className="flex border rounded-xl overflow-x-auto bg-muted/30">
                   {yearTenants.map((tn) => (
                     <button
                       key={tn.id}
@@ -929,103 +881,115 @@ export default function ApartmentView({
                       }`}
                       onClick={() => { setMgmtTenantTab(tn.id); setEditingTenantId(null); setEditForm({}); }}
                     >
-                      <span className="truncate block">{tenantDisplayName(tn)}</span>
+                      <span className="truncate block font-semibold">{tenantDisplayName(tn)}</span>
+                      <span className="block text-xs font-normal text-muted-foreground truncate">
+                        {tn["start-date"] ?? ""}
+                        {" – "}
+                        {tn["end-date"] || t("openEnded")}
+                      </span>
                     </button>
                   ))}
                 </div>
               )}
 
-              {mgmtTenant && (
-                <div className="p-4 space-y-4">
-                  {editingTenantId === mgmtTenant.id ? (
-                    <div className="space-y-3">
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="space-y-1">
-                          <Label className="text-xs">{tT("fields.firstName")}</Label>
-                          <Input value={editForm.firstName ?? ""} onChange={e => setEditForm(f => ({ ...f, firstName: e.target.value }))} disabled={tenantsSaving} />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">{tT("fields.lastName")}</Label>
-                          <Input value={editForm.lastName ?? ""} onChange={e => setEditForm(f => ({ ...f, lastName: e.target.value }))} disabled={tenantsSaving} />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">{tT("fields.email")}</Label>
-                          <Input type="email" value={editForm.email ?? ""} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} disabled={tenantsSaving} />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">{tT("fields.phone")}</Label>
-                          <Input type="tel" value={editForm.phone ?? ""} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} disabled={tenantsSaving} />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">{tT("fields.startDate")}</Label>
-                          <Input type="date" value={editForm.startDate ?? ""} onChange={e => setEditForm(f => ({ ...f, startDate: e.target.value }))} disabled={tenantsSaving} />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">{tT("fields.endDate")}</Label>
-                          <Input type="date" value={editForm.endDate ?? ""} onChange={e => setEditForm(f => ({ ...f, endDate: e.target.value }))} disabled={tenantsSaving} />
-                        </div>
+              {/* Summary card for selected tenant */}
+              {mgmtTenant && (() => {
+                const k  = parseFloat(String(mgmtTenant.kaltmiete ?? 0).replace(",", ".")) || 0;
+                const nk = parseFloat(String(mgmtTenant["nebenkosten-warm"] ?? 0).replace(",", ".")) || 0;
+                const total = k + nk;
+                return (
+                  <div className="rounded-xl border bg-card p-4">
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <div className="space-y-0.5">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{tT("fields.name")}</p>
+                        <p className="font-semibold text-sm">{tenantDisplayName(mgmtTenant)}</p>
+                        {mgmtTenant.email && <p className="text-sm text-muted-foreground">{mgmtTenant.email}</p>}
+                        {mgmtTenant.phone && <p className="text-sm text-muted-foreground">{mgmtTenant.phone}</p>}
                       </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={() => saveEdit(mgmtTenant.id)} disabled={tenantsSaving || isReadOnly}>
-                          {tenantsSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 mr-1" />}
-                          {tCommon("save")}
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={cancelEdit} disabled={tenantsSaving}>
-                          <X className="h-3.5 w-3.5 mr-1" />
-                          {tCommon("cancel")}
-                        </Button>
+                      <div className="space-y-0.5">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{t("tabs.rent")}</p>
+                        {k > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Kaltmiete</span>
+                            <span className="tabular-nums">€ {formatEur(k)}</span>
+                          </div>
+                        )}
+                        {nk > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Nebenkosten</span>
+                            <span className="tabular-nums">€ {formatEur(nk)}</span>
+                          </div>
+                        )}
+                        {total > 0 && (
+                          <div className="flex justify-between text-sm font-semibold border-t pt-1 mt-1">
+                            <span>{t("totalPerMonth")}</span>
+                            <span className="tabular-nums">€ {formatEur(total)}</span>
+                          </div>
+                        )}
                       </div>
+                      {mgmtTenant["start-date"] && (
+                        <div className="space-y-0.5">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{t("leasePeriod")}</p>
+                          <p className="text-sm">{mgmtTenant["start-date"]}</p>
+                          <p className="text-sm text-muted-foreground">
+                            → {mgmtTenant["end-date"] || t("openEnded")}
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="grid gap-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">{tT("fields.name")}</span>
-                          <span className="font-medium">{tenantDisplayName(mgmtTenant)}</span>
+                  </div>
+                );
+              })()}
+
+              {/* Edit form / onboarding */}
+              {mgmtTenant && (
+                <div className="rounded-xl border overflow-hidden">
+                  <div className="p-4 space-y-4">
+                    {editingTenantId === mgmtTenant.id ? (
+                      <div className="space-y-3">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">{tT("fields.firstName")}</Label>
+                            <Input value={editForm.firstName ?? ""} onChange={e => setEditForm(f => ({ ...f, firstName: e.target.value }))} disabled={tenantsSaving} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">{tT("fields.lastName")}</Label>
+                            <Input value={editForm.lastName ?? ""} onChange={e => setEditForm(f => ({ ...f, lastName: e.target.value }))} disabled={tenantsSaving} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">{tT("fields.email")}</Label>
+                            <Input type="email" value={editForm.email ?? ""} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} disabled={tenantsSaving} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">{tT("fields.phone")}</Label>
+                            <Input type="tel" value={editForm.phone ?? ""} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} disabled={tenantsSaving} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">{tT("fields.startDate")}</Label>
+                            <Input type="date" value={editForm.startDate ?? ""} onChange={e => setEditForm(f => ({ ...f, startDate: e.target.value }))} disabled={tenantsSaving} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">{tT("fields.endDate")}</Label>
+                            <Input type="date" value={editForm.endDate ?? ""} onChange={e => setEditForm(f => ({ ...f, endDate: e.target.value }))} disabled={tenantsSaving} />
+                          </div>
                         </div>
-                        {mgmtTenant.email && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">{tT("fields.email")}</span>
-                            <span>{mgmtTenant.email}</span>
-                          </div>
-                        )}
-                        {mgmtTenant.phone && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">{tT("fields.phone")}</span>
-                            <span>{mgmtTenant.phone}</span>
-                          </div>
-                        )}
-                        {mgmtTenant["start-date"] && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">{tT("fields.startDate")}</span>
-                            <span>{mgmtTenant["start-date"]}</span>
-                          </div>
-                        )}
-                        {mgmtTenant["end-date"] && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">{tT("fields.endDate")}</span>
-                            <span>{mgmtTenant["end-date"]}</span>
-                          </div>
-                        )}
-                        {(mgmtTenant.kaltmiete || mgmtTenant["nebenkosten-warm"]) && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">{tT("rent.title")}</span>
-                            <span className="font-medium">
-                              {(() => {
-                                const k = parseFloat(String(mgmtTenant.kaltmiete ?? 0).replace(",", ".")) || 0;
-                                const n = parseFloat(String(mgmtTenant["nebenkosten-warm"] ?? 0).replace(",", ".")) || 0;
-                                return k + n > 0 ? `€ ${formatEur(k + n)} / Mo.` : "—";
-                              })()}
-                            </span>
-                          </div>
-                        )}
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={() => saveEdit(mgmtTenant.id)} disabled={tenantsSaving || isReadOnly}>
+                            {tenantsSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 mr-1" />}
+                            {tCommon("save")}
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={cancelEdit} disabled={tenantsSaving}>
+                            <X className="h-3.5 w-3.5 mr-1" />
+                            {tCommon("cancel")}
+                          </Button>
+                        </div>
                       </div>
+                    ) : (
                       <Button variant="outline" size="sm" disabled={isReadOnly} onClick={() => startEdit(mgmtTenant)}>
                         <Pencil className="h-3.5 w-3.5 mr-1.5" />
                         {tCommon("edit")}
                       </Button>
-                    </div>
-                  )}
+                    )}
 
                   {/* Onboarding — only for active tenant */}
                   {isActiveTenant(mgmtTenant) && editingTenantId !== mgmtTenant.id && (
@@ -1081,8 +1045,9 @@ export default function ApartmentView({
                     </div>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+          </>
           )}
 
           {/* Add tenant */}
