@@ -24,6 +24,7 @@
    :apartment-cost        :get-apartment-costs
    :rent-payment          :get-rent-payments
    :expense-type          :get-expense-types
+   :org-users             :list-org-users
    :admin-users           :admin-list-users
    :survey-questions      :get-survey-questions
    :property-tax-config   :get-property-tax-configs

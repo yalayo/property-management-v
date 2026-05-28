@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect } from "react";
-import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2, Landmark, Receipt, Tags, Download, Lock, ArrowUpRight, Shield, Calculator } from "lucide-react";
+import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2, Landmark, Receipt, Tags, Download, Lock, ArrowUpRight, Shield, Calculator, UserCog } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../components/ui/sheet";
@@ -14,13 +14,18 @@ import DashboardSummary from "../components/dashboard/DashboardSummary";
 import LanguageSwitcher from "../components/common/LanguageSwitcher";
 import BankStatement from "../components/bank/BankStatement";
 import NebenkostenAbrechnung from "../components/billing/NebenkostenAbrechnung";
+import PendingTasksWidget from "../components/dashboard/PendingTasksWidget";
 
 const PENDING_MIGRATION_KEY = "pm-pending-migration";
 
-function SidebarContent({ activeTab, onSelect, onLogout, isSuperAdmin = false }) {
+function SidebarContent({ activeTab, onSelect, onLogout, isSuperAdmin = false, userRole = null, userSections = null }) {
   const { t } = useTranslation("nav");
 
-  const NAV_ITEMS = [
+  const allowedSections: Set<string> | null = userSections
+    ? new Set(userSections.split(",").map((s: string) => s.trim()).filter(Boolean))
+    : null;
+
+  const ALL_NAV_ITEMS = [
     { id: "overview",    label: t("overview"),    icon: Home },
     { id: "properties",  label: t("properties"),  icon: Building },
     { id: "apartments",  label: t("apartments"),  icon: Building2 },
@@ -31,8 +36,13 @@ function SidebarContent({ activeTab, onSelect, onLogout, isSuperAdmin = false })
     { id: "documents",   label: t("documents"),   icon: FileText },
     { id: "analytics",   label: t("analytics"),   icon: BarChart2 },
     { id: "tax",         label: t("tax"),         icon: Calculator },
+    ...(userRole === "admin" ? [{ id: "team", label: t("team"), icon: UserCog }] : []),
     ...(isSuperAdmin ? [{ id: "admin", label: "Admin", icon: Shield }] : []),
   ];
+
+  const NAV_ITEMS = allowedSections
+    ? ALL_NAV_ITEMS.filter(item => allowedSections.has(item.id) || item.id === "team" || item.id === "admin")
+    : ALL_NAV_ITEMS;
 
   return (
     <div className="flex flex-col h-full bg-white">
@@ -75,6 +85,7 @@ export default function Dashboard(props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<any | null>(null);
   const [pendingMigration, setPendingMigration] = useState<any | null>(null);
+  const [navContext, setNavContext] = useState<{ propertyId?: string; aptId?: string; nonce: number } | null>(null);
 
   useEffect(() => {
     if (props.onLoadData) props.onLoadData();
@@ -109,14 +120,20 @@ export default function Dashboard(props) {
     documents:  t("documents"),
     analytics:  t("analytics"),
     tax:        t("tax"),
+    team:       t("team"),
     admin:      "Admin",
   };
 
-  const handleSelect = (id: string) => {
+  const handleSelect = (id: string, context?: { propertyId?: string; aptId?: string; aptTab?: string }) => {
     setActiveTab(id);
+    setNavContext(context ? { ...context, nonce: Date.now() } : null);
     props.onChangeTab?.(id);
     setSidebarOpen(false);
     if (id !== "properties") setSelectedProperty(null);
+    else if (context?.propertyId) setSelectedProperty(null); // ensure list view shown so edit dialog can open
+    if (id === "apartments" && context?.aptId) {
+      props.onNavigateToApartment?.(context.aptId, context.aptTab ?? "rent");
+    }
   };
 
   const handleViewApartments = (property: any) => {
@@ -175,6 +192,8 @@ export default function Dashboard(props) {
           onSelect={handleSelect}
           onLogout={() => props.onLogout()}
           isSuperAdmin={props.isSuperAdmin}
+          userRole={props.userRole}
+          userSections={props.userSections}
         />
       </aside>
 
@@ -189,6 +208,8 @@ export default function Dashboard(props) {
             onSelect={handleSelect}
             onLogout={() => props.onLogout()}
             isSuperAdmin={props.isSuperAdmin}
+            userRole={props.userRole}
+            userSections={props.userSections}
           />
         </SheetContent>
       </Sheet>
@@ -252,7 +273,16 @@ export default function Dashboard(props) {
                 latePayments={props.latePayments}
                 paymentsLoading={props.paymentsLoading}
               />
-              <TenantPayments />
+              <PendingTasksWidget
+                properties={props.properties}
+                apartments={props.apartments}
+                tenants={props.tenants}
+                allAptCosts={props.allAptCosts}
+                allRentPayments={props.allRentPayments}
+                taxConfigs={props.taxConfigs}
+                loans={props.taxLoans}
+                onNavigate={(tab, ctx) => handleSelect(tab, ctx)}
+              />
             </div>
           )}
 
@@ -282,6 +312,7 @@ export default function Dashboard(props) {
                 onDeleteProperty={props.onDeleteProperty}
                 onViewApartments={handleViewApartments}
                 onSelectProperty={setSelectedProperty}
+                navContext={navContext}
               />
             )
           )}
@@ -314,6 +345,7 @@ export default function Dashboard(props) {
               onLoadAptCosts={props.onLoadAptCosts}
               onLoadRentPayments={props.onLoadRentPayments}
               onEditProperty={props.onEditProperty}
+              navContext={navContext}
             />
           )}
           {activeTab === "expenses" && props.expensesView}
@@ -329,6 +361,7 @@ export default function Dashboard(props) {
             />
           )}
           {activeTab === "tax" && props.taxView}
+          {activeTab === "team" && props.userRole === "admin" && props.teamView}
           {activeTab === "admin" && props.isSuperAdmin && props.adminPanel}
         </main>
       </div>

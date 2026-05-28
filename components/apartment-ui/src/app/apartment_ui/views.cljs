@@ -30,6 +30,7 @@
           onboardings-by-apt    @(re-frame/subscribe [::subs/onboardings-by-apartment])
           add-dialog-open? @(re-frame/subscribe [::subs/add-dialog-open?])
           selected-id      @(re-frame/subscribe [::subs/selected-apartment-id])
+          initial-tab      @(re-frame/subscribe [::subs/initial-tab])
           new-code         @(re-frame/subscribe [::subs/new-apartment-code])
           assign-apt-id    @(re-frame/subscribe [::subs/assign-apt-id])
           assign-error     @(re-frame/subscribe [::subs/assign-error])
@@ -40,6 +41,7 @@
         selected-id
         [apartment-view
          {:apartment               (clj->js selected-apt)
+          :initialTab              initial-tab
           :isReadOnly              is-read-only?
           :createTenantError       (when assign-error (name assign-error))
           :tenants                 (clj->js (or tenants []))

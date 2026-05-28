@@ -103,6 +103,7 @@ type Props = {
   onUpdateTenant?: (tenantId: string, data: TenantUpdateData) => void;
   onCreateTenant?: (apartmentId: number, data: { firstName: string; lastName?: string; email?: string; phone?: string; startDate: string; endDate?: string }) => void;
   createTenantError?: string;
+  initialTab?: "tenants" | "rent" | "costs" | "settings";
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -214,6 +215,7 @@ export default function ApartmentView({
   onUpdateTenant,
   onCreateTenant,
   createTenantError,
+  initialTab,
 }: Props) {
   const { t }         = useTranslation("apartments");
   const { t: tCosts } = useTranslation("costs");
@@ -232,6 +234,10 @@ export default function ApartmentView({
   const [year, setYear] = useState(new Date().getFullYear());
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [activeTab, setActiveTab] = useState<"tenants" | "rent" | "costs" | "settings">("tenants");
+
+  useEffect(() => {
+    if (initialTab) setActiveTab(initialTab);
+  }, [initialTab]);
 
   // ── Tenants-tab state ────────────────────────────────────────────────────
   const [mgmtTenantTab,    setMgmtTenantTab]    = useState<string | null>(null);

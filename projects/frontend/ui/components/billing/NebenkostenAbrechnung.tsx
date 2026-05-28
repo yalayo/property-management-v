@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, FileText, Pencil, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "../ui/button";
@@ -31,6 +31,7 @@ type Props = {
   onLoadAptCosts?: (aptId: string) => void;
   onLoadRentPayments?: (aptId: string) => void;
   onEditProperty?: (id: string, data: any) => void;
+  navContext?: { propertyId?: string; aptId?: string; nonce?: number } | null;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -112,6 +113,7 @@ export default function NebenkostenAbrechnung({
   onLoadAptCosts,
   onLoadRentPayments,
   onEditProperty,
+  navContext,
 }: Props) {
   const { t, i18n } = useTranslation("abrechnung");
 
@@ -159,11 +161,29 @@ export default function NebenkostenAbrechnung({
     return [...keys];
   }, [propertyCosts, year]);
 
+  // Holds an aptId to pre-select after the property-change effect resets the apt state
+  const pendingAptId = useRef<string | null>(null);
+
+  // Navigate directly to a property+apartment when triggered from the task widget
+  useEffect(() => {
+    if (!navContext?.nonce) return;
+    if (navContext.propertyId) {
+      pendingAptId.current = navContext.aptId ?? null;
+      setSelectedPropertyId(navContext.propertyId);
+      setSelectedTenantId(null);
+    }
+  }, [navContext?.nonce]);
+
   useEffect(() => {
     if (selectedPropertyId) {
       onLoadCosts?.(selectedPropertyId);
     }
-    setSelectedAptId(null);
+    if (pendingAptId.current) {
+      setSelectedAptId(pendingAptId.current);
+      pendingAptId.current = null;
+    } else {
+      setSelectedAptId(null);
+    }
     setSelectedTenantId(null);
   }, [selectedPropertyId, year]);
 

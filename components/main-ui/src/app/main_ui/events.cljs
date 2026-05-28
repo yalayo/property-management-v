@@ -307,3 +307,82 @@
  ::admin-import-error
  (fn [db [_ _error]]
    (assoc-in db [:admin :importing?] false)))
+
+;; ---------------------------------------------------------------------------
+;; Org user management
+;; ---------------------------------------------------------------------------
+
+(re-frame/reg-event-fx
+ ::load-org-users
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:team :loading?] true)
+    :dispatch [::core-events/query
+               {:entity :org-users}
+               [::org-users-loaded]
+               [::org-users-error]]}))
+
+(re-frame/reg-event-db
+ ::org-users-loaded
+ [local-storage-interceptor]
+ (fn [db [_ response]]
+   (-> db
+       (assoc-in [:team :users] (:users response))
+       (assoc-in [:team :loading?] false))))
+
+(re-frame/reg-event-db
+ ::org-users-error
+ (fn [db [_ _error]]
+   (assoc-in db [:team :loading?] false)))
+
+(re-frame/reg-event-fx
+ ::create-org-user
+ (fn [{:keys [db]} [_ data]]
+   {:db       (assoc-in db [:team :saving?] true)
+    :dispatch [::core-events/command
+               :create-org-user
+               data
+               [::org-user-created]
+               [::org-user-save-error]]}))
+
+(re-frame/reg-event-fx
+ ::org-user-created
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:team :saving?] false)
+    :dispatch [::load-org-users]}))
+
+(re-frame/reg-event-fx
+ ::update-org-user-sections
+ (fn [{:keys [db]} [_ membership-id sections]]
+   {:db       (assoc-in db [:team :saving?] true)
+    :dispatch [::core-events/command
+               :update-org-user-sections
+               {:membership-id membership-id :sections sections}
+               [::org-user-sections-updated]
+               [::org-user-save-error]]}))
+
+(re-frame/reg-event-fx
+ ::org-user-sections-updated
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:team :saving?] false)
+    :dispatch [::load-org-users]}))
+
+(re-frame/reg-event-fx
+ ::delete-org-user
+ (fn [{:keys [db]} [_ account-id membership-id]]
+   {:db       (assoc-in db [:team :saving?] true)
+    :dispatch [::core-events/command
+               :delete-org-user
+               {:account-id account-id :membership-id membership-id}
+               [::org-user-deleted]
+               [::org-user-save-error]]}))
+
+(re-frame/reg-event-fx
+ ::org-user-deleted
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:team :saving?] false)
+    :dispatch [::load-org-users]}))
+
+(re-frame/reg-event-db
+ ::org-user-save-error
+ (fn [db [_ _error]]
+   (assoc-in db [:team :saving?] false)))

@@ -55,6 +55,7 @@ type Props = {
   onViewApartments?: (property: any) => void;
   onSelectProperty?: (property: any) => void;
   onGoBack?: () => void;
+  navContext?: { propertyId?: string; nonce?: number } | null;
 };
 
 function SectionHeading({ label }: { label: string }) {
@@ -77,7 +78,7 @@ function PropertyForm({ form, onSubmit, isSaving, onCancel, submitLabel }: {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
         <FormField control={form.control} name="name" render={({ field }) => (
           <FormItem>
             <FormLabel>{t("fields.name")}</FormLabel>
@@ -208,7 +209,7 @@ function PropertyForm({ form, onSubmit, isSaving, onCancel, submitLabel }: {
           </FormItem>
         )} />
 
-        <div className="flex justify-end space-x-4 pt-4 sticky bottom-0 bg-background pb-1">
+        <div className="flex justify-end space-x-4 pt-4">
           <Button type="button" variant="outline" onClick={onCancel}>{tCommon("cancel")}</Button>
           <Button type="submit" disabled={isSaving}>
             {isSaving ? tCommon("saving") : submitLabel}
@@ -229,7 +230,7 @@ const emptyDefaults: PropertyFormValues = {
 function parseNum(val?: string) { return val ? parseFloat(val) : undefined; }
 function parseInt10(val?: string) { return val ? parseInt(val, 10) : undefined; }
 
-export default function PropertyList({ properties = [], apartments = [], isSaving = false, isReadOnly = false, onAddProperty, onEditProperty, onDeleteProperty, onViewApartments, onSelectProperty, onGoBack }: Props) {
+export default function PropertyList({ properties = [], apartments = [], isSaving = false, isReadOnly = false, onAddProperty, onEditProperty, onDeleteProperty, onViewApartments, onSelectProperty, onGoBack, navContext }: Props) {
   const { t } = useTranslation("properties");
   const { t: tCommon } = useTranslation("common");
   const { toast } = useToast();
@@ -240,6 +241,13 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
   const [filterText, setFilterText] = useState("");
 
   useEffect(() => { setPage(1); }, [properties, filterText]);
+
+  // Auto-open edit dialog when navigated from the task widget
+  useEffect(() => {
+    if (!navContext?.nonce || !navContext.propertyId) return;
+    const prop = properties.find((p: any) => String(p.id) === navContext.propertyId);
+    if (prop) handleOpenEdit(prop);
+  }, [navContext?.nonce]);
 
   const filteredProperties = filterText
     ? properties.filter((p: any) => {
@@ -349,7 +357,7 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
           <DialogTrigger asChild>
             <Button size="sm" disabled={isReadOnly}><Plus className="h-4 w-4 mr-2" />{t("addProperty")}</Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[540px]">
+          <DialogContent className="sm:max-w-[540px] max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>{t("addNew")}</DialogTitle></DialogHeader>
             <PropertyForm form={addForm} onSubmit={handleAdd} isSaving={isSaving} onCancel={() => setIsAddOpen(false)} submitLabel={t("saveProperty")} />
           </DialogContent>
@@ -470,7 +478,7 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
 
       {/* Edit dialog */}
       <Dialog open={!!editingProperty} onOpenChange={(open) => { if (!open) setEditingProperty(null); }}>
-        <DialogContent className="sm:max-w-[540px]">
+        <DialogContent className="sm:max-w-[540px] max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{t("editProperty")}</DialogTitle></DialogHeader>
           <PropertyForm form={editForm} onSubmit={handleEdit} isSaving={isSaving} onCancel={() => setEditingProperty(null)} submitLabel={t("saveChanges")} />
         </DialogContent>

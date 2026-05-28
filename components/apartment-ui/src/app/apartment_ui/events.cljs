@@ -117,9 +117,10 @@
 (re-frame/reg-event-fx
  ::select-apartment
  [local-storage-interceptor]
- (fn [{:keys [db]} [_ id]]
+ (fn [{:keys [db]} [_ id initial-tab]]
    {:db       (-> db
                   (assoc-in [:apartments :selected-id] id)
+                  (assoc-in [:apartments :initial-tab] initial-tab)
                   (assoc-in [:apartments :onboarding-status] nil))
     :dispatch [::load-onboarding id]}))
 

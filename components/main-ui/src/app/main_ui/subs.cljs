@@ -75,3 +75,28 @@
  ::admin-importing?
  (fn [db _]
    (get-in db [:admin :importing?] false)))
+
+(re-frame/reg-sub
+ ::user-role
+ (fn [db _]
+   (get-in db [:user :info :role])))
+
+(re-frame/reg-sub
+ ::user-sections
+ (fn [db _]
+   (get-in db [:user :info :sections])))
+
+(re-frame/reg-sub
+ ::org-users
+ (fn [db _]
+   (get-in db [:team :users] [])))
+
+(re-frame/reg-sub
+ ::org-users-loading?
+ (fn [db _]
+   (get-in db [:team :loading?] false)))
+
+(re-frame/reg-sub
+ ::org-users-saving?
+ (fn [db _]
+   (get-in db [:team :saving?] false)))

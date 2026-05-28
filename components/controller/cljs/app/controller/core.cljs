@@ -1,6 +1,7 @@
 (ns app.controller.core
   (:require ["jsonwebtoken" :as jwt]
-            [app.worker.async :refer [js-await]]))
+            [app.worker.async :refer [js-await]]
+            [clojure.string :as str]))
 
 ;; ---------------------------------------------------------------------------
 ;; Shared helpers
@@ -83,6 +84,7 @@
                 (js-await [membership (fetch-membership storage (get-in result [:user :id]))]
                           (let [org-id        (:membership/organization-id membership)
                                 role          (:membership/role membership)
+                                sections      (:membership/sections membership)
                                 email         (get-in result [:user :email])
                                 super-email   (aget env "SUPER_ADMIN_EMAIL")
                                 superadmin?   (and (some? super-email) (= email super-email))
@@ -91,13 +93,15 @@
                                                            :org-id  org-id
                                                            :role    role
                                                            :exp     (+ (js/Math.floor (/ (.now js/Date) 1000)) 86400)}
+                                                sections    (doto (aset "sections" sections))
                                                 superadmin? (doto (aset "superadmin" true)))
                                 token         (jwt/sign claims (aget env "JWT_SECRET"))]
                             {:token token
                              :user  (cond-> (assoc (:user result)
-                                                   :org-id org-id
-                                                   :role   role
-                                                   :plan   (:account/plan db-user))
+                                                   :org-id   org-id
+                                                   :role     role
+                                                   :sections sections
+                                                   :plan     (:account/plan db-user))
                                       superadmin? (assoc :superadmin true))}))
                 result))))
 
@@ -375,7 +379,7 @@
                                                 apt-tenants)
                                         {:error :date-overlap}
                                         (do-transact!)))
-                            (do-transact!))))))))))
+                            (do-transact!)))))))))))
 
 (defn- handle-update-tenant! [core storage data user]
   (with-org user
@@ -780,6 +784,86 @@
       :else             (and (<= new-start existing-end) (<= eff-es new-end)))))
 
 ;; ---------------------------------------------------------------------------
+;; Org user management handlers
+;; ---------------------------------------------------------------------------
+
+(defn- org-admin-guard
+  "Guards a handler that requires the authenticated user to be an org admin (role=admin)."
+  [user f]
+  (if (= "admin" (:role user))
+    (with-org user f)
+    {:error :forbidden}))
+
+(defn- handle-list-org-users! [storage user]
+  (with-org user
+    (fn [org-id]
+      (js-await [membership-eids ((:find-by-attr storage) :membership/organization-id org-id)
+                 memberships     (pull-many+ storage membership-eids '[*])]
+                (if (empty? memberships)
+                  {:users []}
+                  (let [account-eids (mapv :membership/account-id memberships)]
+                    (js-await [accounts (pull-many+ storage account-eids '[*])]
+                              (let [accounts-by-id (into {} (map (fn [a] [(:db/id a) a]) accounts))]
+                                {:users (mapv (fn [m]
+                                               (let [a (get accounts-by-id (:membership/account-id m))]
+                                                 {:id            (:membership/account-id m)
+                                                  :membership-id (:db/id m)
+                                                  :email         (:account/email a)
+                                                  :name          (:account/name a)
+                                                  :role          (:membership/role m)
+                                                  :sections      (:membership/sections m)}))
+                                             memberships)}))))))))
+
+(defn- handle-create-org-user! [storage data user env]
+  (org-admin-guard user
+    (fn [org-id]
+      (let [{:keys [email name password sections]} data]
+        (js-await [existing (fetch-account storage email)]
+                  (if existing
+                    {:error :email-taken}
+                    (js-await [hashed                    (hash-password password (aget env "JWT_SECRET"))
+                               {account-eids :entity-ids} ((:transact! storage)
+                                                             [{:db/type          "account"
+                                                               :account/email    email
+                                                               :account/name     name
+                                                               :account/password hashed
+                                                               :account/verified true
+                                                               :account/plan     nil}] nil)
+                               _                          ((:transact! storage)
+                                                           [(cond-> {:db/type                    "membership"
+                                                                     :membership/account-id      (first account-eids)
+                                                                     :membership/organization-id org-id
+                                                                     :membership/role            "member"}
+                                                              (seq sections) (assoc :membership/sections (str/join "," sections)))] nil)]
+                             {:ok true :account-id (first account-eids)})))))))
+
+(defn- handle-update-org-user-sections! [storage data user]
+  (org-admin-guard user
+    (fn [org-id]
+      (let [{:keys [membership-id sections]} data]
+        (js-await [membership ((:pull storage) membership-id '[*])]
+                  (if (not= org-id (:membership/organization-id membership))
+                    {:error :forbidden}
+                    (js-await [_ ((:transact! storage)
+                                  [{:db/id               membership-id
+                                    :membership/sections (str/join "," sections)}] nil)]
+                              {:ok true})))))))
+
+(defn- handle-delete-org-user! [storage data user]
+  (org-admin-guard user
+    (fn [org-id]
+      (let [{:keys [account-id membership-id]} data]
+        (if (= account-id (:user-id user))
+          {:error :cannot-delete-self}
+          (js-await [membership ((:pull storage) membership-id '[*])]
+                    (if (not= org-id (:membership/organization-id membership))
+                      {:error :forbidden}
+                      (js-await [_ ((:transact! storage)
+                                    [[:db/retractEntity account-id]
+                                     [:db/retractEntity membership-id]] nil)]
+                                {:ok true}))))))))
+
+;; ---------------------------------------------------------------------------
 ;; Admin handlers
 ;; ---------------------------------------------------------------------------
 
@@ -936,6 +1020,10 @@
     :get-all-apartment-costs         (handle-get-all-apartment-costs! storage user)
     :get-all-rent-payments           (handle-get-all-rent-payments! storage user)
     :activate-plan                   (handle-activate-plan! storage data user)
+    :list-org-users                  (handle-list-org-users! storage user)
+    :create-org-user                 (handle-create-org-user! storage data user env)
+    :update-org-user-sections        (handle-update-org-user-sections! storage data user)
+    :delete-org-user                 (handle-delete-org-user! storage data user)
     :admin-list-users                (handle-admin-list-users! storage user)
     :admin-set-plan                  (handle-admin-set-plan! storage data user)
     :admin-create-question           (handle-admin-create-question! storage data user)

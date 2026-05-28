@@ -24,6 +24,8 @@
             [app.letter.billing       :as billing]
             [app.survey-ui.views :as survey]
             [app.tax-ui.views    :as tax-ui]
+            [app.tax-ui.subs     :as tax-subs]
+            [app.tax-ui.events   :as tax-events]
             ;; React page imports (thin wrappers — no separate Polylith component needed)
             ["/pages/main$default"                :as main-js]
             ["/pages/home$default"                :as home-js]
@@ -35,8 +37,9 @@
             ["/pages/waiting-list$default"        :as waiting-list-js]
             ["/pages/features-pricing$default"    :as features-pricing-js]
             ["/pages/not-found$default"           :as not-found-js]
-            ["/components/settings/ExpenseTypes$default" :as expense-types-js]
-            ["/components/admin/AdminPanel$default"      :as admin-panel-js]))
+            ["/components/settings/ExpenseTypes$default"  :as expense-types-js]
+            ["/components/admin/AdminPanel$default"       :as admin-panel-js]
+            ["/components/team/OrgUserManager$default"   :as org-user-manager-js]))
 
 (def main              (r/adapt-react-class main-js))
 (def home              (r/adapt-react-class home-js))
@@ -48,8 +51,9 @@
 (def waiting-list      (r/adapt-react-class waiting-list-js))
 (def features-pricing  (r/adapt-react-class features-pricing-js))
 (def not-found         (r/adapt-react-class not-found-js))
-(def expense-types-comp (r/adapt-react-class expense-types-js))
-(def admin-panel       (r/adapt-react-class admin-panel-js))
+(def expense-types-comp  (r/adapt-react-class expense-types-js))
+(def admin-panel         (r/adapt-react-class admin-panel-js))
+(def org-user-manager    (r/adapt-react-class org-user-manager-js))
 
 (defn component [{:keys []}]
   (let [active               @(re-frame/subscribe [::subs/active-section])
@@ -91,7 +95,14 @@
         survey-questions     @(re-frame/subscribe [::subs/survey-questions])
         survey-q-loading?    @(re-frame/subscribe [::subs/survey-questions-loading?])
         is-impersonating?    @(re-frame/subscribe [::subs/is-impersonating?])
-        impersonated-email   @(re-frame/subscribe [::subs/impersonated-user-email])]
+        impersonated-email   @(re-frame/subscribe [::subs/impersonated-user-email])
+        tax-configs          @(re-frame/subscribe [::tax-subs/tax-configs])
+        tax-loans            @(re-frame/subscribe [::tax-subs/loans])
+        user-role            @(re-frame/subscribe [::subs/user-role])
+        user-sections        @(re-frame/subscribe [::subs/user-sections])
+        org-users            @(re-frame/subscribe [::subs/org-users])
+        org-users-loading?   @(re-frame/subscribe [::subs/org-users-loading?])
+        org-users-saving?    @(re-frame/subscribe [::subs/org-users-saving?])]
     [:<>
      [main
       {:activeComponent
@@ -134,6 +145,7 @@
                                  (re-frame/dispatch [::cost-events/load-all-costs])
                                  (re-frame/dispatch [::cost-events/load-all-apt-costs])
                                  (re-frame/dispatch [::cost-events/load-all-rent-payments])
+                                 (re-frame/dispatch [::tax-events/load-tax-data])
                                  (when-let [tier (js/localStorage.getItem "pm-pending-plan")]
                                    (js/localStorage.removeItem "pm-pending-plan")
                                    (re-frame/dispatch [::events/change-active-section "payment"])
@@ -346,6 +358,9 @@
                                                   :has-iban?      (:hasIban d)})]
                                      (clj->js {:ready   (:ready? r)
                                                :missing (vec (:missing r))}))))
+           :onNavigateToApartment (fn [apt-id initial-tab]
+                                    (re-frame/dispatch [::apartment-events/select-apartment apt-id initial-tab])
+                                    (re-frame/dispatch [::events/set-dashboard-tab "apartments"]))
            :onViewApartments   (fn [property]
                                  (re-frame/dispatch [::events/navigate-to-apartments (js->clj property :keywordize-keys true)]))
            :costs              (clj->js costs)
@@ -374,6 +389,34 @@
            :allCosts           (clj->js all-costs)
            :allAptCosts        (clj->js all-apt-costs)
            :allRentPayments    (clj->js all-rent-payments)
+           :taxConfigs         (clj->js tax-configs)
+           :taxLoans           (clj->js tax-loans)
+           :userRole            user-role
+           :userSections        user-sections
+           :teamView            (when (= "admin" user-role)
+                                  (r/as-element
+                                   [org-user-manager
+                                    {:users            (clj->js org-users)
+                                     :isLoading        org-users-loading?
+                                     :isSaving         org-users-saving?
+                                     :currentUserEmail (:email current-user)
+                                     :onLoad           #(re-frame/dispatch [::events/load-org-users])
+                                     :onCreateUser     (fn [data]
+                                                         (let [d (js->clj data :keywordize-keys true)]
+                                                           (re-frame/dispatch
+                                                            [::events/create-org-user
+                                                             {:email    (:email d)
+                                                              :name     (:name d)
+                                                              :password (:password d)
+                                                              :sections (:sections d)}])))
+                                     :onUpdateSections (fn [membership-id sections]
+                                                         (re-frame/dispatch
+                                                          [::events/update-org-user-sections
+                                                           membership-id
+                                                           (js->clj sections)]))
+                                     :onDeleteUser     (fn [account-id membership-id]
+                                                         (re-frame/dispatch
+                                                          [::events/delete-org-user account-id membership-id]))}]))
            :isSuperAdmin        is-super-admin?
            :isImpersonating     is-impersonating?
            :impersonatedEmail   impersonated-email
