@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, Trash2, Loader2,
   DoorOpen, DoorClosed, UserPlus, Clock, CheckCircle2,
-  Search, Pencil, Check, X,
+  Search, Pencil, Check, X, AlertCircle,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useToast } from "../../hooks/use-toast";
@@ -68,6 +68,7 @@ type Props = {
   onAfterAssign?: () => void;
   onUpdateTenant?: (tenantId: string, data: TenantUpdateData) => void;
   onCreateTenant?: (apartmentId: number, data: { firstName: string; lastName?: string; email?: string; phone?: string; startDate: string; endDate?: string }) => void;
+  createTenantError?: string;  // error code e.g. "date-overlap"
 };
 
 function parseYear(dateStr: string | undefined): number | null {
@@ -112,11 +113,18 @@ export default function ManageApartment({
   onAfterAssign,
   onUpdateTenant,
   onCreateTenant,
+  createTenantError,
 }: Props) {
   const { t } = useTranslation("apartments");
   const { t: tTenants } = useTranslation("tenants");
   const { t: tCommon } = useTranslation("common");
   const { toast } = useToast();
+
+  const createTenantErrorMsg = createTenantError === "date-overlap"
+    ? tTenants("validation.dateOverlap")
+    : createTenantError
+    ? tTenants("validation.saveFailed")
+    : undefined;
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [year, setYear] = useState(new Date().getFullYear());
@@ -579,6 +587,12 @@ export default function ManageApartment({
                       />
                     </div>
                   </div>
+                  {createTenantErrorMsg && (
+                    <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      <span>{createTenantErrorMsg}</span>
+                    </div>
+                  )}
                   <Button size="sm" onClick={handleCreateTenant} disabled={isSaving || isReadOnly || !addForm.firstName.trim()}>
                     {isSaving
                       ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{tCommon("saving")}</>

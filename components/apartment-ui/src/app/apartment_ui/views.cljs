@@ -35,6 +35,7 @@
           detail-apt-id    @(re-frame/subscribe [::subs/detail-apartment-id])
           new-code         @(re-frame/subscribe [::subs/new-apartment-code])
           assign-apt-id    @(re-frame/subscribe [::subs/assign-apt-id])
+          assign-error     @(re-frame/subscribe [::subs/assign-error])
           selected-apt     (when selected-id (first (filter #(= (:db/id %) selected-id) apartments)))
           detail-apt       (when detail-apt-id (first (filter #(= (:db/id %) detail-apt-id) apartments)))
           assign-apt       (when assign-apt-id (first (filter #(= (:db/id %) assign-apt-id) apartments)))
@@ -44,6 +45,7 @@
         [manage-apartment
          {:apartment               (clj->js selected-apt)
           :isReadOnly              is-read-only?
+          :createTenantError       (when assign-error (name assign-error))
           :tenants                 (clj->js (or tenants []))
           :isSaving                saving?
           :tenantsSaving           tenants-saving?
@@ -114,6 +116,7 @@
                                              [assign-tenant
                                               {:apartmentCode (:apartment/code assign-apt)
                                                :isLoading     saving?
+                                               :assignError   (when assign-error (name assign-error))
                                                :onClose       #(re-frame/dispatch [::events/close-assign-dialog])
                                                :onSubmit      (fn [data]
                                                                 (let [d (js->clj data :keywordize-keys true)]

@@ -44,9 +44,10 @@
          {:tenants               (clj->js tenants)
           :isReadOnly            is-read-only?
           :isLoading             loading?
-          :isAddTenantDialogOpen add-dialog-open?
-          :onOpenAddTenantDialog #(re-frame/dispatch [::events/open-add-dialog])
-          :onManageTenant        (fn [id] (re-frame/dispatch [::events/select-tenant id]))}
+          :isAddTenantDialogOpen  add-dialog-open?
+          :onOpenAddTenantDialog  #(re-frame/dispatch [::events/open-add-dialog])
+          :onCloseAddTenantDialog #(re-frame/dispatch [::events/close-add-dialog])
+          :onManageTenant         (fn [id] (re-frame/dispatch [::events/select-tenant id]))}
          (when add-dialog-open?
            (r/as-element
             [add-tenant
@@ -62,4 +63,5 @@
                                                    :email        (:email d)
                                                    :phone        (:phone d)
                                                    :start-date   (:startDate d)
+                                                   :end-date     (:endDate d)
                                                    :apartment-id (:apartmentId d)}])))}]))]))))

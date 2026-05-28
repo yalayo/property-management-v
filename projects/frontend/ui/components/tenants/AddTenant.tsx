@@ -12,11 +12,12 @@ import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
 type TenantFormValues = {
-  firstName: string;
-  lastName?: string;
+  firstName?: string;
+  lastName: string;
   email?: string;
   phone?: string;
   startDate?: string;
+  endDate?: string;
   apartmentId?: string;
 };
 
@@ -42,27 +43,28 @@ export default function AddTenant({
   const { toast } = useToast();
 
   const tenantSchema = z.object({
-    firstName: z.string().min(1, t("validation.firstNameRequired")),
-    lastName: z.string().optional(),
+    firstName: z.string().optional(),
+    lastName: z.string().min(1, t("validation.lastNameRequired")),
     email: z.union([z.string().email(t("validation.emailInvalid")), z.literal("")]).optional(),
     phone: z.string().optional(),
     startDate: z.string().optional(),
+    endDate: z.string().optional(),
     apartmentId: z.string().optional(),
   });
 
   const form = useForm<TenantFormValues>({
     resolver: zodResolver(tenantSchema),
-    defaultValues: { firstName: "", lastName: "", email: "", phone: "", startDate: "", apartmentId: "" },
+    defaultValues: { firstName: "", lastName: "", email: "", phone: "", startDate: "", endDate: "", apartmentId: "" },
   });
 
   const handleSubmit = (data: TenantFormValues) => {
-    const fullName = `${data.firstName} ${data.lastName || ""}`.trim().toLowerCase();
+    const fullName = `${data.firstName || ""} ${data.lastName}`.trim().toLowerCase();
     const nameTaken = tenants.some((ten) => {
       const tenFull = `${ten["first-name"] || ""} ${ten["last-name"] || ""}`.trim().toLowerCase();
       return tenFull === fullName;
     });
     if (nameTaken) {
-      form.setError("firstName", { message: t("validation.nameTaken") });
+      form.setError("lastName", { message: t("validation.nameTaken") });
       return;
     }
     onSubmit?.(data);
@@ -81,7 +83,10 @@ export default function AddTenant({
           <div className="grid grid-cols-2 gap-3">
             <FormField control={form.control} name="firstName" render={({ field }) => (
               <FormItem>
-                <FormLabel>{t("fields.firstName")}</FormLabel>
+                <FormLabel>
+                  {t("fields.firstName")}{" "}
+                  <span className="text-muted-foreground font-normal">({tCommon("optional")})</span>
+                </FormLabel>
                 <FormControl>
                   <Input placeholder={t("placeholders.firstName")} {...field} />
                 </FormControl>
@@ -123,6 +128,19 @@ export default function AddTenant({
           <FormField control={form.control} name="startDate" render={({ field }) => (
             <FormItem>
               <FormLabel>{t("fields.startDate")}</FormLabel>
+              <FormControl>
+                <Input type="date" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+
+          <FormField control={form.control} name="endDate" render={({ field }) => (
+            <FormItem>
+              <FormLabel>
+                {t("fields.endDate")}{" "}
+                <span className="text-muted-foreground font-normal">({tCommon("optional")})</span>
+              </FormLabel>
               <FormControl>
                 <Input type="date" {...field} />
               </FormControl>

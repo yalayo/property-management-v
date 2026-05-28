@@ -1,5 +1,5 @@
 import React from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -20,6 +20,7 @@ type AssignFormValues = {
 type Props = {
   apartmentCode?: string;
   isLoading?: boolean;
+  assignError?: string;
   onClose?: () => void;
   onSubmit?: (data: AssignFormValues) => void;
 };
@@ -27,12 +28,19 @@ type Props = {
 export default function AssignTenant({
   apartmentCode,
   isLoading = false,
+  assignError,
   onClose,
   onSubmit,
 }: Props) {
   const { t } = useTranslation("apartments");
   const { t: tTenants } = useTranslation("tenants");
   const { t: tCommon } = useTranslation("common");
+
+  const errorMessage = assignError === "date-overlap"
+    ? tTenants("validation.dateOverlap")
+    : assignError
+    ? tTenants("validation.saveFailed")
+    : undefined;
 
   const assignSchema = z.object({
     firstName: z.string().min(1, tTenants("validation.firstNameRequired")),
@@ -115,6 +123,13 @@ export default function AssignTenant({
               <FormMessage />
             </FormItem>
           )} />
+
+          {errorMessage && (
+            <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>

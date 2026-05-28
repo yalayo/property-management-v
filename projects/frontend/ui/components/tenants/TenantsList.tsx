@@ -41,6 +41,7 @@ type Props = {
   isReadOnly?: boolean;
   isAddTenantDialogOpen?: boolean;
   onOpenAddTenantDialog?: () => void;
+  onCloseAddTenantDialog?: () => void;
   onManageTenant?: (id: number) => void;
   children?: React.ReactNode;
 };
@@ -51,6 +52,7 @@ export default function TenantsList({
   isReadOnly = false,
   isAddTenantDialogOpen = false,
   onOpenAddTenantDialog,
+  onCloseAddTenantDialog,
   onManageTenant,
   children,
 }: Props) {
@@ -233,7 +235,7 @@ export default function TenantsList({
         )}
       </CardContent>
 
-      <Dialog open={isAddTenantDialogOpen}>
+      <Dialog open={isAddTenantDialogOpen} onOpenChange={(open) => { if (!open) onCloseAddTenantDialog?.(); }}>
         <DialogContent>{children}</DialogContent>
       </Dialog>
     </Card>

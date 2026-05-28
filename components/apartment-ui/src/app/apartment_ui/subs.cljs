@@ -62,6 +62,11 @@
    (get-in db [:apartments :detail-id])))
 
 (re-frame/reg-sub
+ ::assign-error
+ (fn [db _]
+   (get-in db [:apartments :assign-error])))
+
+(re-frame/reg-sub
  ::onboardings-by-apartment
  (fn [db _]
    (->> (get-in db [:apartments :onboardings] [])

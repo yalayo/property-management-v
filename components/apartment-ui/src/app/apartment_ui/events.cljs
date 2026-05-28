@@ -213,7 +213,9 @@
  ::close-assign-dialog
  [local-storage-interceptor]
  (fn [db _]
-   (assoc-in db [:apartments :assign-apt-id] nil)))
+   (-> db
+       (assoc-in [:apartments :assign-apt-id] nil)
+       (assoc-in [:apartments :assign-error] nil))))
 
 (re-frame/reg-event-fx
  ::assign-tenant
@@ -229,7 +231,21 @@
                 :start-date   start-date
                 :end-date     end-date}
                [::tenant-assigned apt-id on-after]
-               [::apartment-save-error]]}))
+               [::assign-tenant-error]]}))
+
+(re-frame/reg-event-db
+ ::assign-tenant-error
+ [local-storage-interceptor]
+ (fn [db [_ error]]
+   (-> db
+       (assoc-in [:apartments :saving?] false)
+       (assoc-in [:apartments :assign-error] (get-in error [:response :error])))))
+
+(re-frame/reg-event-db
+ ::clear-assign-error
+ [local-storage-interceptor]
+ (fn [db _]
+   (assoc-in db [:apartments :assign-error] nil)))
 
 (re-frame/reg-event-fx
  ::tenant-assigned
@@ -237,7 +253,8 @@
  (fn [{:keys [db]} [_ apt-id on-after]]
    {:db       (-> db
                   (assoc-in [:apartments :saving?] false)
-                  (assoc-in [:apartments :assign-apt-id] nil))
+                  (assoc-in [:apartments :assign-apt-id] nil)
+                  (assoc-in [:apartments :assign-error] nil))
     :dispatch [::update-apartment apt-id {:occupied true}]
     :call-fn  on-after}))
 

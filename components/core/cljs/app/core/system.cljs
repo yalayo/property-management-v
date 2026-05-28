@@ -75,12 +75,12 @@
 
     :create-tenant
     (let [{:keys [first-name last-name]} data]
-      (if (nil? first-name)
+      (if (or (nil? last-name) (= "" last-name))
         {:error :missing-required-fields}
         {:action :create-tenant
          :entity {:apartment-id       (get data :apartment-id)
-                  :first-name         first-name
-                  :last-name          (or last-name "")
+                  :first-name         (or first-name "")
+                  :last-name          last-name
                   :email              (or (get data :email) "")
                   :phone              (or (get data :phone) "")
                   :start-date         (or (get data :start-date) "")

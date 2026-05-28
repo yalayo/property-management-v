@@ -330,20 +330,33 @@
                                                     ['?e :tenant/last-name last-name]]})]
                       (if (seq dups)
                         {:error :duplicate-name}
-                        (js-await [{:keys [tx-id entity-ids]}
-                                   ((:transact! storage)
-                                    [(cond-> {:db/type                  "tenant"
-                                              :tenant/organization-id   org-id
-                                              :tenant/first-name        first-name
-                                              :tenant/last-name         last-name
-                                              :tenant/email             email
-                                              :tenant/phone             phone
-                                              :tenant/start-date        start-date
-                                              :tenant/end-date          end-date
-                                              :tenant/birthday          birthday
-                                              :tenant/household-members household-members}
-                                       apartment-id (assoc :tenant/apartment-id apartment-id))] nil)]
-                                  {:tx-id tx-id :tenant-id (first entity-ids)})))))))))
+                        (let [do-transact!
+                              (fn []
+                                (js-await [{:keys [tx-id entity-ids]}
+                                           ((:transact! storage)
+                                            [(cond-> {:db/type                  "tenant"
+                                                      :tenant/organization-id   org-id
+                                                      :tenant/first-name        first-name
+                                                      :tenant/last-name         last-name
+                                                      :tenant/email             email
+                                                      :tenant/phone             phone
+                                                      :tenant/start-date        start-date
+                                                      :tenant/end-date          end-date
+                                                      :tenant/birthday          birthday
+                                                      :tenant/household-members household-members}
+                                               apartment-id (assoc :tenant/apartment-id apartment-id))] nil)]
+                                          {:tx-id tx-id :tenant-id (first entity-ids)}))]
+                          (if (and apartment-id (seq start-date))
+                            (js-await [apt-eids ((:q storage) {:where [['?e :tenant/apartment-id apartment-id]
+                                                                         ['?e :tenant/organization-id org-id]]})
+                                       apt-tenants (pull-many+ storage (vec apt-eids) '[*])]
+                                      (if (some #(dates-overlap? start-date end-date
+                                                                  (:tenant/start-date %)
+                                                                  (:tenant/end-date %))
+                                                apt-tenants)
+                                        {:error :date-overlap}
+                                        (do-transact!)))
+                            (do-transact!))))))))))
 
 (defn- handle-update-tenant! [core storage data user]
   (with-org user
@@ -649,6 +662,20 @@
                     :response/email    email
                     :response/answers  (js/JSON.stringify (clj->js responses))}] nil)]
               {:ok true})))
+
+;; ---------------------------------------------------------------------------
+;; Date-range helpers
+;; ---------------------------------------------------------------------------
+
+(defn- dates-overlap? [new-start new-end existing-start existing-end]
+  (let [new-end-inf?      (or (nil? new-end) (= "" new-end))
+        existing-end-inf? (or (nil? existing-end) (= "" existing-end))
+        eff-es (if (or (nil? existing-start) (= "" existing-start)) "0000-01-01" existing-start)]
+    (cond
+      (and new-end-inf? existing-end-inf?) true
+      new-end-inf?      (<= new-start existing-end)
+      existing-end-inf? (<= eff-es new-end)
+      :else             (and (<= new-start existing-end) (<= eff-es new-end)))))
 
 ;; ---------------------------------------------------------------------------
 ;; Admin handlers
