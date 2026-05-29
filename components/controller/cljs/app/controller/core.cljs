@@ -82,39 +82,38 @@
                                            :provided-hash provided-hash})]
               (if (= :sign-in-ok (:action result))
                 (js-await [membership (fetch-membership storage (get-in result [:user :id]))]
-                          (let [org-id        (:membership/organization-id membership)
-                                role          (:membership/role membership)
-                                sections      (:membership/sections membership)
-                                email         (get-in result [:user :email])
-                                super-email   (aget env "SUPER_ADMIN_EMAIL")
-                                superadmin?   (and (some? super-email) (= email super-email))
-                                claims        (cond-> #js {:email   email
-                                                           :user-id (get-in result [:user :id])
-                                                           :org-id  org-id
-                                                           :role    role
-                                                           :exp     (+ (js/Math.floor (/ (.now js/Date) 1000)) 86400)}
-                                                sections    (doto (aset "sections" sections))
-                                                superadmin? (doto (aset "superadmin" true)))
-                                token         (jwt/sign claims (aget env "JWT_SECRET"))]
-                            {:token token
-                             :user  (cond-> (assoc (:user result)
-                                                   :org-id   org-id
-                                                   :role     role
-                                                   :sections sections
-                                                   :plan     (:account/plan db-user))
-                                      superadmin? (assoc :superadmin true))}))
+                          (let [org-id   (:membership/organization-id membership)
+                                role     (:membership/role membership)
+                                sections (:membership/sections membership)]
+                            (js-await [org ((:pull storage) org-id '[*])]
+                                      (let [plan        (:organization/plan org)
+                                            email       (get-in result [:user :email])
+                                            super-email (aget env "SUPER_ADMIN_EMAIL")
+                                            superadmin? (and (some? super-email) (= email super-email))
+                                            claims      (cond-> #js {:email   email
+                                                                      :user-id (get-in result [:user :id])
+                                                                      :org-id  org-id
+                                                                      :role    role
+                                                                      :exp     (+ (js/Math.floor (/ (.now js/Date) 1000)) 86400)}
+                                                           sections    (doto (aset "sections" sections))
+                                                           superadmin? (doto (aset "superadmin" true)))
+                                            token       (jwt/sign claims (aget env "JWT_SECRET"))]
+                                        {:token token
+                                         :user  (cond-> (assoc (:user result)
+                                                               :org-id   org-id
+                                                               :role     role
+                                                               :sections sections
+                                                               :plan     plan)
+                                                  superadmin? (assoc :superadmin true))}))))
                 result))))
 
 (defn- handle-activate-plan! [storage data user]
   (with-org user
-    (fn [_org-id]
-      (js-await [eids ((:find-by-attr storage) :account/email (:email user))]
-                (if-let [eid (first eids)]
-                  (js-await [_ ((:transact! storage)
-                                [{:db/id        eid
-                                  :account/plan (:tier data)}] nil)]
-                            {:ok true :plan (:tier data)})
-                  {:error :not-found})))))
+    (fn [org-id]
+      (js-await [_ ((:transact! storage)
+                    [{:db/id             org-id
+                      :organization/plan (:tier data)}] nil)]
+                {:ok true :plan (:tier data)}))))
 
 ;; ---------------------------------------------------------------------------
 ;; Property handlers
@@ -875,25 +874,34 @@
 (defn- handle-admin-list-users! [storage user]
   (admin-guard user
     (fn []
-      (js-await [eids    ((:find-by-type storage) "account")
-                 accounts (pull-many+ storage eids '[*])]
-                {:users (mapv (fn [a]
-                                {:id    (:db/id a)
-                                 :email (:account/email a)
-                                 :name  (:account/name a)
-                                 :plan  (:account/plan a)})
-                              accounts)}))))
+      (js-await [account-eids ((:find-by-type storage) "account")
+                 accounts     (pull-many+ storage account-eids '[*])
+                 mem-eids     ((:find-by-type storage) "membership")
+                 memberships  (pull-many+ storage mem-eids '[*])]
+                (let [acct->org-id (into {} (map (fn [m] [(:membership/account-id m) (:membership/organization-id m)]) memberships))
+                      org-ids      (vec (distinct (remove nil? (vals acct->org-id))))]
+                  (js-await [orgs (pull-many+ storage org-ids '[*])]
+                            (let [org-id->plan (into {} (map (fn [o] [(:db/id o) (:organization/plan o)]) orgs))]
+                              {:users (mapv (fn [a]
+                                             {:id    (:db/id a)
+                                              :email (:account/email a)
+                                              :name  (:account/name a)
+                                              :plan  (get org-id->plan (get acct->org-id (:db/id a)))})
+                                           accounts)})))))))
 
 (defn- handle-admin-set-plan! [storage data user]
   (admin-guard user
     (fn []
       (let [{:keys [email tier]} data]
         (js-await [eids ((:find-by-attr storage) :account/email email)]
-                  (if-let [eid (first eids)]
-                    (js-await [_ ((:transact! storage)
-                                  [{:db/id        eid
-                                    :account/plan tier}] nil)]
-                              {:ok true :email email :plan tier})
+                  (if-let [account-eid (first eids)]
+                    (js-await [membership (fetch-membership storage account-eid)]
+                              (if membership
+                                (js-await [_ ((:transact! storage)
+                                              [{:db/id             (:membership/organization-id membership)
+                                                :organization/plan tier}] nil)]
+                                          {:ok true :email email :plan tier})
+                                {:error :not-found}))
                     {:error :not-found}))))))
 
 (defn- handle-admin-create-question! [storage data user]

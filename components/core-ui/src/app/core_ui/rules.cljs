@@ -38,7 +38,7 @@
      [::user    ::role           ?role]
      :when (and (not= ?role :admin) (not= ?role :dispatcher))
      :then
-     (o/insert! ::nav ::current-section :landing)]
+     (o/insert! ::nav ::current-section :dashboard)]
 
     ;; Unauthenticated, not submitting, no special intent → show landing
     ::set-section-landing
