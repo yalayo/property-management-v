@@ -55,6 +55,9 @@
       "Bash(grep -E \"\\\\.\\(clj|cljs|edn\\)$\")",
       "Bash(dir /b \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\\\\components\")",
       "PowerShell(Get-ChildItem -Path \"d:\\\\personal\\\\projects\\\\inmo-verwaltung\\\\code\\\\property-management-v\\\\projects\\\\frontend\\\\ui\" -Recurse | Where-Object { $_.Extension -eq \".tsx\" } | Select-Object -First 50 FullName)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\YuniorAlayoRondon\\AppData\\Local\\Temp"
     ]
   }
 }

@@ -15,6 +15,7 @@ import LanguageSwitcher from "../components/common/LanguageSwitcher";
 import BankStatement from "../components/bank/BankStatement";
 import NebenkostenAbrechnung from "../components/billing/NebenkostenAbrechnung";
 import PendingTasksWidget from "../components/dashboard/PendingTasksWidget";
+import TrialBanner from "../components/trial/TrialBanner";
 
 const PENDING_MIGRATION_KEY = "pm-pending-migration";
 
@@ -246,7 +247,7 @@ export default function Dashboard(props) {
         </header>
 
         <main className="flex-1 p-4 sm:p-6">
-          {props.isReadOnly && (
+          {props.isReadOnly && !props.trialInfo && (
             <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
               <Lock className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-amber-800 flex-1">{t("readOnly.banner")}</p>
@@ -260,6 +261,13 @@ export default function Dashboard(props) {
                 </button>
               )}
             </div>
+          )}
+          {props.trialInfo && (
+            <TrialBanner
+              trialInfo={props.trialInfo}
+              onPause={props.onPauseTrial}
+              onResume={props.onResumeTrial}
+            />
           )}
           {activeTab === "overview" && (
             <div className="space-y-6">

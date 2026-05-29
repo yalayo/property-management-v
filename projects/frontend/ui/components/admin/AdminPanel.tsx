@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Shield, RefreshCw, ChevronDown, Plus, Pencil, Trash2, Check, X, UserCheck, Download, Upload, Loader2 } from "lucide-react";
+import { Shield, RefreshCw, ChevronDown, Plus, Pencil, Trash2, Check, X, UserCheck, Download, Upload, Loader2, Pause, Play, History, Clock, AlertTriangle } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Skeleton } from "../ui/skeleton";
 import { Input } from "../ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,11 +20,22 @@ const PLAN_TIERS = [
   { id: "crowdfunding",  label: "Crowdfunding" },
 ];
 
+type TrialHistoryEntry = { type: string; ts: number };
+
+type TrialInfo = {
+  status: "active" | "paused" | "expired";
+  "days-remaining": number;
+  "started-at": number;
+  paused: boolean;
+  history?: TrialHistoryEntry[];
+};
+
 type AdminUser = {
   id: string | number;
   email: string;
   name?: string;
   plan?: string;
+  trial?: TrialInfo;
 };
 
 type SurveyQuestion = {
@@ -48,10 +60,65 @@ type Props = {
   onImportEdn?: (rawEdn: string) => void;
   isExporting?: boolean;
   isImporting?: boolean;
+  onPauseUserTrial?: (email: string) => void;
+  onResumeUserTrial?: (email: string) => void;
 };
 
 function planLabel(tier?: string): string {
   return PLAN_TIERS.find((t) => t.id === tier)?.label ?? "—";
+}
+
+function TrialStatusBadge({ trial }: { trial?: TrialInfo }) {
+  if (!trial) return <Badge variant="secondary" className="text-xs font-mono">no trial</Badge>;
+  const days = Math.ceil(trial["days-remaining"] ?? 0);
+  if (trial.status === "expired") {
+    return <Badge variant="destructive" className="text-xs font-mono flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Expired</Badge>;
+  }
+  if (trial.status === "paused") {
+    return <Badge variant="outline" className="text-xs font-mono text-slate-600 flex items-center gap-1"><Pause className="h-3 w-3" />{days}d left (paused)</Badge>;
+  }
+  return <Badge variant="outline" className="text-xs font-mono text-blue-700 border-blue-300 flex items-center gap-1"><Clock className="h-3 w-3" />{days}d left</Badge>;
+}
+
+function TrialHistoryDialog({ email, trial, open, onClose }: { email: string; trial?: TrialInfo; open: boolean; onClose: () => void }) {
+  const history = trial?.history ?? [];
+  const startedAt = trial?.["started-at"];
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-sm font-semibold">Trial History — {email}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-1 text-xs">
+          {startedAt && (
+            <div className="text-muted-foreground">
+              Started: {new Date(startedAt).toLocaleString()}
+            </div>
+          )}
+          {history.length === 0 ? (
+            <p className="text-muted-foreground">No events yet.</p>
+          ) : (
+            <div className="space-y-1 mt-2">
+              {history.map((e, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className={`font-semibold w-14 ${e.type === "pause" ? "text-slate-600" : e.type === "resume" ? "text-blue-600" : "text-green-600"}`}>
+                    {e.type}
+                  </span>
+                  <span className="text-muted-foreground">{new Date(e.ts).toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {trial && (
+            <div className="mt-3 pt-2 border-t text-muted-foreground">
+              Status: <span className="font-semibold text-foreground">{trial.status}</span>
+              {" · "}{Math.ceil(trial["days-remaining"] ?? 0)} day(s) remaining
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export default function AdminPanel({
@@ -70,11 +137,14 @@ export default function AdminPanel({
   onImportEdn,
   isExporting = false,
   isImporting = false,
+  onPauseUserTrial,
+  onResumeUserTrial,
 }: Props) {
   const [setting, setSetting] = useState<string | null>(null);
   const [newQuestionText, setNewQuestionText] = useState("");
   const [editingId, setEditingId] = useState<string | number | null>(null);
   const [editingText, setEditingText] = useState("");
+  const [historyEmail, setHistoryEmail] = useState<string | null>(null);
   const [exportEmail, setExportEmail] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -136,8 +206,18 @@ export default function AdminPanel({
     (a, b) => (a["question/order"] ?? 0) - (b["question/order"] ?? 0)
   );
 
+  const historyUser = users.find((u) => u.email === historyEmail);
+
   return (
     <div className="space-y-6">
+      {historyEmail && (
+        <TrialHistoryDialog
+          email={historyEmail}
+          trial={historyUser?.trial}
+          open={!!historyEmail}
+          onClose={() => setHistoryEmail(null)}
+        />
+      )}
       {/* Users section */}
       <Card className="border-amber-200 bg-amber-50/40">
         <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -178,13 +258,15 @@ export default function AdminPanel({
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0 ml-3">
+                  <div className="flex items-center gap-2 shrink-0 ml-3 flex-wrap justify-end">
                     <Badge
                       variant={u.plan ? "default" : "secondary"}
                       className="text-xs font-mono"
                     >
                       {u.plan ? planLabel(u.plan) : "no plan"}
                     </Badge>
+
+                    {!u.plan && <TrialStatusBadge trial={u.trial} />}
 
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -211,6 +293,40 @@ export default function AdminPanel({
                         ))}
                       </DropdownMenuContent>
                     </DropdownMenu>
+
+                    {!u.plan && u.trial?.status === "active" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs border-slate-300 text-slate-600 hover:bg-slate-100"
+                        onClick={() => onPauseUserTrial?.(u.email)}
+                      >
+                        <Pause className="h-3 w-3 mr-1" />
+                        Pause
+                      </Button>
+                    )}
+                    {!u.plan && u.trial?.status === "paused" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs border-blue-300 text-blue-600 hover:bg-blue-50"
+                        onClick={() => onResumeUserTrial?.(u.email)}
+                      >
+                        <Play className="h-3 w-3 mr-1" />
+                        Resume
+                      </Button>
+                    )}
+                    {!u.plan && u.trial && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => setHistoryEmail(u.email)}
+                      >
+                        <History className="h-3.5 w-3.5 mr-1" />
+                        History
+                      </Button>
+                    )}
 
                     <Button
                       variant="outline"

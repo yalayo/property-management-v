@@ -102,7 +102,8 @@
         user-sections        @(re-frame/subscribe [::subs/user-sections])
         org-users            @(re-frame/subscribe [::subs/org-users])
         org-users-loading?   @(re-frame/subscribe [::subs/org-users-loading?])
-        org-users-saving?    @(re-frame/subscribe [::subs/org-users-saving?])]
+        org-users-saving?    @(re-frame/subscribe [::subs/org-users-saving?])
+        trial-info           @(re-frame/subscribe [::subs/trial-info])]
     [:<>
      [main
       {:activeComponent
@@ -423,6 +424,9 @@
            :isImpersonating     is-impersonating?
            :impersonatedEmail   impersonated-email
            :onExitImpersonation #(re-frame/dispatch [::events/exit-impersonation])
+           :trialInfo           (clj->js trial-info)
+           :onPauseTrial        #(re-frame/dispatch [::events/pause-trial])
+           :onResumeTrial       #(re-frame/dispatch [::events/resume-trial])
            :adminPanel          (when (and is-super-admin? (not is-impersonating?))
                                  (r/as-element
                                   [admin-panel
@@ -447,4 +451,8 @@
                                     :onImportEdn      (fn [raw-edn]
                                                         (re-frame/dispatch [::events/admin-import-raw-edn raw-edn]))
                                     :isExporting      admin-exporting?
-                                    :isImporting      admin-importing?}]))}]))}]]))
+                                    :isImporting      admin-importing?
+                                    :onPauseUserTrial  (fn [email]
+                                                         (re-frame/dispatch [::events/admin-pause-trial email]))
+                                    :onResumeUserTrial (fn [email]
+                                                         (re-frame/dispatch [::events/admin-resume-trial email]))}]))}]))}]]))

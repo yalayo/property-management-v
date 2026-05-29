@@ -544,6 +544,11 @@ const resources = {
       anteil: "Share",
       fixedValue: "Enter fixed amount",
       noTenantsInYear: "No tenants in {{year}}",
+      yearBanner: {
+        past: "You are editing data for {{year}} — a past year.",
+        future: "You are editing data for {{year}} — a future year.",
+        returnTo: "Return to {{year}}",
+      },
       rent: {
         kaltmiete: "Kaltmiete",
         nebenkostenWarm: "Nebenkosten warm",
@@ -608,6 +613,11 @@ const resources = {
         "living-area": "Living Area",
         "person": "Person",
         "consumed": "Consumed",
+      },
+      yearBanner: {
+        past: "Viewing {{year}} — not the standard billing year. Use ← → to navigate.",
+        future: "Viewing {{year}} — this is a future year. Use ← → to navigate.",
+        returnTo: "Return to {{year}}",
       },
     },
     bank: {
@@ -1031,6 +1041,14 @@ const resources = {
         supportNow: "Support Now",
         noWait: "Don't want to wait? Choose one of our available plans to get immediate access.",
       },
+    },
+    trial: {
+      active: "Your free trial is active — {{days}} day(s) remaining.",
+      paused: "Your trial is paused.",
+      pausedNote: "{{days}} day(s) remaining when you resume.",
+      expired: "Your trial has expired. Upgrade to a plan to continue.",
+      pause: "Pause trial",
+      resume: "Resume trial",
     },
   },
 
@@ -1576,6 +1594,11 @@ const resources = {
       anteil: "Anteil",
       fixedValue: "Fixbetrag eingeben",
       noTenantsInYear: "Keine Mieter in {{year}}",
+      yearBanner: {
+        past: "Sie bearbeiten Daten für {{year}} — ein vergangenes Jahr.",
+        future: "Sie bearbeiten Daten für {{year}} — ein zukünftiges Jahr.",
+        returnTo: "Zurück zu {{year}}",
+      },
       rent: {
         kaltmiete: "Kaltmiete",
         nebenkostenWarm: "Nebenkosten warm",
@@ -1640,6 +1663,11 @@ const resources = {
         "living-area": "Wohnfläche",
         "person": "Person",
         "consumed": "Verbrauch",
+      },
+      yearBanner: {
+        past: "Ansicht {{year}} — kein Standard-Abrechnungsjahr. Mit ← → navigieren.",
+        future: "Ansicht {{year}} — zukünftiges Jahr. Mit ← → navigieren.",
+        returnTo: "Zurück zu {{year}}",
       },
     },
     bank: {
@@ -2063,6 +2091,14 @@ const resources = {
         supportNow: "Jetzt unterstützen",
         noWait: "Nicht warten? Wählen Sie einen unserer verfügbaren Tarife für sofortigen Zugang.",
       },
+    },
+    trial: {
+      active: "Ihr kostenloser Testzeitraum läuft — noch {{days}} Tag(e).",
+      paused: "Ihr Testzeitraum ist pausiert.",
+      pausedNote: "Nach der Fortsetzung verbleiben {{days}} Tag(e).",
+      expired: "Ihr Testzeitraum ist abgelaufen. Upgraden Sie auf einen Plan, um fortzufahren.",
+      pause: "Test pausieren",
+      resume: "Test fortsetzen",
     },
   },
 };

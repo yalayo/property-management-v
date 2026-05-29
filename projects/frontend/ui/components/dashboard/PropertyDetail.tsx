@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, ChevronRight, Copy, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarClock, Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { useToast } from "../../hooks/use-toast";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
@@ -48,7 +48,9 @@ export default function PropertyDetail({
   const { t, i18n } = useTranslation("costs");
   const { t: tCommon } = useTranslation("common");
   const { toast } = useToast();
-  const [year, setYear] = useState(new Date().getFullYear());
+  const currentYear = new Date().getFullYear();
+  const defaultYear = currentYear - 1;
+  const [year, setYear] = useState(defaultYear);
   const [inputState, setInputState] = useState<Record<string, string | null>>({});
   const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
   const [addLineOpen, setAddLineOpen] = useState(false);
@@ -182,13 +184,29 @@ export default function PropertyDetail({
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setYear(y => y - 1)}>
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <span className="w-12 text-center text-sm font-medium tabular-nums">{year}</span>
+                <span className={`min-w-[3rem] text-center text-sm font-semibold tabular-nums px-2 py-0.5 rounded-md border ${
+                  year !== defaultYear
+                    ? "border-amber-400 bg-amber-50 text-amber-800"
+                    : "border-transparent text-foreground"
+                }`}>{year}</span>
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setYear(y => y + 1)}>
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             </div>
           </div>
+          {year !== defaultYear && (
+            <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              <CalendarClock className="h-4 w-4 shrink-0" />
+              <span className="flex-1">{t(year < defaultYear ? "yearBanner.past" : "yearBanner.future", { year })}</span>
+              <button
+                className="text-xs font-semibold underline underline-offset-2 whitespace-nowrap hover:text-amber-900"
+                onClick={() => setYear(defaultYear)}
+              >
+                {t("yearBanner.returnTo", { year: defaultYear })}
+              </button>
+            </div>
+          )}
 
           {costsLoading ? (
             <p className="text-sm text-muted-foreground">{t("loading")}</p>

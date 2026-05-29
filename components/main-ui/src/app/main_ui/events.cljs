@@ -386,3 +386,61 @@
  ::org-user-save-error
  (fn [db [_ _error]]
    (assoc-in db [:team :saving?] false)))
+;; ---------------------------------------------------------------------------
+;; Trial
+;; ---------------------------------------------------------------------------
+
+(re-frame/reg-event-fx
+ ::pause-trial
+ (fn [{:keys [_db]} _]
+   {:dispatch [::core-events/command
+               :pause-trial
+               {}
+               [::trial-updated]
+               [::trial-error]]}))
+
+(re-frame/reg-event-fx
+ ::resume-trial
+ (fn [{:keys [_db]} _]
+   {:dispatch [::core-events/command
+               :resume-trial
+               {}
+               [::trial-updated]
+               [::trial-error]]}))
+
+(re-frame/reg-event-db
+ ::trial-updated
+ [local-storage-interceptor]
+ (fn [db [_ response]]
+   (assoc-in db [:user :info :trial] (:trial response))))
+
+(re-frame/reg-event-db
+ ::trial-error
+ (fn [db [_ _error]]
+   db))
+
+(re-frame/reg-event-fx
+ ::admin-pause-trial
+ (fn [{:keys [_db]} [_ email]]
+   {:dispatch [::core-events/command
+               :admin-pause-trial
+               {:email email}
+               [::admin-trial-updated email]
+               [::admin-users-error]]}))
+
+(re-frame/reg-event-fx
+ ::admin-resume-trial
+ (fn [{:keys [_db]} [_ email]]
+   {:dispatch [::core-events/command
+               :admin-resume-trial
+               {:email email}
+               [::admin-trial-updated email]
+               [::admin-users-error]]}))
+
+(re-frame/reg-event-db
+ ::admin-trial-updated
+ (fn [db [_ email response]]
+   (update-in db [:admin :users]
+              (fn [users]
+                (mapv (fn [u] (if (= (:email u) email) (assoc u :trial (:trial response)) u))
+                      (or users []))))))

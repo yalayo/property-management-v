@@ -29,7 +29,15 @@
 (re-frame/reg-sub
  ::has-active-plan?
  (fn [db _]
-   (some? (get-in db [:user :info :plan]))))
+   (let [plan  (get-in db [:user :info :plan])
+         trial (get-in db [:user :info :trial])]
+     (or (some? plan)
+         (and (some? trial) (not= "expired" (:status trial)))))))
+
+(re-frame/reg-sub
+ ::trial-info
+ (fn [db _]
+   (get-in db [:user :info :trial])))
 
 (re-frame/reg-sub
  ::is-super-admin?

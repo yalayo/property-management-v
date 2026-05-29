@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft, ChevronLeft, ChevronRight, Trash2, Loader2,
+  ArrowLeft, CalendarClock, ChevronLeft, ChevronRight, Trash2, Loader2,
   DoorOpen, DoorClosed, UserPlus, Clock, CheckCircle2,
   Search, Pencil, Check, X, AlertCircle, Copy, Plus, UserCheck,
 } from "lucide-react";
@@ -231,7 +231,9 @@ export default function ApartmentView({
     : undefined;
 
   // ── Shared state ────────────────────────────────────────────────────────────
-  const [year, setYear] = useState(new Date().getFullYear());
+  const currentYear = new Date().getFullYear();
+  const defaultYear = currentYear - 1;
+  const [year, setYear] = useState(defaultYear);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [activeTab, setActiveTab] = useState<"tenants" | "rent" | "costs" | "settings">("tenants");
 
@@ -582,12 +584,29 @@ export default function ApartmentView({
       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => changeYear(-1)}>
         <ChevronLeft className="h-4 w-4" />
       </Button>
-      <span className="w-12 text-center text-sm font-medium tabular-nums">{year}</span>
+      <span className={`min-w-[3rem] text-center text-sm font-semibold tabular-nums px-2 py-0.5 rounded-md border ${
+        year !== defaultYear
+          ? "border-amber-400 bg-amber-50 text-amber-800"
+          : "border-transparent text-foreground"
+      }`}>{year}</span>
       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => changeYear(1)}>
         <ChevronRight className="h-4 w-4" />
       </Button>
     </div>
   );
+
+  const YearBanner = () => year !== defaultYear ? (
+    <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+      <CalendarClock className="h-4 w-4 shrink-0" />
+      <span className="flex-1">{tCosts(year < defaultYear ? "yearBanner.past" : "yearBanner.future", { year })}</span>
+      <button
+        className="text-xs font-semibold underline underline-offset-2 whitespace-nowrap hover:text-amber-900"
+        onClick={() => setYear(defaultYear)}
+      >
+        {tCosts("yearBanner.returnTo", { year: defaultYear })}
+      </button>
+    </div>
+  ) : null;
 
   const CostRow = ({ line }: { line: CostLine }) => {
     const entry    = costEntryFor(line.key);
@@ -837,6 +856,7 @@ export default function ApartmentView({
         </div>
         <YearNav />
       </div>
+      {YearBanner()}
 
       {/* ── Tab bar (segmented control) ── */}
       <div className="bg-muted rounded-lg p-1 flex mb-5">

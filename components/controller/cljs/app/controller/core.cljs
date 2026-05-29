@@ -40,6 +40,35 @@
             (when-let [eid (first eids)]
               ((:pull storage) eid '*))))
 
+
+(declare dates-overlap?)
+
+;; ---------------------------------------------------------------------------
+;; Trial helpers
+;; ---------------------------------------------------------------------------
+
+(def ^:private trial-duration-ms (* 7 24 60 60 1000))
+
+(defn- compute-trial [org]
+  (let [started-at (:organization/trial-started-at org)]
+    (when started-at
+      (let [elapsed-ms (or (:organization/trial-elapsed-ms org) 0)
+            resumed-at (:organization/trial-resumed-at org)
+            paused?    (boolean (:organization/trial-paused org))
+            now        (.now js/Date)
+            active-ms  (if (and (not paused?) (number? resumed-at) (pos? resumed-at))
+                         (max 0 (- now resumed-at)) 0)
+            total-ms   (+ elapsed-ms active-ms)
+            remaining  (max 0 (- trial-duration-ms total-ms))
+            expired?   (>= total-ms trial-duration-ms)
+            status     (cond expired? "expired" paused? "paused" :else "active")]
+        {:status         status
+         :days-remaining (/ remaining 86400000.0)
+         :started-at     started-at
+         :paused         paused?
+         :history        (try (js->clj (js/JSON.parse (or (:organization/trial-history org) "[]")) :keywordize-keys false)
+                               (catch :default _ []))}))))
+
 ;; ---------------------------------------------------------------------------
 ;; Auth handlers
 ;; ---------------------------------------------------------------------------
@@ -86,25 +115,42 @@
                                 role     (:membership/role membership)
                                 sections (:membership/sections membership)]
                             (js-await [org ((:pull storage) org-id '[*])]
-                                      (let [plan        (:organization/plan org)
-                                            email       (get-in result [:user :email])
-                                            super-email (aget env "SUPER_ADMIN_EMAIL")
-                                            superadmin? (and (some? super-email) (= email super-email))
-                                            claims      (cond-> #js {:email   email
-                                                                      :user-id (get-in result [:user :id])
-                                                                      :org-id  org-id
-                                                                      :role    role
-                                                                      :exp     (+ (js/Math.floor (/ (.now js/Date) 1000)) 86400)}
-                                                           sections    (doto (aset "sections" sections))
-                                                           superadmin? (doto (aset "superadmin" true)))
-                                            token       (jwt/sign claims (aget env "JWT_SECRET"))]
-                                        {:token token
-                                         :user  (cond-> (assoc (:user result)
-                                                               :org-id   org-id
-                                                               :role     role
-                                                               :sections sections
-                                                               :plan     plan)
-                                                  superadmin? (assoc :superadmin true))}))))
+                                      (let [plan         (:organization/plan org)
+                                            now          (.now js/Date)
+                                            needs-trial? (and (nil? plan)
+                                                              (nil? (:organization/trial-started-at org)))]
+                                        (js-await [_ (if needs-trial?
+                                                       ((:transact! storage)
+                                                        [{:db/id                         org-id
+                                                          :organization/trial-started-at now
+                                                          :organization/trial-elapsed-ms 0
+                                                          :organization/trial-resumed-at now
+                                                          :organization/trial-paused     false
+                                                          :organization/trial-history    (.stringify js/JSON #js [#js {:type "start" :ts now}])}] nil)
+                                                       (js/Promise.resolve nil))
+                                                   final-org (if needs-trial?
+                                                               ((:pull storage) org-id '[*])
+                                                               (js/Promise.resolve org))]
+                                                  (let [trial       (compute-trial final-org)
+                                                        email       (get-in result [:user :email])
+                                                        super-email (aget env "SUPER_ADMIN_EMAIL")
+                                                        superadmin? (and (some? super-email) (= email super-email))
+                                                        claims      (cond-> #js {:email   email
+                                                                                  :user-id (get-in result [:user :id])
+                                                                                  :org-id  org-id
+                                                                                  :role    role
+                                                                                  :exp     (+ (js/Math.floor (/ (.now js/Date) 1000)) 86400)}
+                                                                       sections    (doto (aset "sections" sections))
+                                                                       superadmin? (doto (aset "superadmin" true)))
+                                                        token       (jwt/sign claims (aget env "JWT_SECRET"))]
+                                                    {:token token
+                                                     :user  (cond-> (assoc (:user result)
+                                                                           :org-id   org-id
+                                                                           :role     role
+                                                                           :sections sections
+                                                                           :plan     plan)
+                                                              superadmin? (assoc :superadmin true)
+                                                              trial       (assoc :trial trial))}))))))
                 result))))
 
 (defn- handle-activate-plan! [storage data user]
@@ -780,9 +826,10 @@
         eff-es (if (or (nil? existing-start) (= "" existing-start)) "0000-01-01" existing-start)]
     (cond
       (and new-end-inf? existing-end-inf?) true
-      new-end-inf?      (<= new-start existing-end)
-      existing-end-inf? (<= eff-es new-end)
-      :else             (and (<= new-start existing-end) (<= eff-es new-end)))))
+      new-end-inf?      (not (pos? (compare new-start (or existing-end ""))))
+      existing-end-inf? (not (pos? (compare eff-es (or new-end ""))))
+      :else             (and (not (pos? (compare new-start (or existing-end ""))))
+                             (not (pos? (compare eff-es (or new-end ""))))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Org user management handlers
@@ -865,6 +912,56 @@
                                 {:ok true}))))))))
 
 ;; ---------------------------------------------------------------------------
+;; Trial handlers
+;; ---------------------------------------------------------------------------
+
+(defn- handle-pause-trial! [storage user]
+  (with-org user
+    (fn [org-id]
+      (js-await [org ((:pull storage) org-id '[*])]
+                (let [trial (compute-trial org)]
+                  (if (= "active" (:status trial))
+                    (let [now        (.now js/Date)
+                          history    (try (js/JSON.parse (or (:organization/trial-history org) "[]"))
+                                          (catch :default _ #js []))
+                          new-hist   (.stringify js/JSON (.concat history #js [#js {:type "pause" :ts now}]))
+                          elapsed-ms (or (:organization/trial-elapsed-ms org) 0)
+                          resumed-at (:organization/trial-resumed-at org)
+                          new-elapsed (+ elapsed-ms (if (and (number? resumed-at) (pos? resumed-at))
+                                                      (max 0 (- now resumed-at)) 0))]
+                      (js-await [_ ((:transact! storage)
+                                    [{:db/id                         org-id
+                                      :organization/trial-paused     true
+                                      :organization/trial-elapsed-ms new-elapsed
+                                      :organization/trial-history    new-hist}] nil)]
+                                (let [updated-org (assoc org
+                                                         :organization/trial-paused true
+                                                         :organization/trial-elapsed-ms new-elapsed)]
+                                  {:ok true :trial (compute-trial updated-org)})))
+                    {:error :trial-not-active}))))))
+
+(defn- handle-resume-trial! [storage user]
+  (with-org user
+    (fn [org-id]
+      (js-await [org ((:pull storage) org-id '[*])]
+                (let [trial (compute-trial org)]
+                  (if (= "paused" (:status trial))
+                    (let [now      (.now js/Date)
+                          history  (try (js/JSON.parse (or (:organization/trial-history org) "[]"))
+                                        (catch :default _ #js []))
+                          new-hist (.stringify js/JSON (.concat history #js [#js {:type "resume" :ts now}]))]
+                      (js-await [_ ((:transact! storage)
+                                    [{:db/id                         org-id
+                                      :organization/trial-paused     false
+                                      :organization/trial-resumed-at now
+                                      :organization/trial-history    new-hist}] nil)]
+                                (let [updated-org (assoc org
+                                                         :organization/trial-paused false
+                                                         :organization/trial-resumed-at now)]
+                                  {:ok true :trial (compute-trial updated-org)})))
+                    {:error :trial-not-paused}))))))
+
+;; ---------------------------------------------------------------------------
 ;; Admin handlers
 ;; ---------------------------------------------------------------------------
 
@@ -872,6 +969,32 @@
   (if (:superadmin user)
     (f)
     {:error :forbidden}))
+
+(defn- handle-admin-pause-trial! [storage data user]
+  (admin-guard user
+    (fn []
+      (let [{:keys [email]} data]
+        (js-await [account-eids ((:find-by-attr storage) :account/email email)]
+                  (if-let [account-eid (first account-eids)]
+                    (js-await [membership (fetch-membership storage account-eid)]
+                              (if membership
+                                (let [org-id (:membership/organization-id membership)]
+                                  (handle-pause-trial! storage {:org-id org-id}))
+                                {:error :not-found}))
+                    {:error :not-found}))))))
+
+(defn- handle-admin-resume-trial! [storage data user]
+  (admin-guard user
+    (fn []
+      (let [{:keys [email]} data]
+        (js-await [account-eids ((:find-by-attr storage) :account/email email)]
+                  (if-let [account-eid (first account-eids)]
+                    (js-await [membership (fetch-membership storage account-eid)]
+                              (if membership
+                                (let [org-id (:membership/organization-id membership)]
+                                  (handle-resume-trial! storage {:org-id org-id}))
+                                {:error :not-found}))
+                    {:error :not-found}))))))
 
 (defn- handle-admin-list-users! [storage user]
   (admin-guard user
@@ -883,12 +1006,16 @@
                 (let [acct->org-id (into {} (map (fn [m] [(:membership/account-id m) (:membership/organization-id m)]) memberships))
                       org-ids      (vec (distinct (remove nil? (vals acct->org-id))))]
                   (js-await [orgs (pull-many+ storage org-ids '[*])]
-                            (let [org-id->plan (into {} (map (fn [o] [(:db/id o) (:organization/plan o)]) orgs))]
+                            (let [org-id->org  (into {} (map (fn [o] [(:db/id o) o]) orgs))
+                                  org-id->plan (into {} (map (fn [o] [(:db/id o) (:organization/plan o)]) orgs))]
                               {:users (mapv (fn [a]
-                                             {:id    (:db/id a)
-                                              :email (:account/email a)
-                                              :name  (:account/name a)
-                                              :plan  (get org-id->plan (get acct->org-id (:db/id a)))})
+                                             (let [org-id (get acct->org-id (:db/id a))
+                                                   org    (get org-id->org org-id)]
+                                               {:id    (:db/id a)
+                                                :email (:account/email a)
+                                                :name  (:account/name a)
+                                                :plan  (get org-id->plan org-id)
+                                                :trial (when org (compute-trial org))}))
                                            accounts)})))))))
 
 (defn- handle-admin-set-plan! [storage data user]
@@ -1042,6 +1169,10 @@
     :admin-impersonate               (handle-admin-impersonate! storage data user env)
     :admin-export                    (handle-admin-export! storage data user)
     :admin-import                    (handle-admin-import! storage data user)
+    :pause-trial                     (handle-pause-trial! storage user)
+    :resume-trial                    (handle-resume-trial! storage user)
+    :admin-pause-trial               (handle-admin-pause-trial! storage data user)
+    :admin-resume-trial              (handle-admin-resume-trial! storage data user)
     :get-survey-questions            (handle-get-survey-questions! storage)
     :submit-survey                   (handle-submit-survey! storage data)
     :get-property-tax-configs        (handle-get-property-tax-configs! storage user)

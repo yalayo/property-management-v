@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, ChevronRight, FileText, Pencil, CheckCircle2, XCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, Pencil, CheckCircle2, XCircle, CalendarClock } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
@@ -117,7 +117,9 @@ export default function NebenkostenAbrechnung({
 }: Props) {
   const { t, i18n } = useTranslation("abrechnung");
 
-  const [year, setYear] = useState(new Date().getFullYear() - 1);
+  const currentYear = new Date().getFullYear();
+  const defaultBillingYear = currentYear - 1;
+  const [year, setYear] = useState(defaultBillingYear);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [selectedAptId, setSelectedAptId] = useState<string | null>(null);
   const [editingBankInfo, setEditingBankInfo] = useState(false);
@@ -401,17 +403,36 @@ export default function NebenkostenAbrechnung({
 
   // ── Render helpers ────────────────────────────────────────────────────────
 
+  const isOffDefaultYear = year !== defaultBillingYear;
+
   const YearNav = () => (
     <div className="flex items-center gap-1">
       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setYear(y => y - 1)}>
         <ChevronLeft className="h-4 w-4" />
       </Button>
-      <span className="w-14 text-center text-sm font-medium tabular-nums">{year}</span>
+      <span className={`min-w-[3.5rem] text-center text-sm font-semibold tabular-nums px-2 py-0.5 rounded-md border ${
+        isOffDefaultYear
+          ? "border-amber-400 bg-amber-50 text-amber-800"
+          : "border-transparent text-foreground"
+      }`}>{year}</span>
       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setYear(y => y + 1)}>
         <ChevronRight className="h-4 w-4" />
       </Button>
     </div>
   );
+
+  const YearBanner = () => isOffDefaultYear ? (
+    <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+      <CalendarClock className="h-4 w-4 shrink-0" />
+      <span className="flex-1">{t(year < defaultBillingYear ? "yearBanner.past" : "yearBanner.future", { year })}</span>
+      <button
+        className="text-xs font-semibold underline underline-offset-2 whitespace-nowrap hover:text-amber-900"
+        onClick={() => setYear(defaultBillingYear)}
+      >
+        {t("yearBanner.returnTo", { year: defaultBillingYear })}
+      </button>
+    </div>
+  ) : null;
 
   // ── View: property list ───────────────────────────────────────────────────
 
@@ -425,6 +446,7 @@ export default function NebenkostenAbrechnung({
           </div>
           <YearNav />
         </div>
+        <YearBanner />
 
         {properties.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("noProperties")}</p>
@@ -476,6 +498,7 @@ export default function NebenkostenAbrechnung({
           </div>
           <YearNav />
         </div>
+        <YearBanner />
 
         {/* Bank info card */}
         <Card>
@@ -659,6 +682,7 @@ export default function NebenkostenAbrechnung({
         </div>
         <YearNav />
       </div>
+      <YearBanner />
 
       {/* Tenant(s) info */}
       <Card>
