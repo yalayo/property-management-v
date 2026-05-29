@@ -227,25 +227,27 @@
 
 (re-frame/reg-event-fx
  ::create-expense-type
- (fn [{:keys [db]} [_ {:keys [key name-en name-de]}]]
+ (fn [{:keys [db]} [_ {:keys [key name-en name-de distribution-method]}]]
    {:db       (assoc-in db [:expense-types :saving?] true)
     :dispatch [:app.core-ui.events/command
                :create-expense-type
-               {:key     key
-                :name-en name-en
-                :name-de name-de}
+               {:key                 key
+                :name-en             name-en
+                :name-de             name-de
+                :distribution-method distribution-method}
                [::expense-type-mutated]
                [::expense-type-error]]}))
 
 (re-frame/reg-event-fx
  ::update-expense-type
- (fn [{:keys [db]} [_ {:keys [id name-en name-de]}]]
+ (fn [{:keys [db]} [_ {:keys [id name-en name-de distribution-method]}]]
    {:db       (assoc-in db [:expense-types :saving?] true)
     :dispatch [:app.core-ui.events/command
                :update-expense-type
-               {:id      id
-                :name-en name-en
-                :name-de name-de}
+               {:id                  id
+                :name-en             name-en
+                :name-de             name-de
+                :distribution-method distribution-method}
                [::expense-type-mutated]
                [::expense-type-error]]}))
 

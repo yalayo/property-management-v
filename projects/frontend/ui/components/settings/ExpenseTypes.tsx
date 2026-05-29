@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, Tags, AlertCircle, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Tags, AlertCircle, Search, ChevronLeft, ChevronRight, SplitSquareHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useToast } from "../../hooks/use-toast";
 import { Button } from "../ui/button";
@@ -11,12 +11,16 @@ import { Badge } from "../ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Skeleton } from "../ui/skeleton";
 
+const DISTRIBUTION_METHODS = ["living-area", "person", "consumed"] as const;
+type DistributionMethod = typeof DISTRIBUTION_METHODS[number];
+
 type ExpenseType = {
   id: string;
   key: string;
   "name-en"?: string;
   "name-de"?: string;
   name?: string;
+  "distribution-method"?: DistributionMethod;
 };
 
 type Props = {
@@ -26,8 +30,8 @@ type Props = {
   isReadOnly?: boolean;
   saveError?: boolean;
   onLoad?: () => void;
-  onAdd?: (data: { key: string; nameEn: string; nameDe: string }) => void;
-  onUpdate?: (id: string, nameEn: string, nameDe: string) => void;
+  onAdd?: (data: { key: string; nameEn: string; nameDe: string; distributionMethod: DistributionMethod }) => void;
+  onUpdate?: (id: string, nameEn: string, nameDe: string, distributionMethod: DistributionMethod) => void;
   onDelete?: (id: string) => void;
 };
 
@@ -51,11 +55,12 @@ export default function ExpenseTypes({
   const { t: tCommon } = useTranslation("common");
   const { toast } = useToast();
 
-  const [addForm, setAddForm] = useState({ key: "", nameEn: "", nameDe: "" });
+  const [addForm, setAddForm] = useState({ key: "", nameEn: "", nameDe: "", distributionMethod: "living-area" as DistributionMethod });
   const [addOpen, setAddOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [editNameEn, setEditNameEn] = useState("");
   const [editNameDe, setEditNameDe] = useState("");
+  const [editDistributionMethod, setEditDistributionMethod] = useState<DistributionMethod>("living-area");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [filterText, setFilterText] = useState("");
   const [page, setPage] = useState(1);
@@ -65,8 +70,8 @@ export default function ExpenseTypes({
 
   const handleAdd = () => {
     if (!addForm.key.trim() || !addForm.nameEn.trim() || !addForm.nameDe.trim()) return;
-    onAdd?.({ key: addForm.key.trim(), nameEn: addForm.nameEn.trim(), nameDe: addForm.nameDe.trim() });
-    setAddForm({ key: "", nameEn: "", nameDe: "" });
+    onAdd?.({ key: addForm.key.trim(), nameEn: addForm.nameEn.trim(), nameDe: addForm.nameDe.trim(), distributionMethod: addForm.distributionMethod });
+    setAddForm({ key: "", nameEn: "", nameDe: "", distributionMethod: "living-area" });
     setAddOpen(false);
     toast({ title: tCommon("saved") });
   };
@@ -75,14 +80,16 @@ export default function ExpenseTypes({
     setEditId(et.id);
     setEditNameEn(et["name-en"] || et.name || "");
     setEditNameDe(et["name-de"] || et.name || "");
+    setEditDistributionMethod((et["distribution-method"] ?? "living-area") as DistributionMethod);
   };
 
   const handleUpdate = () => {
     if (!editNameEn.trim() || !editNameDe.trim() || !editId) return;
-    onUpdate?.(editId, editNameEn.trim(), editNameDe.trim());
+    onUpdate?.(editId, editNameEn.trim(), editNameDe.trim(), editDistributionMethod);
     setEditId(null);
     setEditNameEn("");
     setEditNameDe("");
+    setEditDistributionMethod("living-area");
     toast({ title: tCommon("saved") });
   };
 
@@ -185,6 +192,18 @@ export default function ExpenseTypes({
                         className="h-8"
                       />
                     </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-6"><SplitSquareHorizontal className="h-3.5 w-3.5" /></span>
+                      <select
+                        value={editDistributionMethod}
+                        onChange={(e) => setEditDistributionMethod(e.target.value as DistributionMethod)}
+                        className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-sm"
+                      >
+                        {DISTRIBUTION_METHODS.map(m => (
+                          <option key={m} value={m}>{t(`methods.${m}`)}</option>
+                        ))}
+                      </select>
+                    </div>
                     <div className="flex gap-2">
                       <Button size="sm" onClick={handleUpdate} disabled={isSaving || isReadOnly}>
                         {tCommon("save")}
@@ -207,6 +226,9 @@ export default function ExpenseTypes({
                           : (et["name-de"] || et.name || "")}
                       </p>
                     </div>
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 ml-auto mr-2">
+                      {t(`methods.${et["distribution-method"] ?? "living-area"}`)}
+                    </Badge>
                   </div>
                 )}
                 {editId !== et.id && (
@@ -283,6 +305,18 @@ export default function ExpenseTypes({
                 onChange={(e) => setAddForm((f) => ({ ...f, nameDe: e.target.value }))}
                 placeholder={t("placeholders.nameDe")}
               />
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-1">{t("fields.distributionMethod")}</label>
+              <select
+                value={addForm.distributionMethod}
+                onChange={(e) => setAddForm((f) => ({ ...f, distributionMethod: e.target.value as DistributionMethod }))}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                {DISTRIBUTION_METHODS.map(m => (
+                  <option key={m} value={m}>{t(`methods.${m}`)}</option>
+                ))}
+              </select>
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setAddOpen(false)}>

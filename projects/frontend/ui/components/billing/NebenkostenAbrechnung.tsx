@@ -145,7 +145,17 @@ export default function NebenkostenAbrechnung({
     return m;
   }, [expenseTypes, i18n.language]);
 
+  // Map expense-type key → distribution method
+  const expenseTypeMethodMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    expenseTypes.forEach((et: any) => {
+      m[et.key] = et["distribution-method"] ?? "living-area";
+    });
+    return m;
+  }, [expenseTypes]);
+
   const lineName = (key: string) => expenseTypeMap[key] ?? key;
+  const lineMethod = (key: string) => expenseTypeMethodMap[key] ?? "living-area";
 
   const propertyCosts = useMemo(() => {
     if (!selectedPropertyId) return [];
@@ -274,10 +284,16 @@ export default function NebenkostenAbrechnung({
 
       const missingMonths = months.filter(m => !paidMonths.has(m));
 
-      const proratedTotal = activeCostLines.reduce((sum, key) => {
-        const entry = costEntryFor(aptCosts, key, year);
-        return sum + Number(entry?.value ?? 0) * ratio;
-      }, 0);
+      // Per-line cost breakdown respecting distribution method
+      const costBreakdown = activeCostLines.map(key => {
+        const entry  = costEntryFor(aptCosts, key, year);
+        const value  = Number(entry?.value ?? 0);
+        const method = lineMethod(key);
+        const share  = method === "consumed" ? value : value * ratio;
+        return { key, name: lineName(key), method, aptValue: value, share };
+      });
+
+      const proratedTotal = costBreakdown.reduce((sum, { share }) => sum + share, 0);
 
       const paidMonthCount = months.filter(m => paidMonths.has(m)).length;
       const prepayment = Number(tenant["nebenkosten-warm"] ?? 0) * paidMonthCount;
@@ -285,9 +301,9 @@ export default function NebenkostenAbrechnung({
 
       const canGenerate = hasIban && missingCostLines.length === 0 && missingMonths.length === 0;
 
-      return { tenant, days, ratio, months, missingMonths, proratedTotal, prepayment, net, canGenerate };
+      return { tenant, days, ratio, months, missingMonths, costBreakdown, proratedTotal, prepayment, net, canGenerate };
     });
-  }, [focusedTenants, year, paidMonths, activeCostLines, aptCosts, hasIban, missingCostLines]);
+  }, [focusedTenants, year, paidMonths, activeCostLines, aptCosts, hasIban, missingCostLines, expenseTypeMethodMap]);
 
   // ── Bank info save ────────────────────────────────────────────────────────
 
@@ -322,10 +338,11 @@ export default function NebenkostenAbrechnung({
       const costLines: CostLineItem[] = activeCostLines.map(key => {
         const aptEntry  = costEntryFor(aptCosts, key, year);
         const fullShare = Number(aptEntry?.value ?? 0);
+        const method    = lineMethod(key);
         return {
           name:      lineName(key),
           total:     effectiveCostValue(propertyCosts, key, year),
-          share:     fullShare * ratio,
+          share:     method === "consumed" ? fullShare : fullShare * ratio,
           verteiler: aptEntry?.verteiler ?? null,
           schluessel: aptEntry?.schluessel ?? null,
           anteil:    aptEntry?.anteil ?? null,
@@ -741,8 +758,9 @@ export default function NebenkostenAbrechnung({
           {/* Cost breakdown table — annual apartment-level shares */}
           <Card>
             <CardContent className="p-0">
-              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] text-xs font-medium text-muted-foreground border-b px-4 py-2 gap-1">
+              <div className="grid grid-cols-[2fr_auto_1fr_1fr_1fr_1fr] text-xs font-medium text-muted-foreground border-b px-4 py-2 gap-1">
                 <span>{t("costLine")}</span>
+                <span>{t("distributionMethod")}</span>
                 <span className="text-right">{t("total")}</span>
                 <span className="text-right">{t("verteiler")}</span>
                 <span className="text-right">{t("schluessel")}</span>
@@ -759,9 +777,11 @@ export default function NebenkostenAbrechnung({
                   const aptShare   = aptEntry ? Number(aptEntry.value) : null;
                   const verteiler  = aptEntry?.verteiler ?? "—";
                   const schluessel = aptEntry?.schluessel ?? "—";
+                  const method     = lineMethod(key);
                   return (
-                    <div key={key} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] text-sm px-4 py-2 border-b last:border-b-0 gap-1">
+                    <div key={key} className="grid grid-cols-[2fr_auto_1fr_1fr_1fr_1fr] text-sm px-4 py-2 border-b last:border-b-0 gap-1 items-center">
                       <span>{lineName(key)}</span>
+                      <span className="text-xs text-muted-foreground">{t(`methods.${method}`)}</span>
                       <span className="text-right tabular-nums text-muted-foreground">
                         {propTotal != null ? `€ ${formatEur(propTotal)}` : "—"}
                       </span>
@@ -799,7 +819,7 @@ export default function NebenkostenAbrechnung({
                   >
                     <div>
                       <p className="text-sm font-medium">{tenantDisplayName(info.tenant)}</p>
-                      <p className="text-xs text-muted-foreground tabular-nums">{info.days} Tage</p>
+                      <p className="text-xs text-muted-foreground tabular-nums">{info.days} Tage ({Math.round(info.ratio * 100)}%)</p>
                     </div>
                     <span className="text-right tabular-nums text-sm">
                       € {formatEur(info.proratedTotal)}

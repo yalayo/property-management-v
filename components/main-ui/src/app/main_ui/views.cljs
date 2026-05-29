@@ -264,14 +264,16 @@
                                                :onAdd        (fn [data]
                                                                (let [d (js->clj data :keywordize-keys true)]
                                                                  (re-frame/dispatch [::cost-events/create-expense-type
-                                                                                    {:key     (:key d)
-                                                                                     :name-en (:nameEn d)
-                                                                                     :name-de (:nameDe d)}])))
-                                               :onUpdate     (fn [id name-en name-de]
+                                                                                    {:key                 (:key d)
+                                                                                     :name-en             (:nameEn d)
+                                                                                     :name-de             (:nameDe d)
+                                                                                     :distribution-method (:distributionMethod d)}])))
+                                               :onUpdate     (fn [id name-en name-de distribution-method]
                                                                (re-frame/dispatch [::cost-events/update-expense-type
-                                                                                  {:id      id
-                                                                                   :name-en name-en
-                                                                                   :name-de name-de}]))
+                                                                                  {:id                  id
+                                                                                   :name-en             name-en
+                                                                                   :name-de             name-de
+                                                                                   :distribution-method distribution-method}]))
                                                :onDelete     (fn [id]
                                                                (re-frame/dispatch [::cost-events/delete-expense-type id]))}])
            :onImportDemoData    (when can-create?

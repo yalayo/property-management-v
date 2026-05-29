@@ -596,14 +596,15 @@
 (defn- handle-create-expense-type! [storage data user]
   (with-org user
     (fn [org-id]
-      (let [{:keys [key name-en name-de]} data]
+      (let [{:keys [key name-en name-de distribution-method]} data]
         (js-await [{:keys [tx-id entity-ids]}
                    ((:transact! storage)
-                    [{:db/type                      "expense-type"
-                      :expense-type/organization-id org-id
-                      :expense-type/key             key
-                      :expense-type/name-en         name-en
-                      :expense-type/name-de         name-de}] nil)]
+                    [{:db/type                          "expense-type"
+                      :expense-type/organization-id     org-id
+                      :expense-type/key                 key
+                      :expense-type/name-en             name-en
+                      :expense-type/name-de             name-de
+                      :expense-type/distribution-method (or distribution-method "living-area")}] nil)]
                   {:tx-id tx-id :expense-type-id (first entity-ids)})))))
 
 (defn- handle-update-expense-type! [storage data user]
@@ -616,8 +617,9 @@
                     (js-await [{:keys [tx-id]}
                                ((:transact! storage)
                                 [(cond-> {:db/id eid}
-                                   (:name-en data) (assoc :expense-type/name-en (:name-en data))
-                                   (:name-de data) (assoc :expense-type/name-de (:name-de data)))] nil)]
+                                   (:name-en data)             (assoc :expense-type/name-en             (:name-en data))
+                                   (:name-de data)             (assoc :expense-type/name-de             (:name-de data))
+                                   (:distribution-method data) (assoc :expense-type/distribution-method (:distribution-method data)))] nil)]
                               {:tx-id tx-id})))))))
 
 (defn- handle-delete-expense-type! [storage data user]
