@@ -131,7 +131,7 @@
                                                    final-org (if needs-trial?
                                                                ((:pull storage) org-id '[*])
                                                                (js/Promise.resolve org))]
-                                                  (let [trial       (compute-trial final-org)
+                                                  (let [trial       (when (nil? plan) (compute-trial final-org))
                                                         email       (get-in result [:user :email])
                                                         super-email (aget env "SUPER_ADMIN_EMAIL")
                                                         superadmin? (and (some? super-email) (= email super-email))

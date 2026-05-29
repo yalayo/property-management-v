@@ -77,6 +77,7 @@
  (fn [db [_ tier-id _response]]
    (-> db
        (assoc-in [:user :info :plan] tier-id)
+       (assoc-in [:user :info :trial] nil)
        (assoc-in [:payment :step] nil)
        (assoc-in [:payment :activating?] false)
        (assoc-in [:ui :active-section] "overview"))))
