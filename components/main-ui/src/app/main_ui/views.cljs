@@ -64,6 +64,7 @@
         prop-saving?         @(re-frame/subscribe [::property-subs/saving?])
         all-apartments       @(re-frame/subscribe [::apartment-subs/apartments])
         apts-loading?        @(re-frame/subscribe [::apartment-subs/loading?])
+        apts-saving?         @(re-frame/subscribe [::apartment-subs/saving?])
         tenants              @(re-frame/subscribe [::tenant-subs/tenants])
         tenants-loading?     @(re-frame/subscribe [::tenant-subs/loading?])
         tenants-saving?      @(re-frame/subscribe [::tenant-subs/saving?])
@@ -361,9 +362,31 @@
                                                   :has-iban?      (:hasIban d)})]
                                      (clj->js {:ready   (:ready? r)
                                                :missing (vec (:missing r))}))))
+           :aptsSaving         apts-saving?
+           :tenantsSaving      tenants-saving?
+           :onAddApartment     (when can-create?
+                                 (fn [property-id code]
+                                   (re-frame/dispatch [::apartment-events/set-new-property-id property-id])
+                                   (re-frame/dispatch [::apartment-events/set-new-code code])
+                                   (re-frame/dispatch [::apartment-events/add-apartment])))
+           :onAddTenant        (when can-create?
+                                 (fn [data]
+                                   (let [d (js->clj data :keywordize-keys true)]
+                                     (re-frame/dispatch [::tenant-events/add-tenant
+                                                         {:first-name   (:firstName d)
+                                                          :last-name    (:lastName d)
+                                                          :email        (:email d)
+                                                          :phone        (:phone d)
+                                                          :start-date   (:startDate d)
+                                                          :end-date     (:endDate d)
+                                                          :apartment-id (when-not (empty? (:apartmentId d))
+                                                                          (:apartmentId d))}]))))
            :onNavigateToApartment (fn [apt-id initial-tab]
                                     (re-frame/dispatch [::apartment-events/select-apartment apt-id initial-tab])
                                     (re-frame/dispatch [::events/set-dashboard-tab "apartments"]))
+           :onNavigateToTenant (fn [tenant-id]
+                                 (re-frame/dispatch [::tenant-events/select-tenant tenant-id])
+                                 (re-frame/dispatch [::events/set-dashboard-tab "tenants"]))
            :onViewApartments   (fn [property]
                                  (re-frame/dispatch [::events/navigate-to-apartments (js->clj property :keywordize-keys true)]))
            :costs              (clj->js costs)

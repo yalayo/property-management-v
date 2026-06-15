@@ -125,7 +125,7 @@ export default function Dashboard(props) {
     admin:      "Admin",
   };
 
-  const handleSelect = (id: string, context?: { propertyId?: string; aptId?: string; aptTab?: string }) => {
+  const handleSelect = (id: string, context?: { propertyId?: string; aptId?: string; aptTab?: string; tenantId?: any }) => {
     setActiveTab(id);
     setNavContext(context ? { ...context, nonce: Date.now() } : null);
     props.onChangeTab?.(id);
@@ -134,6 +134,9 @@ export default function Dashboard(props) {
     else if (context?.propertyId) setSelectedProperty(null); // ensure list view shown so edit dialog can open
     if (id === "apartments" && context?.aptId) {
       props.onNavigateToApartment?.(context.aptId, context.aptTab ?? "rent");
+    }
+    if (id === "tenants" && context?.tenantId != null) {
+      props.onNavigateToTenant?.(context.tenantId);
     }
   };
 
@@ -310,6 +313,12 @@ export default function Dashboard(props) {
                 onUpdateCost={props.onUpdateCost}
                 onDeleteCost={props.onDeleteCost}
                 onBack={() => setSelectedProperty(null)}
+                onViewApartment={(aptId) => handleSelect("apartments", { aptId, aptTab: "tenants" })}
+                onViewTenant={(tenantId) => handleSelect("tenants", { tenantId })}
+                onAddApartment={(code) => props.onAddApartment?.(selectedProperty.id, code)}
+                onAddTenant={(data) => props.onAddTenant?.(data)}
+                aptsSaving={props.aptsSaving}
+                tenantsSaving={props.tenantsSaving}
               />
             ) : (
               <PropertyList

@@ -6,9 +6,12 @@ import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
+import { Label } from "../ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
+import AddTenantForm from "../tenants/AddTenant";
 import { getApartmentsForProperty, getTenantsForPropertyApartments, getApartmentCode } from "../../lib/propertyUtils";
 
 type CostLine = { id: string; key: string; name?: string; "name-en"?: string; "name-de"?: string };
@@ -35,111 +38,216 @@ type Props = {
   onUpdateCost?: (data: { id: string; value: number }) => void;
   onDeleteCost?: (id: string) => void;
   onBack: () => void;
+  onViewApartment?: (aptId: any) => void;
+  onViewTenant?: (tenantId: any) => void;
+  onAddApartment?: (code: string) => void;
+  onAddTenant?: (data: any) => void;
+  aptsSaving?: boolean;
+  tenantsSaving?: boolean;
 };
 
 // ── Apartments tab ────────────────────────────────────────────────────────────
 
-function ApartmentsTab({ apartments, tenants, t, tApts }: {
+function ApartmentsTab({ apartments, tenants, t, tApts, tCommon, onViewApartment, onAddApartment, aptsSaving, isReadOnly }: {
   apartments: any[];
   tenants: any[];
   t: (key: string) => string;
   tApts: (key: string, opts?: any) => string;
+  tCommon: (key: string) => string;
+  onViewApartment?: (aptId: any) => void;
+  onAddApartment?: (code: string) => void;
+  aptsSaving?: boolean;
+  isReadOnly?: boolean;
 }) {
-  if (apartments.length === 0) {
-    return (
-      <div className="text-center py-10 text-sm text-muted-foreground">
-        {t("noApartmentsInProperty")}
-      </div>
-    );
-  }
+  const [addOpen, setAddOpen] = useState(false);
+  const [newCode, setNewCode] = useState("");
+
+  const handleAdd = () => {
+    if (!newCode.trim()) return;
+    onAddApartment?.(newCode.trim());
+    setNewCode("");
+    setAddOpen(false);
+  };
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {apartments.map((apt: any) => {
-        const aptId = apt["db/id"];
-        const code = apt["apartment/code"] ?? apt.code ?? "—";
-        const occupied: boolean = !!apt["apartment/occupied"] ?? !!apt.occupied;
-        const aptTenants = tenants.filter((tn: any) => tn["apartment-id"] === aptId);
-        const activeTenant = aptTenants.find((tn: any) => !tn["end-date"] || new Date(tn["end-date"]) >= new Date());
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        {!isReadOnly && onAddApartment && (
+          <Button size="sm" onClick={() => setAddOpen(true)}>
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            {tApts("addApartment")}
+          </Button>
+        )}
+      </div>
 
-        return (
-          <Card key={aptId} className="overflow-hidden">
-            <CardContent className="pt-4 pb-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold">{tApts("apartment", { code })}</span>
-                <Badge variant={occupied ? "default" : "secondary"} className="text-xs">
-                  {occupied ? tApts("occupied") : tApts("available")}
-                </Badge>
-              </div>
-              {activeTenant ? (
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <User className="h-3.5 w-3.5 shrink-0" />
-                  <span>{[activeTenant["first-name"], activeTenant["last-name"]].filter(Boolean).join(" ") || activeTenant.name || "—"}</span>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground italic">{tApts("vacantMessage")}</p>
-              )}
-            </CardContent>
-          </Card>
-        );
-      })}
+      <Dialog open={addOpen} onOpenChange={(open) => { setAddOpen(open); if (!open) setNewCode(""); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{tApts("addApartment")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            <div className="space-y-1.5">
+              <Label htmlFor="new-apt-code">{tApts("fields.code")}</Label>
+              <Input
+                id="new-apt-code"
+                placeholder={tApts("placeholders.code")}
+                value={newCode}
+                onChange={(e) => setNewCode(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">{tApts("fields.codeHint")}</p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => { setAddOpen(false); setNewCode(""); }}>
+                {tCommon("cancel")}
+              </Button>
+              <Button onClick={handleAdd} disabled={!newCode.trim() || aptsSaving}>
+                {aptsSaving ? tCommon("saving") : tApts("addApartment")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {apartments.length === 0 ? (
+        <div className="text-center py-10 text-sm text-muted-foreground">
+          {t("noApartmentsInProperty")}
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {apartments.map((apt: any) => {
+            const aptId = apt["db/id"];
+            const code = apt["apartment/code"] ?? apt.code ?? "—";
+            const occupied: boolean = !!(apt["apartment/occupied"] ?? apt.occupied);
+            const aptTenants = tenants.filter((tn: any) => tn["apartment-id"] === aptId);
+            const activeTenant = aptTenants.find((tn: any) => !tn["end-date"] || new Date(tn["end-date"]) >= new Date());
+
+            return (
+              <Card key={aptId} className="overflow-hidden">
+                <CardContent className="pt-4 pb-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <button
+                      className="font-semibold text-left hover:underline hover:text-primary leading-tight"
+                      onClick={() => onViewApartment?.(aptId)}
+                    >
+                      {tApts("apartment", { code })}
+                    </button>
+                    <Badge variant={occupied ? "default" : "secondary"} className="text-xs shrink-0 ml-2">
+                      {occupied ? tApts("occupied") : tApts("available")}
+                    </Badge>
+                  </div>
+                  {activeTenant ? (
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <User className="h-3.5 w-3.5 shrink-0" />
+                      <span>{[activeTenant["first-name"], activeTenant["last-name"]].filter(Boolean).join(" ") || activeTenant.name || "—"}</span>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">{tApts("vacantMessage")}</p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
 // ── Tenants tab ───────────────────────────────────────────────────────────────
 
-function TenantsTab({ tenants, apartments, t, tTenants }: {
+function TenantsTab({ tenants, allTenants, propertyApartments, apartments, t, tTenants, tCommon, onViewTenant, onAddTenant, tenantsSaving, isReadOnly }: {
   tenants: any[];
+  allTenants: any[];
+  propertyApartments: any[];
   apartments: any[];
   t: (key: string) => string;
   tTenants: (key: string, opts?: any) => string;
+  tCommon: (key: string) => string;
+  onViewTenant?: (tenantId: any) => void;
+  onAddTenant?: (data: any) => void;
+  tenantsSaving?: boolean;
+  isReadOnly?: boolean;
 }) {
-  if (tenants.length === 0) {
-    return (
-      <div className="text-center py-10 text-sm text-muted-foreground">
-        {t("noTenantsInProperty")}
-      </div>
-    );
-  }
+  const [addOpen, setAddOpen] = useState(false);
+
+  const aptOptions = propertyApartments.map((apt: any) => ({
+    id: apt["db/id"],
+    code: apt["apartment/code"] ?? apt.code ?? "—",
+  }));
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {tenants.map((tenant: any) => {
-        const id = tenant["db/id"] ?? tenant.id;
-        const fullName = [tenant["first-name"], tenant["last-name"]].filter(Boolean).join(" ") || tenant.name || "—";
-        const aptCode = getApartmentCode(apartments, tenant["apartment-id"]);
-        const isActive = !tenant["end-date"] || new Date(tenant["end-date"]) >= new Date();
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        {!isReadOnly && onAddTenant && (
+          <Button size="sm" onClick={() => setAddOpen(true)}>
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            {tTenants("addTenant")}
+          </Button>
+        )}
+      </div>
 
-        return (
-          <Card key={id} className="overflow-hidden">
-            <CardContent className="pt-4 pb-3 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold">{fullName}</span>
-                <Badge variant={isActive ? "default" : "secondary"} className="text-xs">
-                  {isActive ? tTenants("active") : tTenants("past")}
-                </Badge>
-              </div>
-              {tenant.email && (
-                <p className="text-xs text-muted-foreground">{tenant.email}</p>
-              )}
-              {aptCode && (
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Building2 className="h-3 w-3 shrink-0" />
-                  <span>{aptCode}</span>
-                </div>
-              )}
-              {tenant["start-date"] && (
-                <p className="text-xs text-muted-foreground">
-                  {tenant["end-date"]
-                    ? tTenants("fromTo", { from: tenant["start-date"], to: tenant["end-date"] })
-                    : tTenants("from", { from: tenant["start-date"] })}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        );
-      })}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent>
+          <AddTenantForm
+            apartments={aptOptions}
+            tenants={allTenants}
+            isLoading={tenantsSaving}
+            onClose={() => setAddOpen(false)}
+            onSubmit={(data) => { onAddTenant?.(data); setAddOpen(false); }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {tenants.length === 0 ? (
+        <div className="text-center py-10 text-sm text-muted-foreground">
+          {t("noTenantsInProperty")}
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {tenants.map((tenant: any) => {
+            const id = tenant["db/id"] ?? tenant.id;
+            const fullName = [tenant["first-name"], tenant["last-name"]].filter(Boolean).join(" ") || tenant.name || "—";
+            const aptCode = getApartmentCode(apartments, tenant["apartment-id"]);
+            const isActive = !tenant["end-date"] || new Date(tenant["end-date"]) >= new Date();
+
+            return (
+              <Card key={id} className="overflow-hidden">
+                <CardContent className="pt-4 pb-3 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <button
+                      className="font-semibold text-left hover:underline hover:text-primary leading-tight"
+                      onClick={() => onViewTenant?.(id)}
+                    >
+                      {fullName}
+                    </button>
+                    <Badge variant={isActive ? "default" : "secondary"} className="text-xs shrink-0 ml-2">
+                      {isActive ? tTenants("active") : tTenants("past")}
+                    </Badge>
+                  </div>
+                  {tenant.email && (
+                    <p className="text-xs text-muted-foreground">{tenant.email}</p>
+                  )}
+                  {aptCode && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Building2 className="h-3 w-3 shrink-0" />
+                      <span>{aptCode}</span>
+                    </div>
+                  )}
+                  {tenant["start-date"] && (
+                    <p className="text-xs text-muted-foreground">
+                      {tenant["end-date"]
+                        ? tTenants("fromTo", { from: tenant["start-date"], to: tenant["end-date"] })
+                        : tTenants("from", { from: tenant["start-date"] })}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -391,6 +499,12 @@ export default function PropertyDetail({
   onUpdateCost,
   onDeleteCost,
   onBack,
+  onViewApartment,
+  onViewTenant,
+  onAddApartment,
+  onAddTenant,
+  aptsSaving,
+  tenantsSaving,
 }: Props) {
   const { t, i18n } = useTranslation("costs");
   const { t: tCommon } = useTranslation("common");
@@ -464,15 +578,27 @@ export default function PropertyDetail({
             tenants={tenants}
             t={t}
             tApts={tApts}
+            tCommon={tCommon}
+            onViewApartment={onViewApartment}
+            onAddApartment={onAddApartment}
+            aptsSaving={aptsSaving}
+            isReadOnly={isReadOnly}
           />
         </TabsContent>
 
         <TabsContent value="tenants" className="mt-4">
           <TenantsTab
             tenants={propertyTenants}
+            allTenants={tenants}
+            propertyApartments={propertyApartments}
             apartments={apartments}
             t={t}
             tTenants={tTenants}
+            tCommon={tCommon}
+            onViewTenant={onViewTenant}
+            onAddTenant={onAddTenant}
+            tenantsSaving={tenantsSaving}
+            isReadOnly={isReadOnly}
           />
         </TabsContent>
 
