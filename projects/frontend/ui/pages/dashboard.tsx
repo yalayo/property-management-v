@@ -130,8 +130,12 @@ export default function Dashboard(props) {
     setNavContext(context ? { ...context, nonce: Date.now() } : null);
     props.onChangeTab?.(id);
     setSidebarOpen(false);
-    if (id !== "properties") setSelectedProperty(null);
-    else if (context?.propertyId) setSelectedProperty(null); // ensure list view shown so edit dialog can open
+    if (id !== "properties") {
+      setSelectedProperty(null);
+      props.onClearSelectedApartment?.();
+    } else if (context?.propertyId) {
+      setSelectedProperty(null); // ensure list view shown so edit dialog can open
+    }
     if (id === "apartments" && context?.aptId) {
       props.onNavigateToApartment?.(context.aptId, context.aptTab ?? "rent");
     }
@@ -298,7 +302,9 @@ export default function Dashboard(props) {
           )}
 
           {activeTab === "properties" && (
-            selectedProperty ? (
+            selectedProperty && props.selectedApartmentId != null ? (
+              props.apartmentsView
+            ) : selectedProperty ? (
               <PropertyDetail
                 property={selectedProperty}
                 apartments={props.apartments}
@@ -312,8 +318,8 @@ export default function Dashboard(props) {
                 onAddCost={props.onAddCost}
                 onUpdateCost={props.onUpdateCost}
                 onDeleteCost={props.onDeleteCost}
-                onBack={() => setSelectedProperty(null)}
-                onViewApartment={(aptId) => handleSelect("apartments", { aptId, aptTab: "tenants" })}
+                onBack={() => { setSelectedProperty(null); props.onClearSelectedApartment?.(); }}
+                onViewApartment={(aptId) => props.onSelectApartmentInline?.(aptId, "tenants")}
                 onViewTenant={(tenantId) => handleSelect("tenants", { tenantId })}
                 onAddApartment={(code) => props.onAddApartment?.(selectedProperty.id, code)}
                 onAddTenant={(data) => props.onAddTenant?.(data)}
@@ -330,7 +336,7 @@ export default function Dashboard(props) {
                 onEditProperty={props.onEditProperty}
                 onDeleteProperty={props.onDeleteProperty}
                 onViewApartments={handleViewApartments}
-                onSelectProperty={setSelectedProperty}
+                onSelectProperty={(property) => { props.onClearSelectedApartment?.(); setSelectedProperty(property); }}
                 navContext={navContext}
               />
             )

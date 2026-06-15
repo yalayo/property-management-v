@@ -116,15 +116,15 @@ function ApartmentsTab({ apartments, tenants, t, tApts, tCommon, onViewApartment
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {apartments.map((apt: any) => {
-            const aptId = apt["db/id"];
+          {apartments.map((apt: any, index: number) => {
+            const aptId = apt["db/id"] ?? apt.id;
             const code = apt["apartment/code"] ?? apt.code ?? "—";
             const occupied: boolean = !!(apt["apartment/occupied"] ?? apt.occupied);
             const aptTenants = tenants.filter((tn: any) => tn["apartment-id"] === aptId);
             const activeTenant = aptTenants.find((tn: any) => !tn["end-date"] || new Date(tn["end-date"]) >= new Date());
 
             return (
-              <Card key={aptId} className="overflow-hidden">
+              <Card key={aptId ?? `apt-${index}`} className="overflow-hidden">
                 <CardContent className="pt-4 pb-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <button
@@ -172,10 +172,12 @@ function TenantsTab({ tenants, allTenants, propertyApartments, apartments, t, tT
 }) {
   const [addOpen, setAddOpen] = useState(false);
 
-  const aptOptions = propertyApartments.map((apt: any) => ({
-    id: apt["db/id"],
-    code: apt["apartment/code"] ?? apt.code ?? "—",
-  }));
+  const aptOptions = propertyApartments
+    .filter((apt: any) => !(apt.occupied ?? apt["apartment/occupied"]))
+    .map((apt: any) => ({
+      id: apt["db/id"] ?? apt.id,
+      code: apt["apartment/code"] ?? apt.code ?? "—",
+    }));
 
   return (
     <div className="space-y-4">

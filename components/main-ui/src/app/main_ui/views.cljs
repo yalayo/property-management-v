@@ -65,6 +65,7 @@
         all-apartments       @(re-frame/subscribe [::apartment-subs/apartments])
         apts-loading?        @(re-frame/subscribe [::apartment-subs/loading?])
         apts-saving?         @(re-frame/subscribe [::apartment-subs/saving?])
+        selected-apt-id      @(re-frame/subscribe [::apartment-subs/selected-apartment-id])
         tenants              @(re-frame/subscribe [::tenant-subs/tenants])
         tenants-loading?     @(re-frame/subscribe [::tenant-subs/loading?])
         tenants-saving?      @(re-frame/subscribe [::tenant-subs/saving?])
@@ -362,8 +363,12 @@
                                                   :has-iban?      (:hasIban d)})]
                                      (clj->js {:ready   (:ready? r)
                                                :missing (vec (:missing r))}))))
-           :aptsSaving         apts-saving?
-           :tenantsSaving      tenants-saving?
+           :aptsSaving              apts-saving?
+           :tenantsSaving           tenants-saving?
+           :selectedApartmentId     selected-apt-id
+           :onSelectApartmentInline (fn [apt-id initial-tab]
+                                      (re-frame/dispatch [::apartment-events/select-apartment apt-id initial-tab]))
+           :onClearSelectedApartment #(re-frame/dispatch [::apartment-events/clear-selected-apartment])
            :onAddApartment     (when can-create?
                                  (fn [property-id code]
                                    (re-frame/dispatch [::apartment-events/set-new-property-id property-id])

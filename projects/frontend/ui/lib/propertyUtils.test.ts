@@ -6,17 +6,17 @@ import {
   getApartmentCode,
 } from "./propertyUtils.js";
 
-// Sample fixtures
+// Sample fixtures — use the real JS data shape (plain keys, not CLJS namespaced keys)
 const apartments = [
-  { "db/id": 1, "property-id": 10, "apartment/code": "A1", "apartment/occupied": true },
-  { "db/id": 2, "property-id": 10, "apartment/code": "A2", "apartment/occupied": false },
-  { "db/id": 3, "property-id": 20, "apartment/code": "B1", "apartment/occupied": true },
+  { id: 1, "property-id": 10, code: "A1", occupied: true },
+  { id: 2, "property-id": 10, code: "A2", occupied: false },
+  { id: 3, "property-id": 20, code: "B1", occupied: true },
 ];
 
 const tenants = [
-  { id: 101, "db/id": 101, "apartment-id": 1, "first-name": "Maria", "last-name": "Schmidt" },
-  { id: 102, "db/id": 102, "apartment-id": 2, "first-name": "Hans", "last-name": "Müller" },
-  { id: 103, "db/id": 103, "apartment-id": 3, "first-name": "Anna", "last-name": "Klein" },
+  { id: 101, "apartment-id": 1, "first-name": "Maria", "last-name": "Schmidt" },
+  { id: 102, "apartment-id": 2, "first-name": "Hans", "last-name": "Müller" },
+  { id: 103, "apartment-id": 3, "first-name": "Anna", "last-name": "Klein" },
 ];
 
 describe("getApartmentsForProperty", () => {
@@ -29,7 +29,7 @@ describe("getApartmentsForProperty", () => {
   test("returns only the apartment for property 20", () => {
     const result = getApartmentsForProperty(apartments, 20);
     assert.equal(result.length, 1);
-    assert.equal(result[0]["apartment/code"], "B1");
+    assert.equal(result[0].code, "B1");
   });
 
   test("returns empty array when no apartments match", () => {
