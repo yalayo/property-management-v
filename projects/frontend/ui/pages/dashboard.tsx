@@ -298,6 +298,8 @@ export default function Dashboard(props) {
             selectedProperty ? (
               <PropertyDetail
                 property={selectedProperty}
+                apartments={props.apartments}
+                tenants={props.tenants}
                 expenseTypes={props.expenseTypes}
                 costs={props.costs}
                 costsLoading={props.costsLoading}

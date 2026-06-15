@@ -544,6 +544,13 @@ const resources = {
       anteil: "Share",
       fixedValue: "Enter fixed amount",
       noTenantsInYear: "No tenants in {{year}}",
+      tabs: {
+        apartments: "Apartments",
+        tenants: "Tenants",
+        nebenkosten: "Nebenkosten",
+      },
+      noApartmentsInProperty: "No apartments in this property yet.",
+      noTenantsInProperty: "No tenants associated with this property.",
       yearBanner: {
         past: "You are editing data for {{year}} — a past year.",
         future: "You are editing data for {{year}} — a future year.",
@@ -1594,6 +1601,13 @@ const resources = {
       anteil: "Anteil",
       fixedValue: "Fixbetrag eingeben",
       noTenantsInYear: "Keine Mieter in {{year}}",
+      tabs: {
+        apartments: "Wohnungen",
+        tenants: "Mieter",
+        nebenkosten: "Nebenkosten",
+      },
+      noApartmentsInProperty: "Noch keine Wohnungen in dieser Immobilie.",
+      noTenantsInProperty: "Keine Mieter dieser Immobilie zugeordnet.",
       yearBanner: {
         past: "Sie bearbeiten Daten für {{year}} — ein vergangenes Jahr.",
         future: "Sie bearbeiten Daten für {{year}} — ein zukünftiges Jahr.",
