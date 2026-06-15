@@ -635,8 +635,9 @@
 (defn- handle-get-expense-types! [storage user]
   (with-org user
     (fn [org-id]
-      (js-await [eids          ((:find-by-attr storage) :expense-type/organization-id org-id)
-                 expense-types (pull-many+ storage eids '[*])]
+      (js-await [org-eids      ((:find-by-attr storage) :expense-type/organization-id org-id)
+                 sys-eids      ((:find-by-attr storage) :expense-type/organization-id "system")
+                 expense-types (pull-many+ storage (vec (distinct (concat sys-eids org-eids))) '[*])]
                 {:expense-types expense-types}))))
 
 (defn- handle-create-expense-type! [storage data user]

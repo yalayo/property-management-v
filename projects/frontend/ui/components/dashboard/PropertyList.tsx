@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Building2, Search } from "lucide-react";
+import { Plus, Edit, Trash2, Search } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -429,17 +429,7 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
                   {property["year-built"] && (
                     <p className="mt-2 text-xs text-muted-foreground">{t("builtIn", { year: property["year-built"] })}</p>
                   )}
-                  {onViewApartments && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-3 w-full"
-                      onClick={() => onViewApartments(property)}
-                    >
-                      <Building2 className="h-3.5 w-3.5 mr-1.5" />
-                      {t("viewApartments")}
-                    </Button>
-                  )}
+
                 </div>
               </Card>
             ))}
