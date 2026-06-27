@@ -470,9 +470,12 @@ const resources = {
         noPropertyFound: "No property found.",
         code: "Unit Code",
         codeHint: "A short identifier for this unit, e.g. A1, 2B, Top-Left.",
+        wohnflaeche: "Living area",
+        wohnflaecheHint: "Living area in m². Used for Nebenkosten distribution.",
       },
       placeholders: {
         code: "E.g., A1, 2B, OG-Links",
+        wohnflaeche: "e.g. 65.5",
       },
       validation: {
         codeTaken: "An apartment with this code already exists in this property",
@@ -1527,9 +1530,12 @@ const resources = {
         noPropertyFound: "Keine Immobilie gefunden.",
         code: "Einheitencode",
         codeHint: "Eine kurze Kennung für diese Einheit, z.B. A1, 2B, OG-Links.",
+        wohnflaeche: "Wohnfläche",
+        wohnflaecheHint: "Wohnfläche in m². Wird für die Nebenkostenverteilung verwendet.",
       },
       placeholders: {
         code: "z.B. A1, 2B, OG-Links",
+        wohnflaeche: "z.B. 65,5",
       },
       validation: {
         codeTaken: "Eine Wohnung mit diesem Code existiert bereits in dieser Immobilie",
