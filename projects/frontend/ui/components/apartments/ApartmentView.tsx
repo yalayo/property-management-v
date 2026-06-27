@@ -358,12 +358,12 @@ export default function ApartmentView({
         .filter((c: any) => c.line === lineKey && Number(c.year) < year)
         .sort((a: any, b: any) => Number(b.year) - Number(a.year))[0] ?? null;
       const schluessel = String(inherited?.schluessel ?? "Wohnfläche");
-      const verteiler  = schluessel === "Wohnfläche"
-        ? propertyWohnflaecheStr
-        : (inherited?.verteiler  != null ? String(inherited.verteiler)   : "");
-      const anteil     = schluessel === "Wohnfläche"
-        ? (apartment.wohnflaeche != null ? String(apartment.wohnflaeche) : "")
-        : (inherited?.anteil     != null ? String(inherited.anteil)      : "");
+      const verteiler  = schluessel === "Wohnfläche"       ? propertyWohnflaecheStr
+                       : schluessel === "Anzahl Personen"  ? propertyPersonDaysStr
+                       : (inherited?.verteiler != null     ? String(inherited.verteiler) : "");
+      const anteil     = schluessel === "Wohnfläche"       ? (apartment.wohnflaeche != null ? String(apartment.wohnflaeche) : "")
+                       : schluessel === "Anzahl Personen"  ? aptPersonDaysStr
+                       : (inherited?.anteil    != null     ? String(inherited.anteil)    : "");
       toOpen[lineKey] = {
         value:      inherited ? String(inherited.value) : "",
         verteiler,
@@ -377,7 +377,7 @@ export default function ApartmentView({
       autoPopulatedKey.current = aptYear;
       setCostInput(toOpen);
     }
-  }, [activeTab, year, apartment.id, dataTenantTab, aptCosts, allCosts, expenseTypes, propertyId]);
+  }, [activeTab, year, apartment.id, dataTenantTab, aptCosts, allCosts, expenseTypes, propertyId, tenants, apartments]);
 
   // Auto-close pending cost edits once saved
   const prevAptCostsRef = useRef(aptCosts);
@@ -408,6 +408,16 @@ export default function ApartmentView({
     .filter((a) => (a["property-id"] ?? (a as any).property_id) === propertyId && a.wohnflaeche != null)
     .reduce((sum, a) => sum + parseFloat(String(a.wohnflaeche)), 0);
   const propertyWohnflaecheStr = propertyTotalWohnflaeche > 0 ? String(propertyTotalWohnflaeche) : "";
+
+  const daysInYear = isLeapYear(year) ? 366 : 365;
+  const activeTenantsForApt = (aptId: number | string) =>
+    tenants.filter((tn: Tenant) => String(tn["apartment-id"]) === String(aptId) && tenantActiveInYear(tn, year)).length;
+  const aptPersonDays      = activeTenantsForApt(apartment.id) * daysInYear;
+  const aptPersonDaysStr   = aptPersonDays > 0 ? String(aptPersonDays) : "";
+  const propertyPersonDays = apartments
+    .filter((a) => (a["property-id"] ?? (a as any).property_id) === propertyId)
+    .reduce((sum, a) => sum + activeTenantsForApt(a.id) * daysInYear, 0);
+  const propertyPersonDaysStr = propertyPersonDays > 0 ? String(propertyPersonDays) : "";
 
   const aptTenants   = tenants.filter(tn => String(tn["apartment-id"]) === String(apartment.id));
 
@@ -514,12 +524,12 @@ export default function ApartmentView({
     if (!line) return;
     const inherited     = inheritedCostFor(line.key);
     const schluessel    = String(inherited?.schluessel ?? "Wohnfläche");
-    const defaultVert   = schluessel === "Wohnfläche"
-      ? propertyWohnflaecheStr
-      : (inherited?.verteiler  != null ? String(inherited.verteiler)   : "");
-    const defaultAnteil = schluessel === "Wohnfläche"
-      ? (apartment.wohnflaeche != null ? String(apartment.wohnflaeche) : "")
-      : (inherited?.anteil     != null ? String(inherited.anteil)      : "");
+    const defaultVert   = schluessel === "Wohnfläche"      ? propertyWohnflaecheStr
+                        : schluessel === "Anzahl Personen" ? propertyPersonDaysStr
+                        : (inherited?.verteiler != null    ? String(inherited.verteiler) : "");
+    const defaultAnteil = schluessel === "Wohnfläche"      ? (apartment.wohnflaeche != null ? String(apartment.wohnflaeche) : "")
+                        : schluessel === "Anzahl Personen" ? aptPersonDaysStr
+                        : (inherited?.anteil    != null    ? String(inherited.anteil)    : "");
     const defaultValue  = inherited ? String(inherited.value) : calculateShare(key, defaultVert, defaultAnteil);
     openCostEdit(line.key, {
       value:      defaultValue,
