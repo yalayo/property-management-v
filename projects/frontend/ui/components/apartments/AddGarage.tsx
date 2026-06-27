@@ -15,65 +15,39 @@ type Property = {
 };
 
 type Props = {
-  id?: string;
   properties?: Property[];
-  apartments?: any[];
   isLoading?: boolean;
   code?: string;
-  wohnflaeche?: string;
-  onChangeAddApartmentDialogClose?: () => void;
+  flaeche?: string;
+  onClose?: () => void;
   onChangeCode?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onChangeProperty?: (value: string) => void;
-  onChangeWohnflaeche?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  submitApartment?: () => void;
+  onChangeFlaeche?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onSubmit?: () => void;
 };
 
-export default function AddApartment({
+export default function AddGarage({
   properties = [],
-  apartments = [],
   isLoading = false,
   code = "",
-  wohnflaeche = "",
-  onChangeAddApartmentDialogClose,
+  flaeche = "",
+  onClose,
   onChangeCode,
   onChangeProperty,
-  onChangeWohnflaeche,
-  submitApartment,
+  onChangeFlaeche,
+  onSubmit,
 }: Props) {
-  const { t } = useTranslation("apartments");
   const { t: tCommon } = useTranslation("common");
 
   const [propertyOpen, setPropertyOpen] = useState(false);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
-  const [codeError, setCodeError] = useState<string>("");
 
   const selectedProperty = properties.find((p) => String(p.id) === selectedPropertyId);
 
   const handlePropertySelect = (id: string) => {
     setSelectedPropertyId(id);
-    setCodeError("");
     setPropertyOpen(false);
     onChangeProperty?.(id);
-  };
-
-  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCodeError("");
-    onChangeCode?.(e);
-  };
-
-  const handleSubmit = () => {
-    if (selectedPropertyId && code.trim()) {
-      const duplicate = apartments.some(
-        (a) =>
-          String(a["property-id"]) === selectedPropertyId &&
-          a.code?.toLowerCase() === code.trim().toLowerCase()
-      );
-      if (duplicate) {
-        setCodeError(t("validation.codeTaken"));
-        return;
-      }
-    }
-    submitApartment?.();
   };
 
   const canSubmit = !!selectedPropertyId && !!code.trim() && !isLoading;
@@ -81,8 +55,8 @@ export default function AddApartment({
   return (
     <div className="space-y-6">
       <DialogHeader>
-        <DialogTitle className="text-xl">{t("addApartment")}</DialogTitle>
-        <DialogDescription>{t("addApartmentHint")}</DialogDescription>
+        <DialogTitle className="text-xl">{"Garage hinzufügen"}</DialogTitle>
+        <DialogDescription>{"Neue Garage für ein Objekt anlegen."}</DialogDescription>
       </DialogHeader>
 
       <div className="space-y-5">
@@ -90,7 +64,7 @@ export default function AddApartment({
         <div className="space-y-2">
           <Label className="flex items-center gap-1.5">
             <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-            {t("fields.property")}
+            {"Objekt"}
           </Label>
           <Popover open={propertyOpen} onOpenChange={setPropertyOpen}>
             <PopoverTrigger asChild>
@@ -102,16 +76,16 @@ export default function AddApartment({
                 disabled={isLoading}
               >
                 <span className={cn(!selectedProperty && "text-muted-foreground")}>
-                  {selectedProperty ? selectedProperty.name : t("fields.selectProperty")}
+                  {selectedProperty ? selectedProperty.name : "Objekt auswählen"}
                 </span>
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
               <Command>
-                <CommandInput placeholder={t("fields.searchProperty")} />
+                <CommandInput placeholder={"Objekt suchen …"} />
                 <CommandList>
-                  <CommandEmpty>{t("fields.noPropertyFound")}</CommandEmpty>
+                  <CommandEmpty>{"Kein Objekt gefunden."}</CommandEmpty>
                   <CommandGroup>
                     {properties.map((p) => (
                       <CommandItem
@@ -137,53 +111,48 @@ export default function AddApartment({
 
         {/* Code input */}
         <div className="space-y-2">
-          <Label htmlFor="apt-code" className="flex items-center gap-1.5">
+          <Label htmlFor="garage-code-new" className="flex items-center gap-1.5">
             <Hash className="h-3.5 w-3.5 text-muted-foreground" />
-            {t("fields.code")}
+            {"Bezeichnung"}
           </Label>
           <Input
-            id="apt-code"
-            placeholder={t("placeholders.code")}
+            id="garage-code-new"
+            placeholder={"z. B. G-01"}
             value={code}
-            onChange={handleCodeChange}
+            onChange={onChangeCode}
             disabled={isLoading}
             autoComplete="off"
           />
-          {codeError ? (
-            <p className="text-xs text-destructive">{codeError}</p>
-          ) : (
-            <p className="text-xs text-muted-foreground">{t("fields.codeHint")}</p>
-          )}
         </div>
 
-        {/* Wohnfläche input */}
+        {/* Fläche input */}
         <div className="space-y-2">
-          <Label htmlFor="apt-wohnflaeche" className="flex items-center gap-1.5">
+          <Label htmlFor="garage-flaeche-new" className="flex items-center gap-1.5">
             <Ruler className="h-3.5 w-3.5 text-muted-foreground" />
-            {t("fields.wohnflaeche")}
-            <span className="text-muted-foreground font-normal text-xs">({t("optional", { defaultValue: "optional" })})</span>
+            {"Fläche (m²)"}
+            <span className="text-muted-foreground font-normal text-xs">
+              ({tCommon("optional", { defaultValue: "optional" })})
+            </span>
           </Label>
           <Input
-            id="apt-wohnflaeche"
+            id="garage-flaeche-new"
             type="number"
             inputMode="decimal"
             min="0"
             step="0.01"
-            placeholder={t("placeholders.wohnflaeche", { defaultValue: "e.g. 65.5" })}
-            value={wohnflaeche}
-            onChange={onChangeWohnflaeche}
+            placeholder={"z. B. 15"}
+            value={flaeche}
+            onChange={onChangeFlaeche}
             disabled={isLoading}
             autoComplete="off"
           />
-          <p className="text-xs text-muted-foreground">{t("fields.wohnflaecheHint", { defaultValue: "Living area in m². Used for Nebenkosten distribution." })}</p>
         </div>
 
-        {/* Preview badge */}
         {selectedProperty && code.trim() && (
           <div className="rounded-lg border bg-muted/40 px-4 py-3 flex items-center gap-3">
             <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
             <div className="min-w-0">
-              <p className="text-xs text-muted-foreground">{t("addPreview")}</p>
+              <p className="text-xs text-muted-foreground">{"Vorschau"}</p>
               <p className="text-sm font-medium truncate">
                 {selectedProperty.name} · {code.trim()}
               </p>
@@ -193,17 +162,17 @@ export default function AddApartment({
       </div>
 
       <div className="flex justify-end gap-3 pt-1">
-        <Button variant="outline" onClick={onChangeAddApartmentDialogClose} disabled={isLoading}>
+        <Button variant="outline" onClick={onClose} disabled={isLoading}>
           {tCommon("cancel")}
         </Button>
-        <Button onClick={handleSubmit} disabled={!canSubmit}>
+        <Button onClick={onSubmit} disabled={!canSubmit}>
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               {tCommon("saving")}
             </>
           ) : (
-            t("addApartment")
+            "Garage hinzufügen"
           )}
         </Button>
       </div>

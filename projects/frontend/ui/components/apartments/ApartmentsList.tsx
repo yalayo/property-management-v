@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Plus, UserPlus, DoorOpen, DoorClosed, ArrowLeft, Clock, Search } from "lucide-react";
+import { Plus, UserPlus, DoorOpen, DoorClosed, ArrowLeft, Clock, Search, Warehouse } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
@@ -26,6 +26,14 @@ type Apartment = {
   property_id: number;
   code: string;
   occupied: number | boolean;
+};
+
+type Garage = {
+  id: string;
+  property_id?: string | number;
+  code: string;
+  flaeche?: number | string | null;
+  occupied?: boolean | number;
 };
 
 type OnboardingRecord = {
@@ -62,6 +70,12 @@ type Props = {
   onGoBack?: () => void;
   children?: React.ReactNode;
   assignDialogContent?: React.ReactNode;
+  garages?: Garage[];
+  onSelectGarage?: (id: string) => void;
+  isAddGarageDialogOpen?: boolean;
+  onChangeAddGarageDialogOpen?: () => void;
+  onCloseAddGarageDialog?: () => void;
+  addGarageDialogContent?: React.ReactNode;
 };
 
 function tenantName(t: TenantSummary): string {
@@ -87,6 +101,12 @@ export default function ApartmentsList({
   onGoBack,
   children,
   assignDialogContent,
+  garages = [],
+  onSelectGarage,
+  isAddGarageDialogOpen = false,
+  onChangeAddGarageDialogOpen,
+  onCloseAddGarageDialog,
+  addGarageDialogContent,
 }: Props) {
   const { t } = useTranslation("apartments");
   const { t: tCommon } = useTranslation("common");
@@ -285,9 +305,76 @@ export default function ApartmentsList({
         )}
       </CardContent>
 
+      {/* Garages section */}
+      <div className="mt-8">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Warehouse className="h-4 w-4 text-muted-foreground" />
+            <h3 className="font-semibold">{"Garagen"}</h3>
+            <Badge variant="outline" className="text-xs">{garages.length}</Badge>
+          </div>
+          <Button size="sm" variant="outline" disabled={isReadOnly} onClick={onChangeAddGarageDialogOpen}>
+            <Plus className="h-4 w-4 mr-2" />
+            {"Garage hinzufügen"}
+          </Button>
+        </div>
+
+        {garages.length > 0 ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {garages.map((g) => {
+              const gOccupied = !!g.occupied;
+              const gFlaeche  = g.flaeche != null ? parseFloat(String(g.flaeche)) : null;
+              return (
+                <Card key={g.id} className="overflow-hidden">
+                  <div className="p-4 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Warehouse className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <button
+                          type="button"
+                          className="font-semibold text-base hover:underline hover:text-primary transition-colors text-left"
+                          onClick={() => onSelectGarage?.(g.id)}
+                        >
+                          {g.code}
+                        </button>
+                      </div>
+                      <Badge
+                        variant={gOccupied ? "secondary" : "outline"}
+                        className={gOccupied ? "" : "text-green-600 border-green-300"}
+                      >
+                        {gOccupied ? t("occupied") : t("available")}
+                      </Badge>
+                    </div>
+                    {gFlaeche != null && (
+                      <p className="text-xs text-muted-foreground">
+                        {gFlaeche.toLocaleString("de-DE")} m²
+                      </p>
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-8 border rounded-xl border-dashed text-center">
+            <Warehouse className="h-8 w-8 text-muted-foreground mb-2" />
+            <p className="text-sm text-muted-foreground">{"Noch keine Garagen vorhanden"}</p>
+            <Button className="mt-3" size="sm" variant="outline" disabled={isReadOnly} onClick={onChangeAddGarageDialogOpen}>
+              <Plus className="h-4 w-4 mr-2" />
+              {"Garage hinzufügen"}
+            </Button>
+          </div>
+        )}
+      </div>
+
       {/* Add apartment dialog */}
       <Dialog open={isAddApartmentDialogOpen} onOpenChange={(open) => !open && onCloseAddApartmentDialog?.()}>
         <DialogContent className="sm:max-w-md">{children}</DialogContent>
+      </Dialog>
+
+      {/* Add garage dialog */}
+      <Dialog open={isAddGarageDialogOpen} onOpenChange={(open) => !open && onCloseAddGarageDialog?.()}>
+        <DialogContent className="sm:max-w-md">{addGarageDialogContent}</DialogContent>
       </Dialog>
 
       {/* Assign tenant dialog */}

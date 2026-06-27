@@ -15,3 +15,13 @@
  ::saving?
  (fn [db _]
    (get-in db [:rent-payments :saving?] false)))
+
+(re-frame/reg-sub
+ ::tenant-mieten
+ (fn [db _]
+   (get-in db [:tenant-mieten :list] [])))
+
+(re-frame/reg-sub
+ ::miete-saving?
+ (fn [db _]
+   (get-in db [:tenant-mieten :saving?] false)))

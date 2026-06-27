@@ -79,6 +79,8 @@
         rent-payments        @(re-frame/subscribe [::rent-subs/rent-payments])
         rent-loading?        @(re-frame/subscribe [::rent-subs/loading?])
         rent-saving?         @(re-frame/subscribe [::rent-subs/saving?])
+        tenant-mieten        @(re-frame/subscribe [::rent-subs/tenant-mieten])
+        miete-saving?        @(re-frame/subscribe [::rent-subs/miete-saving?])
         expense-types        @(re-frame/subscribe [::cost-subs/expense-types])
         expense-types-loading? @(re-frame/subscribe [::cost-subs/expense-types-loading?])
         expense-types-saving?  @(re-frame/subscribe [::cost-subs/expense-types-saving?])
@@ -148,6 +150,8 @@
                                  (re-frame/dispatch [::cost-events/load-all-costs])
                                  (re-frame/dispatch [::cost-events/load-all-apt-costs])
                                  (re-frame/dispatch [::cost-events/load-all-rent-payments])
+                                 (re-frame/dispatch [::rent-events/load-all-tenant-mieten])
+                                 (re-frame/dispatch [::apartment-events/load-garages])
                                  (re-frame/dispatch [::tax-events/load-tax-data])
                                  (when-let [tier (js/localStorage.getItem "pm-pending-plan")]
                                    (js/localStorage.removeItem "pm-pending-plan")
@@ -236,7 +240,26 @@
                                                                                     (some? (:kaltmiete d))        (assoc :kaltmiete (:kaltmiete d))
                                                                                     (some? (:nebenkostenWarm d))  (assoc :nebenkosten-warm (:nebenkostenWarm d)))])))
                                                :on-delete-rent-payment      (fn [id]
-                                                                              (re-frame/dispatch [::rent-events/delete-rent-payment id]))}])
+                                                                              (re-frame/dispatch [::rent-events/delete-rent-payment id]))
+                                               :tenant-mieten               (clj->js tenant-mieten)
+                                               :miete-saving?               miete-saving?
+                                               :on-upsert-tenant-miete      (fn [data]
+                                                                              (let [d (js->clj data :keywordize-keys true)]
+                                                                                (re-frame/dispatch
+                                                                                 [::rent-events/upsert-tenant-miete
+                                                                                  {:tenant-id       (:tenantId d)
+                                                                                   :year            (:year d)
+                                                                                   :kaltmiete       (:kaltmiete d)
+                                                                                   :nebenkosten-warm (:nebenkostenWarm d)}])))
+                                               :on-delete-tenant-miete      (fn [id]
+                                                                              (re-frame/dispatch [::rent-events/delete-tenant-miete id]))
+                                               :on-update-apartment         (fn [id data]
+                                                                              (let [d (js->clj data :keywordize-keys true)]
+                                                                                (re-frame/dispatch
+                                                                                 [::apartment-events/update-apartment id
+                                                                                  (cond-> {}
+                                                                                    (:code d)        (assoc :code (:code d))
+                                                                                    (:wohnflaeche d) (assoc :wohnflaeche (:wohnflaeche d)))])))}])
            :rentSaving         rent-saving?
            :onAssignPayment    (when can-create?
                                  (fn [data]

@@ -37,6 +37,11 @@
    (get-in db [:apartments :new-property-id])))
 
 (re-frame/reg-sub
+ ::new-apartment-wohnflaeche
+ (fn [db _]
+   (get-in db [:apartments :new-wohnflaeche] "")))
+
+(re-frame/reg-sub
  ::property-filter
  (fn [db _]
    (get-in db [:apartments :property-filter])))
@@ -70,6 +75,51 @@
  ::initial-tab
  (fn [db _]
    (get-in db [:apartments :initial-tab])))
+
+(re-frame/reg-sub
+ ::current-year
+ (fn [db _]
+   (get-in db [:apartments :current-year])))
+
+(re-frame/reg-sub
+ ::garages
+ (fn [db _]
+   (get-in db [:garages :list] [])))
+
+(re-frame/reg-sub
+ ::garages-loading?
+ (fn [db _]
+   (get-in db [:garages :loading?] false)))
+
+(re-frame/reg-sub
+ ::garages-saving?
+ (fn [db _]
+   (get-in db [:garages :saving?] false)))
+
+(re-frame/reg-sub
+ ::selected-garage-id
+ (fn [db _]
+   (get-in db [:garages :selected-id])))
+
+(re-frame/reg-sub
+ ::garage-add-dialog-open?
+ (fn [db _]
+   (get-in db [:garages :add-dialog-open?] false)))
+
+(re-frame/reg-sub
+ ::new-garage-code
+ (fn [db _]
+   (get-in db [:garages :new-code] "")))
+
+(re-frame/reg-sub
+ ::new-garage-property-id
+ (fn [db _]
+   (get-in db [:garages :new-property-id])))
+
+(re-frame/reg-sub
+ ::new-garage-flaeche
+ (fn [db _]
+   (get-in db [:garages :new-flaeche] "")))
 
 (re-frame/reg-sub
  ::onboardings-by-apartment

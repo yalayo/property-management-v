@@ -296,11 +296,13 @@
                         {:error :duplicate-code}
                         (js-await [{:keys [tx-id entity-ids]}
                                    ((:transact! storage)
-                                    [{:db/type                   "apartment"
-                                      :apartment/organization-id org-id
-                                      :apartment/property-id     property-id
-                                      :apartment/code            code
-                                      :apartment/occupied        false}] nil)]
+                                    [(cond-> {:db/type                   "apartment"
+                                              :apartment/organization-id org-id
+                                              :apartment/property-id     property-id
+                                              :apartment/code            code
+                                              :apartment/occupied        false}
+                                       (some? (:wohnflaeche (:entity result)))
+                                       (assoc :apartment/wohnflaeche (js/parseFloat (str (:wohnflaeche (:entity result))))))] nil)]
                                   {:tx-id tx-id :apartment-id (first entity-ids)})))))))))
 
 (defn- handle-update-apartment! [core storage data user]
@@ -313,10 +315,11 @@
                     (let [result ((:process core) {:command :update-apartment :data data})]
                       (if (:error result)
                         result
-                        (let [{:keys [code occupied]} (:updates result)
+                        (let [{:keys [code occupied wohnflaeche]} (:updates result)
                               facts (cond-> {:db/id eid}
-                                      (some? code)     (assoc :apartment/code code)
-                                      (some? occupied) (assoc :apartment/occupied (boolean occupied)))]
+                                      (some? code)        (assoc :apartment/code code)
+                                      (some? occupied)    (assoc :apartment/occupied (boolean occupied))
+                                      (some? wohnflaeche) (assoc :apartment/wohnflaeche (js/parseFloat (str wohnflaeche))))]
                           (js-await [{:keys [tx-id]}
                                      ((:transact! storage)
                                       [facts] nil)]
@@ -699,6 +702,100 @@
       (js-await [eids  ((:find-by-attr storage) :rent-payment/organization-id org-id)
                  rents (pull-many+ storage eids '[*])]
                 {:rent-payments rents}))))
+
+;; ---------------------------------------------------------------------------
+;; Tenant-Miete handlers
+;; ---------------------------------------------------------------------------
+
+(defn- handle-get-all-tenant-mieten! [storage user]
+  (with-org user
+    (fn [org-id]
+      (js-await [eids   ((:find-by-attr storage) :tenant-miete/organization-id org-id)
+                 mieten (pull-many+ storage eids '[*])]
+                {:tenant-mieten mieten}))))
+
+(defn- handle-upsert-tenant-miete! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [{:keys [tenant-id year kaltmiete nebenkosten-warm]} data]
+        (js-await [eids ((:q storage) {:where [['?e :tenant-miete/tenant-id tenant-id]
+                                               ['?e :tenant-miete/year year]
+                                               ['?e :tenant-miete/organization-id org-id]]})]
+                  (let [eid (or (first eids) (str (random-uuid)))]
+                    (js-await [{:keys [tx-id]}
+                               ((:transact! storage)
+                                [(cond-> {:db/id                        eid
+                                          :db/type                      "tenant-miete"
+                                          :tenant-miete/organization-id org-id
+                                          :tenant-miete/tenant-id       tenant-id
+                                          :tenant-miete/year            year}
+                                   (some? kaltmiete)        (assoc :tenant-miete/kaltmiete kaltmiete)
+                                   (some? nebenkosten-warm) (assoc :tenant-miete/nebenkosten-warm nebenkosten-warm))] nil)]
+                              {:tx-id tx-id})))))))
+
+(defn- handle-delete-tenant-miete! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:tenant-miete/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [_ ((:excise! storage) eid nil)]
+                              {:ok true})))))))
+
+(defn- handle-get-all-garages! [storage user]
+  (with-org user
+    (fn [org-id]
+      (js-await [eids   ((:find-by-attr storage) :garage/organization-id org-id)
+                 garages (pull-many+ storage eids '[*])]
+                {:garages garages}))))
+
+(defn- handle-create-garage! [core storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [result ((:process core) {:command :create-garage :data data})]
+        (if (:error result)
+          result
+          (let [{:keys [property-id code flaeche]} (:entity result)]
+            (js-await [{:keys [entity-ids]}
+                       ((:transact! storage)
+                        [(cond-> {:db/type                "garage"
+                                  :garage/organization-id org-id
+                                  :garage/property-id     property-id
+                                  :garage/code            code
+                                  :garage/occupied        false}
+                           (some? flaeche) (assoc :garage/flaeche (js/parseFloat (str flaeche))))]
+                        nil)]
+                      {:garage-id (first entity-ids)})))))))
+
+(defn- handle-update-garage! [core storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:garage/organization-id entity) org-id)
+                    {:error :not-found}
+                    (let [result ((:process core) {:command :update-garage :data data})]
+                      (if (:error result)
+                        result
+                        (let [{:keys [code occupied flaeche]} (:updates result)
+                              facts (cond-> {:db/id eid}
+                                      (some? code)     (assoc :garage/code code)
+                                      (some? occupied) (assoc :garage/occupied (boolean occupied))
+                                      (some? flaeche)  (assoc :garage/flaeche (js/parseFloat (str flaeche))))]
+                          (js-await [{:keys [tx-id]}
+                                     ((:transact! storage) [facts] nil)]
+                                    {:tx-id tx-id}))))))))))
+
+(defn- handle-delete-garage! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:garage/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [_ ((:excise! storage) eid nil)]
+                              {:ok true})))))))
 
 (defn- handle-assign-tenant-to-apartment! [storage data user]
   (with-org user
@@ -1157,6 +1254,13 @@
     :get-all-costs                   (handle-get-all-costs! storage user)
     :get-all-apartment-costs         (handle-get-all-apartment-costs! storage user)
     :get-all-rent-payments           (handle-get-all-rent-payments! storage user)
+    :get-all-tenant-mieten           (handle-get-all-tenant-mieten! storage user)
+    :upsert-tenant-miete             (handle-upsert-tenant-miete! storage data user)
+    :delete-tenant-miete             (handle-delete-tenant-miete! storage data user)
+    :get-all-garages                 (handle-get-all-garages! storage user)
+    :create-garage                   (handle-create-garage! core storage data user)
+    :update-garage                   (handle-update-garage! core storage data user)
+    :delete-garage                   (handle-delete-garage! storage data user)
     :activate-plan                   (handle-activate-plan! storage data user)
     :list-org-users                  (handle-list-org-users! storage user)
     :create-org-user                 (handle-create-org-user! storage data user env)

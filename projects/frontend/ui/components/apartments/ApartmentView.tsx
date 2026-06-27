@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft, CalendarClock, ChevronLeft, ChevronRight, Trash2, Loader2,
   DoorOpen, DoorClosed, UserPlus, Clock, CheckCircle2,
-  Search, Pencil, Check, X, AlertCircle, Copy, Plus, UserCheck,
+  Search, Pencil, Check, X, AlertCircle, Copy, Plus, UserCheck, Euro,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useToast } from "../../hooks/use-toast";
@@ -26,6 +26,7 @@ type Apartment = {
   property_id?: number;
   code: string;
   occupied: number | boolean;
+  wohnflaeche?: number | string | null;
 };
 
 type OnboardingStatus = {
@@ -60,6 +61,14 @@ type TenantUpdateData = {
 };
 
 type CostLine = { id: string; key: string; name?: string; "name-en"?: string; "name-de"?: string };
+
+type TenantMiete = {
+  id: string;
+  "tenant-id": string;
+  year: number;
+  kaltmiete?: number;
+  "nebenkosten-warm"?: number;
+};
 
 type CostEditFields = {
   value: string;
@@ -104,6 +113,14 @@ type Props = {
   onCreateTenant?: (apartmentId: number, data: { firstName: string; lastName?: string; email?: string; phone?: string; startDate: string; endDate?: string }) => void;
   createTenantError?: string;
   initialTab?: "tenants" | "rent" | "costs" | "settings";
+  currentYear?: number;
+  onTabChange?: (tab: "tenants" | "rent" | "costs" | "settings") => void;
+  onYearChange?: (year: number) => void;
+  tenantMieten?: TenantMiete[];
+  mieteSaving?: boolean;
+  onUpsertTenantMiete?: (data: { tenantId: string; year: number; kaltmiete: number; nebenkostenWarm: number }) => void;
+  onDeleteTenantMiete?: (id: string) => void;
+  onUpdateApartment?: (id: string, data: { code?: string; wohnflaeche?: number }) => void;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -216,6 +233,14 @@ export default function ApartmentView({
   onCreateTenant,
   createTenantError,
   initialTab,
+  currentYear: persistedYear,
+  onTabChange,
+  onYearChange,
+  tenantMieten = [],
+  mieteSaving = false,
+  onUpsertTenantMiete,
+  onDeleteTenantMiete,
+  onUpdateApartment,
 }: Props) {
   const { t }         = useTranslation("apartments");
   const { t: tCosts } = useTranslation("costs");
@@ -233,12 +258,24 @@ export default function ApartmentView({
   // ── Shared state ────────────────────────────────────────────────────────────
   const currentYear = new Date().getFullYear();
   const defaultYear = currentYear - 1;
-  const [year, setYear] = useState(defaultYear);
+  const [year, setYearState] = useState(persistedYear ?? defaultYear);
+  const setYear = (y: number | ((prev: number) => number)) => {
+    setYearState(prev => {
+      const next = typeof y === "function" ? y(prev) : y;
+      onYearChange?.(next);
+      return next;
+    });
+  };
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [activeTab, setActiveTab] = useState<"tenants" | "rent" | "costs" | "settings">("tenants");
+  const [aptEdit, setAptEdit] = useState<{ code: string; wohnflaeche: string } | null>(null);
+  const [activeTab, setActiveTabState] = useState<"tenants" | "rent" | "costs" | "settings">(initialTab ?? "tenants");
+  const setActiveTab = (tab: "tenants" | "rent" | "costs" | "settings") => {
+    setActiveTabState(tab);
+    onTabChange?.(tab);
+  };
 
   useEffect(() => {
-    if (initialTab) setActiveTab(initialTab);
+    if (initialTab) setActiveTabState(initialTab);
   }, [initialTab]);
 
   // ── Tenants-tab state ────────────────────────────────────────────────────
@@ -266,6 +303,13 @@ export default function ApartmentView({
   const [savingKeys,  setSavingKeys] = useState<Set<string>>(new Set());
   const [addLineOpen, setAddLineOpen]= useState(false);
 
+  // ── Miete-edit state ─────────────────────────────────────────────────────
+  const [editingMieteTenantId, setEditingMieteTenantId] = useState<string | null>(null);
+  const [mieteForm, setMieteForm] = useState<{ kaltmiete: string; nebenkostenWarm: string }>({ kaltmiete: "", nebenkostenWarm: "" });
+
+  // ── Auto-populate cost lines for empty years ──────────────────────────────
+  const autoPopulatedKey = useRef("");
+
   // ── Effects ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (apartment?.id) {
@@ -283,7 +327,52 @@ export default function ApartmentView({
     setEditingTenantId(null);
     setEditForm({});
     setAddForm(f => ({ ...f, startDate: `${year}-01-01`, endDate: "" }));
+    setEditingMieteTenantId(null);
+    setMieteForm({ kaltmiete: "", nebenkostenWarm: "" });
   }, [year]);
+
+  // Auto-populate all property cost lines when the costs tab is opened for a year with no saved entries.
+  // dataTenantTab is part of the key so switching tenants (which clears costInput) re-triggers population.
+  useEffect(() => {
+    if (activeTab !== "costs") return;
+    const aptYear = `${apartment.id}:${year}:${dataTenantTab}`;
+    if (autoPopulatedKey.current === aptYear) return;
+
+    const hasEntriesThisYear = aptCosts.some((c: any) => Number(c.year) === year);
+    if (hasEntriesThisYear) return;
+
+    if (!propertyId) return;
+    const propLineKeys = new Set(
+      allCosts
+        .filter((c: any) => String(c["property-id"]) === String(propertyId))
+        .map((c: any) => c.line as string)
+    );
+    if (propLineKeys.size === 0) return;
+
+    const toOpen: Record<string, CostEditFields> = {};
+    propLineKeys.forEach(lineKey => {
+      if (!expenseTypes.find((l: any) => l.key === lineKey)) return;
+      const inherited  = [...aptCosts]
+        .filter((c: any) => c.line === lineKey && Number(c.year) < year)
+        .sort((a: any, b: any) => Number(b.year) - Number(a.year))[0] ?? null;
+      const schluessel = String(inherited?.schluessel ?? "Wohnfläche");
+      const verteiler  = schluessel === "Wohnfläche"
+        ? (apartment.wohnflaeche != null ? String(apartment.wohnflaeche) : "")
+        : (inherited?.verteiler  != null ? String(inherited.verteiler)   : "");
+      toOpen[lineKey] = {
+        value:      inherited ? String(inherited.value) : "",
+        verteiler,
+        schluessel,
+        anteil:     inherited?.anteil != null ? String(inherited.anteil) : "",
+        fixedValue: false,
+      };
+    });
+
+    if (Object.keys(toOpen).length > 0) {
+      autoPopulatedKey.current = aptYear;
+      setCostInput(toOpen);
+    }
+  }, [activeTab, year, apartment.id, dataTenantTab, aptCosts, allCosts, expenseTypes, propertyId]);
 
   // Auto-close pending cost edits once saved
   const prevAptCostsRef = useRef(aptCosts);
@@ -407,17 +496,24 @@ export default function ApartmentView({
   const availableCostLines  = costLines.filter(l => !savedCostKeys.includes(l.key) && costInput[l.key] == null && !savingKeys.has(l.key));
   const prevCostLinesToCopy = availableCostLines.filter(l => inheritedCostFor(l.key));
 
+  const propertyCostKeys = new Set(propertyCosts.map((c: any) => c.line as string));
+  const availablePropertyLines = availableCostLines.filter(l => propertyCostKeys.has(l.key));
+  const availableOtherLines    = availableCostLines.filter(l => !propertyCostKeys.has(l.key));
+
   const handleSelectCostLine = (key: string) => {
     const line = costLines.find(l => l.key === key);
     if (!line) return;
     const inherited     = inheritedCostFor(line.key);
-    const defaultVert   = inherited?.verteiler != null ? String(inherited.verteiler) : "100";
-    const defaultAnteil = inherited?.anteil    != null ? String(inherited.anteil)    : "";
+    const schluessel    = String(inherited?.schluessel ?? "Wohnfläche");
+    const defaultVert   = schluessel === "Wohnfläche"
+      ? (apartment.wohnflaeche != null ? String(apartment.wohnflaeche) : "")
+      : (inherited?.verteiler  != null ? String(inherited.verteiler)   : "");
+    const defaultAnteil = inherited?.anteil != null ? String(inherited.anteil) : "";
     const defaultValue  = inherited ? String(inherited.value) : calculateShare(key, defaultVert, defaultAnteil);
     openCostEdit(line.key, {
       value:      defaultValue,
       verteiler:  defaultVert,
-      schluessel: String(inherited?.schluessel ?? "Wohnfläche"),
+      schluessel,
       anteil:     defaultAnteil,
       fixedValue: false,
     });
@@ -453,8 +549,13 @@ export default function ApartmentView({
         nebenkostenWarm: storedNk != null ? Number(storedNk).toFixed(2) : "",
       }}));
     } else if (entry != null) {
-      const tenantKalt = parseFloat(String(dataSelectedTenant?.kaltmiete ?? 0).replace(",", ".")) || 0;
-      const tenantNk   = parseFloat(String(dataSelectedTenant?.["nebenkosten-warm"] ?? 0).replace(",", ".")) || 0;
+      const yearMiete = dataSelectedTenant ? mieteForTenantYear(dataSelectedTenant.id) : undefined;
+      const tenantKalt = yearMiete?.kaltmiete != null
+        ? Number(yearMiete.kaltmiete)
+        : parseFloat(String(dataSelectedTenant?.kaltmiete ?? 0).replace(",", ".")) || 0;
+      const tenantNk   = yearMiete?.["nebenkosten-warm"] != null
+        ? Number(yearMiete["nebenkosten-warm"])
+        : parseFloat(String(dataSelectedTenant?.["nebenkosten-warm"] ?? 0).replace(",", ".")) || 0;
       const initialTotal = Number(entry.value);
       if ((tenantKalt + tenantNk).toFixed(2) === initialTotal.toFixed(2)) {
         setRentInput(prev => ({ ...prev, [month]: { kaltmiete: tenantKalt.toFixed(2), nebenkostenWarm: tenantNk.toFixed(2) } }));
@@ -543,6 +644,41 @@ export default function ApartmentView({
     setLocalAssignedTenant(tenant);
     onAssignExistingTenant?.(apartment.id, tenant.id);
     onAfterAssign?.();
+    toast({ title: tCommon("saved") });
+  };
+
+  const mieteForTenantYear = (tenantId: string): TenantMiete | undefined =>
+    tenantMieten.find(m => String(m["tenant-id"]) === String(tenantId) && Number(m.year) === year);
+
+  const openMieteEdit = (tenant: Tenant) => {
+    const m = mieteForTenantYear(tenant.id);
+    const prevYear = tenantMieten
+      .filter(m => String(m["tenant-id"]) === String(tenant.id) && Number(m.year) < year)
+      .sort((a, b) => Number(b.year) - Number(a.year))[0];
+    setEditingMieteTenantId(tenant.id);
+    setMieteForm({
+      kaltmiete:      m?.kaltmiete != null ? String(m.kaltmiete)
+                    : prevYear?.kaltmiete != null ? String(prevYear.kaltmiete)
+                    : tenant.kaltmiete != null ? String(tenant.kaltmiete)
+                    : "",
+      nebenkostenWarm: m?.["nebenkosten-warm"] != null ? String(m["nebenkosten-warm"])
+                     : prevYear?.["nebenkosten-warm"] != null ? String(prevYear["nebenkosten-warm"])
+                     : tenant["nebenkosten-warm"] != null ? String(tenant["nebenkosten-warm"])
+                     : "",
+    });
+  };
+
+  const commitMiete = (tenantId: string) => {
+    const kalt = parseFloat(mieteForm.kaltmiete.replace(",", "."));
+    const nk   = parseFloat(mieteForm.nebenkostenWarm.replace(",", "."));
+    if (isNaN(kalt) && isNaN(nk)) return;
+    onUpsertTenantMiete?.({
+      tenantId,
+      year,
+      kaltmiete:      isNaN(kalt) ? 0 : kalt,
+      nebenkostenWarm: isNaN(nk)  ? 0 : nk,
+    });
+    setEditingMieteTenantId(null);
     toast({ title: tCommon("saved") });
   };
 
@@ -747,8 +883,13 @@ export default function ApartmentView({
     const entry      = rentEntryFor(month);
     const fields     = rentInput[month];
     const isEditing  = fields != null;
-    const tenantKalt = parseFloat(String(dataSelectedTenant?.kaltmiete ?? 0).replace(",", ".")) || 0;
-    const tenantNk   = parseFloat(String(dataSelectedTenant?.["nebenkosten-warm"] ?? 0).replace(",", ".")) || 0;
+    const yearMiete  = dataSelectedTenant ? mieteForTenantYear(dataSelectedTenant.id) : undefined;
+    const tenantKalt = yearMiete?.kaltmiete != null
+      ? Number(yearMiete.kaltmiete)
+      : parseFloat(String(dataSelectedTenant?.kaltmiete ?? 0).replace(",", ".")) || 0;
+    const tenantNk   = yearMiete?.["nebenkosten-warm"] != null
+      ? Number(yearMiete["nebenkosten-warm"])
+      : parseFloat(String(dataSelectedTenant?.["nebenkosten-warm"] ?? 0).replace(",", ".")) || 0;
     const hasTenant  = dataSelectedTenant != null;
 
     if (isEditing) {
@@ -845,12 +986,33 @@ export default function ApartmentView({
                 ? <><DoorClosed className="h-3.5 w-3.5 mr-1" />{t("occupied")}</>
                 : <><DoorOpen   className="h-3.5 w-3.5 mr-1" />{t("available")}</>}
             </Badge>
+            {apartment.wohnflaeche != null && (
+              <span className="text-sm text-muted-foreground">
+                {Number(apartment.wohnflaeche).toLocaleString("de-DE", { maximumFractionDigits: 2 })} m²
+              </span>
+            )}
             {property && (
               <span className="text-sm text-muted-foreground">
                 {property.name}
                 {property.address && <> · {property.address}</>}
                 {property.city    && <>, {property.city}</>}
               </span>
+            )}
+            {!isReadOnly && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  setAptEdit({
+                    code: apartment.code ?? "",
+                    wohnflaeche: apartment.wohnflaeche != null ? String(apartment.wohnflaeche) : "",
+                  });
+                  setActiveTab("settings");
+                }}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
             )}
           </div>
         </div>
@@ -919,48 +1081,124 @@ export default function ApartmentView({
               )}
 
               {/* Summary card for selected tenant */}
+              {mgmtTenant && (
+                <div className="rounded-xl border bg-card p-4">
+                  <div className="flex flex-wrap gap-6">
+                    <div className="space-y-0.5 min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{tT("fields.name")}</p>
+                      <p className="font-semibold text-sm">{tenantDisplayName(mgmtTenant)}</p>
+                      {mgmtTenant.email && <p className="text-sm text-muted-foreground">{mgmtTenant.email}</p>}
+                      {mgmtTenant.phone && <p className="text-sm text-muted-foreground">{mgmtTenant.phone}</p>}
+                    </div>
+                    {mgmtTenant["start-date"] && (
+                      <div className="space-y-0.5">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{t("leasePeriod")}</p>
+                        <p className="text-sm">{mgmtTenant["start-date"]}</p>
+                        <p className="text-sm text-muted-foreground">→ {mgmtTenant["end-date"] || t("openEnded")}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Per-year Miete — responds to global year nav */}
               {mgmtTenant && (() => {
-                const k  = parseFloat(String(mgmtTenant.kaltmiete ?? 0).replace(",", ".")) || 0;
-                const nk = parseFloat(String(mgmtTenant["nebenkosten-warm"] ?? 0).replace(",", ".")) || 0;
-                const total = k + nk;
+                const m          = mieteForTenantYear(mgmtTenant.id);
+                const isEditing  = editingMieteTenantId === mgmtTenant.id;
+                const kalt       = m?.kaltmiete != null       ? Number(m.kaltmiete)
+                                 : mgmtTenant.kaltmiete != null ? Number(mgmtTenant.kaltmiete) : null;
+                const nk         = m?.["nebenkosten-warm"] != null       ? Number(m["nebenkosten-warm"])
+                                 : mgmtTenant["nebenkosten-warm"] != null ? Number(mgmtTenant["nebenkosten-warm"]) : null;
+                const total      = (kalt ?? 0) + (nk ?? 0);
                 return (
-                  <div className="rounded-xl border bg-card p-4">
-                    <div className="grid gap-4 sm:grid-cols-3">
-                      <div className="space-y-0.5">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{tT("fields.name")}</p>
-                        <p className="font-semibold text-sm">{tenantDisplayName(mgmtTenant)}</p>
-                        {mgmtTenant.email && <p className="text-sm text-muted-foreground">{mgmtTenant.email}</p>}
-                        {mgmtTenant.phone && <p className="text-sm text-muted-foreground">{mgmtTenant.phone}</p>}
-                      </div>
-                      <div className="space-y-0.5">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{t("tabs.rent")}</p>
-                        {k > 0 && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Kaltmiete</span>
-                            <span className="tabular-nums">€ {formatEur(k)}</span>
-                          </div>
-                        )}
-                        {nk > 0 && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Nebenkosten</span>
-                            <span className="tabular-nums">€ {formatEur(nk)}</span>
-                          </div>
-                        )}
-                        {total > 0 && (
-                          <div className="flex justify-between text-sm font-semibold border-t pt-1 mt-1">
-                            <span>{t("totalPerMonth")}</span>
-                            <span className="tabular-nums">€ {formatEur(total)}</span>
-                          </div>
+                  <div className={`rounded-xl border overflow-hidden ${m ? "border-primary/30" : ""}`}>
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Euro className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-sm font-semibold truncate">{tenantDisplayName(mgmtTenant)}</span>
+                        <span className="text-xs text-muted-foreground shrink-0">· Miete</span>
+                        {m ? (
+                          <Badge variant="outline" className="text-[10px] h-4 px-1.5 text-primary border-primary/40 shrink-0">
+                            {year}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground shrink-0">
+                            ({t("miete.baseRate", { defaultValue: "base rate" })})
+                          </span>
                         )}
                       </div>
-                      {mgmtTenant["start-date"] && (
-                        <div className="space-y-0.5">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{t("leasePeriod")}</p>
-                          <p className="text-sm">{mgmtTenant["start-date"]}</p>
-                          <p className="text-sm text-muted-foreground">
-                            → {mgmtTenant["end-date"] || t("openEnded")}
-                          </p>
+                      {!isEditing && !isReadOnly && (
+                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs"
+                          onClick={() => openMieteEdit(mgmtTenant)}>
+                          <Pencil className="h-3 w-3 mr-1" />
+                          {m ? tCommon("edit") : t("miete.setForYear", { year, defaultValue: `Set for ${year}` })}
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="p-4">
+                      {isEditing ? (
+                        <div className="space-y-3">
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Kaltmiete (€)</Label>
+                              <Input type="number" inputMode="decimal" min="0" step="0.01"
+                                value={mieteForm.kaltmiete}
+                                onChange={e => setMieteForm(f => ({ ...f, kaltmiete: e.target.value }))}
+                                disabled={mieteSaving} autoFocus />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Nebenkosten warm (€)</Label>
+                              <Input type="number" inputMode="decimal" min="0" step="0.01"
+                                value={mieteForm.nebenkostenWarm}
+                                onChange={e => setMieteForm(f => ({ ...f, nebenkostenWarm: e.target.value }))}
+                                disabled={mieteSaving} />
+                            </div>
+                          </div>
+                          <div className="flex gap-2 flex-wrap">
+                            <Button size="sm" disabled={mieteSaving} onClick={() => commitMiete(mgmtTenant.id)}>
+                              {mieteSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Check className="h-3.5 w-3.5 mr-1" />}
+                              {tCommon("save")}
+                            </Button>
+                            <Button variant="outline" size="sm" disabled={mieteSaving}
+                              onClick={() => setEditingMieteTenantId(null)}>
+                              <X className="h-3.5 w-3.5 mr-1" />
+                              {tCommon("cancel")}
+                            </Button>
+                            {m && (
+                              <Button variant="ghost" size="sm" className="text-destructive ml-auto"
+                                disabled={mieteSaving}
+                                onClick={() => { onDeleteTenantMiete?.(m.id); setEditingMieteTenantId(null); }}>
+                                <Trash2 className="h-3.5 w-3.5 mr-1" />
+                                {t("miete.resetToBase", { defaultValue: "Reset to base rate" })}
+                              </Button>
+                            )}
+                          </div>
                         </div>
+                      ) : (kalt != null || nk != null) ? (
+                        <div className="flex flex-wrap gap-6 text-sm">
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">Kaltmiete</p>
+                            <p className="tabular-nums font-medium">€ {formatEur(kalt ?? 0)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">Nebenkosten</p>
+                            <p className="tabular-nums font-medium">€ {formatEur(nk ?? 0)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">{t("totalPerMonth")}</p>
+                            <p className="tabular-nums font-bold">€ {formatEur(total)}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          {t("miete.notSet", { defaultValue: "No rent rate set yet." })}
+                          {!isReadOnly && (
+                            <button className="ml-2 underline text-foreground" onClick={() => openMieteEdit(mgmtTenant)}>
+                              {t("miete.setForYear", { year, defaultValue: `Set for ${year}` })}
+                            </button>
+                          )}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -1258,15 +1496,27 @@ export default function ApartmentView({
                 </div>
               )}
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-semibold">{tCosts("aptNebenkosten")}</h3>
-                  {prevCostLinesToCopy.length > 0 && (
-                    <Button variant="outline" size="sm" className="h-7 text-xs" disabled={aptCostsSaving} onClick={copyPrevYearCosts}>
-                      <Copy className="h-3 w-3 mr-1.5" />
-                      {tCosts("copyFromYear", { year: year - 1 })}
-                    </Button>
-                  )}
-                </div>
+                {(() => {
+                  const isAutoFilled = savedCostKeys.length === 0 && activeCostLines.length > 0;
+                  return (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-base font-semibold">{tCosts("aptNebenkosten")}</h3>
+                        {isAutoFilled && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {tCosts("autoFilledHint", { year: year - 1, defaultValue: `Verteiler from ${year - 1} pre-filled — adjust if needed and save each line.` })}
+                          </p>
+                        )}
+                      </div>
+                      {!isAutoFilled && prevCostLinesToCopy.length > 0 && (
+                        <Button variant="outline" size="sm" className="h-7 text-xs" disabled={aptCostsSaving} onClick={copyPrevYearCosts}>
+                          <Copy className="h-3 w-3 mr-1.5" />
+                          {tCosts("copyFromYear", { year: year - 1 })}
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })()}
                 {aptCostsLoading ? (
                   <p className="text-sm text-muted-foreground">{tCosts("loading")}</p>
                 ) : (
@@ -1299,14 +1549,26 @@ export default function ApartmentView({
                             <CommandInput placeholder={tCosts("searchCostLine")} />
                             <CommandList>
                               <CommandEmpty>{tCosts("noMatchCostLine")}</CommandEmpty>
-                              <CommandGroup>
-                                {availableCostLines.map(line => (
-                                  <CommandItem key={line.id} value={costLineName(line, i18n.language)}
-                                    onSelect={() => handleSelectCostLine(line.key)}>
-                                    {costLineName(line, i18n.language)}
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
+                              {availablePropertyLines.length > 0 && (
+                                <CommandGroup heading={tCosts("propertyKostenarten", { defaultValue: "Property cost types" })}>
+                                  {availablePropertyLines.map(line => (
+                                    <CommandItem key={line.id} value={costLineName(line, i18n.language)}
+                                      onSelect={() => handleSelectCostLine(line.key)}>
+                                      {costLineName(line, i18n.language)}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              )}
+                              {availableOtherLines.length > 0 && (
+                                <CommandGroup heading={availablePropertyLines.length > 0 ? tCosts("otherKostenarten", { defaultValue: "Other" }) : undefined}>
+                                  {availableOtherLines.map(line => (
+                                    <CommandItem key={line.id} value={costLineName(line, i18n.language)}
+                                      onSelect={() => handleSelectCostLine(line.key)}>
+                                      {costLineName(line, i18n.language)}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              )}
                             </CommandList>
                           </Command>
                         </PopoverContent>
@@ -1321,6 +1583,97 @@ export default function ApartmentView({
 
       {/* ── Settings tab ── */}
       {activeTab === "settings" && (<div className="space-y-4">
+
+          {/* Apartment info edit card */}
+          <div className="rounded-xl border p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="font-medium">{t("apartmentInfo", { defaultValue: "Wohnungsinfo" })}</span>
+              {!isReadOnly && !aptEdit && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAptEdit({
+                    code: apartment?.code ?? "",
+                    wohnflaeche: apartment?.wohnflaeche != null ? String(apartment.wohnflaeche) : "",
+                  })}
+                  disabled={isSaving}
+                >
+                  <Pencil className="h-3.5 w-3.5 mr-1" />
+                  {tCommon("edit")}
+                </Button>
+              )}
+            </div>
+
+            {aptEdit ? (
+              <>
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="apt-code-edit">{t("fields.code")}</Label>
+                    <Input
+                      id="apt-code-edit"
+                      value={aptEdit.code}
+                      onChange={(e) => setAptEdit((f) => f ? { ...f, code: e.target.value } : f)}
+                      disabled={isSaving}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="apt-wohnflaeche-edit">
+                      {t("fields.wohnflaeche")}
+                      <span className="text-xs text-muted-foreground ml-1">(m²)</span>
+                    </Label>
+                    <Input
+                      id="apt-wohnflaeche-edit"
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.01"
+                      value={aptEdit.wohnflaeche}
+                      onChange={(e) => setAptEdit((f) => f ? { ...f, wohnflaeche: e.target.value } : f)}
+                      disabled={isSaving}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    disabled={isSaving || !aptEdit.code.trim()}
+                    onClick={() => {
+                      const data: { code?: string; wohnflaeche?: number } = {};
+                      if (aptEdit.code.trim()) data.code = aptEdit.code.trim();
+                      const w = parseFloat(aptEdit.wohnflaeche);
+                      if (!isNaN(w)) data.wohnflaeche = w;
+                      onUpdateApartment?.(String(apartment!.id), data);
+                      setAptEdit(null);
+                    }}
+                  >
+                    <Check className="h-4 w-4 mr-1" />
+                    {tCommon("save")}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setAptEdit(null)} disabled={isSaving}>
+                    <X className="h-4 w-4 mr-1" />
+                    {tCommon("cancel")}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{t("fields.code")}</span>
+                  <span className="font-medium">{apartment?.code ?? "—"}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{t("fields.wohnflaeche")}</span>
+                  <span className="font-medium">
+                    {apartment?.wohnflaeche != null
+                      ? `${parseFloat(String(apartment.wohnflaeche)).toLocaleString("de-DE")} m²`
+                      : "—"}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="rounded-xl border p-4 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">

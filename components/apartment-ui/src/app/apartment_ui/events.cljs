@@ -59,7 +59,8 @@
    (-> db
        (assoc-in [:apartments :add-dialog-open?] true)
        (assoc-in [:apartments :new-code] "")
-       (assoc-in [:apartments :new-property-id] nil))))
+       (assoc-in [:apartments :new-property-id] nil)
+       (assoc-in [:apartments :new-wohnflaeche] nil))))
 
 (re-frame/reg-event-db
  ::close-add-dialog
@@ -79,15 +80,23 @@
  (fn [db [_ property-id]]
    (assoc-in db [:apartments :new-property-id] property-id)))
 
+(re-frame/reg-event-db
+ ::set-new-wohnflaeche
+ [local-storage-interceptor]
+ (fn [db [_ wohnflaeche]]
+   (assoc-in db [:apartments :new-wohnflaeche] wohnflaeche)))
+
 (re-frame/reg-event-fx
  ::add-apartment
  (fn [{:keys [db]} _]
    (let [code        (get-in db [:apartments :new-code])
-         property-id (get-in db [:apartments :new-property-id])]
+         property-id (get-in db [:apartments :new-property-id])
+         wohnflaeche (get-in db [:apartments :new-wohnflaeche])]
      {:db       (assoc-in db [:apartments :saving?] true)
       :dispatch [:app.core-ui.events/command
                  :create-apartment
-                 {:code code :property-id property-id}
+                 (cond-> {:code code :property-id property-id}
+                   (some? wohnflaeche) (assoc :wohnflaeche wohnflaeche))
                  [::apartment-added]
                  [::apartment-save-error]]})))
 
@@ -121,7 +130,8 @@
    {:db       (-> db
                   (assoc-in [:apartments :selected-id] id)
                   (assoc-in [:apartments :initial-tab] initial-tab)
-                  (assoc-in [:apartments :onboarding-status] nil))
+                  (assoc-in [:apartments :onboarding-status] nil)
+                  (assoc-in [:garages :selected-id] nil))
     :dispatch [::load-onboarding id]}))
 
 (re-frame/reg-event-db
@@ -131,6 +141,18 @@
    (-> db
        (assoc-in [:apartments :selected-id] nil)
        (assoc-in [:apartments :onboarding-status] nil))))
+
+(re-frame/reg-event-db
+ ::set-apartment-tab
+ [local-storage-interceptor]
+ (fn [db [_ tab]]
+   (assoc-in db [:apartments :initial-tab] tab)))
+
+(re-frame/reg-event-db
+ ::set-apartment-year
+ [local-storage-interceptor]
+ (fn [db [_ year]]
+   (assoc-in db [:apartments :current-year] year)))
 
 (re-frame/reg-event-fx
  ::load-onboarding
@@ -276,6 +298,144 @@
  (fn [{:keys [db]} _]
    {:db       (assoc-in db [:apartments :saving?] false)
     :dispatch [::load-apartments]}))
+
+;; ── Garages ───────────────────────────────────────────────────────────────
+
+(re-frame/reg-event-fx
+ ::load-garages
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:garages :loading?] true)
+    :dispatch [:app.core-ui.events/query
+               {:entity :garage}
+               [::garages-loaded]
+               [::garages-error]]}))
+
+(re-frame/reg-event-db
+ ::garages-loaded
+ [local-storage-interceptor]
+ (fn [db [_ {:keys [garages]}]]
+   (-> db
+       (assoc-in [:garages :list] garages)
+       (assoc-in [:garages :loading?] false))))
+
+(re-frame/reg-event-db
+ ::garages-error
+ (fn [db _]
+   (assoc-in db [:garages :loading?] false)))
+
+(re-frame/reg-event-fx
+ ::select-garage
+ [local-storage-interceptor]
+ (fn [{:keys [db]} [_ id]]
+   {:db (-> db
+            (assoc-in [:garages :selected-id] id)
+            (assoc-in [:apartments :selected-id] nil))}))
+
+(re-frame/reg-event-db
+ ::clear-selected-garage
+ [local-storage-interceptor]
+ (fn [db _]
+   (assoc-in db [:garages :selected-id] nil)))
+
+(re-frame/reg-event-fx
+ ::add-garage
+ (fn [{:keys [db]} _]
+   (let [code        (get-in db [:garages :new-code])
+         property-id (get-in db [:garages :new-property-id])
+         flaeche     (get-in db [:garages :new-flaeche])]
+     {:db       (assoc-in db [:garages :saving?] true)
+      :dispatch [:app.core-ui.events/command
+                 :create-garage
+                 (cond-> {:code code :property-id property-id}
+                   (some? flaeche) (assoc :flaeche flaeche))
+                 [::garage-added]
+                 [::garage-save-error]]})))
+
+(re-frame/reg-event-fx
+ ::garage-added
+ [local-storage-interceptor]
+ (fn [{:keys [db]} _]
+   {:db       (-> db
+                  (assoc-in [:garages :saving?] false)
+                  (assoc-in [:garages :add-dialog-open?] false))
+    :dispatch [::load-garages]}))
+
+(re-frame/reg-event-db
+ ::garage-save-error
+ [local-storage-interceptor]
+ (fn [db [_ error]]
+   (js/console.error "Failed to save garage:" error)
+   (assoc-in db [:garages :saving?] false)))
+
+(re-frame/reg-event-fx
+ ::update-garage
+ (fn [{:keys [db]} [_ id data]]
+   {:db       (assoc-in db [:garages :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :update-garage
+               (assoc data :id id)
+               [::garage-updated]
+               [::garage-save-error]]}))
+
+(re-frame/reg-event-fx
+ ::garage-updated
+ [local-storage-interceptor]
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:garages :saving?] false)
+    :dispatch [::load-garages]}))
+
+(re-frame/reg-event-fx
+ ::delete-garage
+ (fn [{:keys [db]} [_ id]]
+   {:db       (assoc-in db [:garages :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :delete-garage
+               {:id id}
+               [::garage-deleted]
+               [::garage-save-error]]}))
+
+(re-frame/reg-event-fx
+ ::garage-deleted
+ [local-storage-interceptor]
+ (fn [{:keys [db]} _]
+   {:db       (-> db
+                  (assoc-in [:garages :saving?] false)
+                  (assoc-in [:garages :selected-id] nil))
+    :dispatch [::load-garages]}))
+
+(re-frame/reg-event-db
+ ::open-add-garage-dialog
+ [local-storage-interceptor]
+ (fn [db _]
+   (-> db
+       (assoc-in [:garages :add-dialog-open?] true)
+       (assoc-in [:garages :new-code] "")
+       (assoc-in [:garages :new-property-id] nil)
+       (assoc-in [:garages :new-flaeche] nil))))
+
+(re-frame/reg-event-db
+ ::close-add-garage-dialog
+ [local-storage-interceptor]
+ (fn [db _]
+   (assoc-in db [:garages :add-dialog-open?] false)))
+
+(re-frame/reg-event-db
+ ::set-new-garage-code
+ [local-storage-interceptor]
+ (fn [db [_ code]]
+   (assoc-in db [:garages :new-code] code)))
+
+(re-frame/reg-event-db
+ ::set-new-garage-property-id
+ [local-storage-interceptor]
+ (fn [db [_ property-id]]
+   (assoc-in db [:garages :new-property-id] property-id)))
+
+(re-frame/reg-event-db
+ ::set-new-garage-flaeche
+ [local-storage-interceptor]
+ (fn [db [_ flaeche]]
+   (assoc-in db [:garages :new-flaeche] flaeche)))
 
 ;; ── Tenant onboarding ─────────────────────────────────────────────────────
 

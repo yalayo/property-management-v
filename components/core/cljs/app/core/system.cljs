@@ -81,12 +81,14 @@
         {:error :missing-required-fields}
         {:action :create-apartment
          :entity {:property-id property-id
-                  :code        code}}))
+                  :code        code
+                  :wohnflaeche (get data :wohnflaeche)}}))
 
     :update-apartment
     {:action  :update-apartment
-     :updates {:code     (get data :code)
-               :occupied (get data :occupied)}}
+     :updates {:code        (get data :code)
+               :occupied    (get data :occupied)
+               :wohnflaeche (get data :wohnflaeche)}}
 
     :create-tenant
     (let [{:keys [first-name last-name]} data]
@@ -124,6 +126,21 @@
         {:action :start-onboarding
          :entity {:apartment-id apartment-id
                   :email        email}}))
+
+    :create-garage
+    (let [{:keys [property-id code]} data]
+      (if (or (nil? property-id) (nil? code))
+        {:error :missing-required-fields}
+        {:action :create-garage
+         :entity {:property-id property-id
+                  :code        code
+                  :flaeche     (get data :flaeche)}}))
+
+    :update-garage
+    {:action  :update-garage
+     :updates {:code     (get data :code)
+               :occupied (get data :occupied)
+               :flaeche  (get data :flaeche)}}
 
     {:error :unknown-command}))
 

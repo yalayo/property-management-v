@@ -6,42 +6,61 @@
             ["/components/apartments/ApartmentsList$default" :as apartments-list-js]
             ["/components/apartments/AddApartment$default"   :as add-apartment-js]
             ["/components/apartments/ApartmentView$default"  :as apartment-view-js]
-            ["/components/apartments/AssignTenant$default"   :as assign-tenant-js]))
+            ["/components/apartments/AssignTenant$default"   :as assign-tenant-js]
+            ["/components/apartments/GarageView$default"     :as garage-view-js]
+            ["/components/apartments/AddGarage$default"      :as add-garage-js]))
 
 (def apartments-list (r/adapt-react-class apartments-list-js))
 (def add-apartment   (r/adapt-react-class add-apartment-js))
 (def apartment-view  (r/adapt-react-class apartment-view-js))
 (def assign-tenant   (r/adapt-react-class assign-tenant-js))
+(def garage-view     (r/adapt-react-class garage-view-js))
+(def add-garage      (r/adapt-react-class add-garage-js))
 
 (defn component [_]
   (re-frame/dispatch [::events/load-apartments])
+  (re-frame/dispatch [::events/load-garages])
   (re-frame/dispatch [::events/close-assign-dialog])
   (fn [{:keys [properties tenants expense-types all-costs on-after-assign on-update-tenant tenants-saving?
                apt-costs apt-costs-loading? apt-costs-saving?
                on-load-apt-costs on-add-apt-cost on-update-apt-cost on-delete-apt-cost
                rent-payments rent-loading? rent-saving?
                on-load-rent-payments on-add-rent-payment on-update-rent-payment on-delete-rent-payment
+               tenant-mieten miete-saving? on-upsert-tenant-miete on-delete-tenant-miete
+               on-update-apartment
                is-read-only? _on-go-back]}]
-    (let [apartments       @(re-frame/subscribe [::subs/apartments])
-          loading?         @(re-frame/subscribe [::subs/loading?])
-          saving?          @(re-frame/subscribe [::subs/saving?])
-          onboarding?      @(re-frame/subscribe [::subs/onboarding?])
-          onboarding-status     @(re-frame/subscribe [::subs/onboarding-status])
-          onboardings-by-apt    @(re-frame/subscribe [::subs/onboardings-by-apartment])
-          add-dialog-open? @(re-frame/subscribe [::subs/add-dialog-open?])
-          selected-id      @(re-frame/subscribe [::subs/selected-apartment-id])
-          initial-tab      @(re-frame/subscribe [::subs/initial-tab])
-          new-code         @(re-frame/subscribe [::subs/new-apartment-code])
-          assign-apt-id    @(re-frame/subscribe [::subs/assign-apt-id])
-          assign-error     @(re-frame/subscribe [::subs/assign-error])
-          selected-apt     (when selected-id (first (filter #(= (:db/id %) selected-id) apartments)))
-          assign-apt       (when assign-apt-id (first (filter #(= (:db/id %) assign-apt-id) apartments)))
-          is-read-only?    is-read-only?]
+    (let [apartments           @(re-frame/subscribe [::subs/apartments])
+          loading?             @(re-frame/subscribe [::subs/loading?])
+          saving?              @(re-frame/subscribe [::subs/saving?])
+          onboarding?          @(re-frame/subscribe [::subs/onboarding?])
+          onboarding-status    @(re-frame/subscribe [::subs/onboarding-status])
+          onboardings-by-apt   @(re-frame/subscribe [::subs/onboardings-by-apartment])
+          add-dialog-open?     @(re-frame/subscribe [::subs/add-dialog-open?])
+          selected-id          @(re-frame/subscribe [::subs/selected-apartment-id])
+          initial-tab          @(re-frame/subscribe [::subs/initial-tab])
+          current-year         @(re-frame/subscribe [::subs/current-year])
+          new-code             @(re-frame/subscribe [::subs/new-apartment-code])
+          new-wohnflaeche      @(re-frame/subscribe [::subs/new-apartment-wohnflaeche])
+          assign-apt-id        @(re-frame/subscribe [::subs/assign-apt-id])
+          assign-error         @(re-frame/subscribe [::subs/assign-error])
+          garages              @(re-frame/subscribe [::subs/garages])
+          garages-saving?      @(re-frame/subscribe [::subs/garages-saving?])
+          garage-add-open?     @(re-frame/subscribe [::subs/garage-add-dialog-open?])
+          selected-garage-id   @(re-frame/subscribe [::subs/selected-garage-id])
+          new-garage-code      @(re-frame/subscribe [::subs/new-garage-code])
+          new-garage-flaeche   @(re-frame/subscribe [::subs/new-garage-flaeche])
+          selected-apt         (when selected-id (first (filter #(= (:db/id %) selected-id) apartments)))
+          selected-garage      (when selected-garage-id (first (filter #(= (:db/id %) selected-garage-id) garages)))
+          assign-apt           (when assign-apt-id (first (filter #(= (:db/id %) assign-apt-id) apartments)))
+          is-read-only?        is-read-only?]
       (cond
         selected-id
         [apartment-view
          {:apartment               (clj->js selected-apt)
           :initialTab              initial-tab
+          :currentYear             current-year
+          :onTabChange             (fn [tab] (re-frame/dispatch [::events/set-apartment-tab tab]))
+          :onYearChange            (fn [y]   (re-frame/dispatch [::events/set-apartment-year y]))
           :isReadOnly              is-read-only?
           :createTenantError       (when assign-error (name assign-error))
           :tenants                 (clj->js (or tenants []))
@@ -62,6 +81,11 @@
           :onAddRentPayment        on-add-rent-payment
           :onUpdateRentPayment     on-update-rent-payment
           :onDeleteRentPayment     on-delete-rent-payment
+          :tenantMieten            tenant-mieten
+          :mieteSaving             miete-saving?
+          :onUpsertTenantMiete     on-upsert-tenant-miete
+          :onDeleteTenantMiete     on-delete-tenant-miete
+          :onUpdateApartment       on-update-apartment
           :isSaving                saving?
           :tenantsSaving           tenants-saving?
           :isOnboarding            onboarding?
@@ -87,6 +111,21 @@
                                                             :start-date (:startDate d)
                                                             :end-date   (:endDate d)}
                                                            on-after-assign])))}]
+
+        selected-garage-id
+        [garage-view
+         {:garage     (clj->js selected-garage)
+          :isSaving   garages-saving?
+          :isReadOnly is-read-only?
+          :onBack     #(re-frame/dispatch [::events/clear-selected-garage])
+          :onUpdate   (fn [id data]
+                        (let [d (js->clj data :keywordize-keys true)]
+                          (re-frame/dispatch [::events/update-garage id
+                                             (cond-> {}
+                                               (:code d)              (assoc :code (:code d))
+                                               (:flaeche d)           (assoc :flaeche (:flaeche d))
+                                               (some? (:occupied d))  (assoc :occupied (:occupied d)))])))
+          :onDelete   (fn [id] (re-frame/dispatch [::events/delete-garage id]))}]
 
         :else
         [apartments-list
@@ -118,7 +157,29 @@
                                                                                        :email      (:email d)
                                                                                        :phone      (:phone d)
                                                                                        :start-date (:startDate d)}
-                                                                                      on-after-assign])))}]))}
+                                                                                      on-after-assign])))}]))
+          :garages                        (clj->js garages)
+          :onSelectGarage                 (fn [id] (re-frame/dispatch [::events/select-garage id]))
+          :isAddGarageDialogOpen          garage-add-open?
+          :onChangeAddGarageDialogOpen    #(re-frame/dispatch [::events/open-add-garage-dialog])
+          :onCloseAddGarageDialog         #(re-frame/dispatch [::events/close-add-garage-dialog])
+          :addGarageDialogContent         (when garage-add-open?
+                                            (r/as-element
+                                             [add-garage
+                                              {:properties      (clj->js properties)
+                                               :isLoading       garages-saving?
+                                               :code            new-garage-code
+                                               :flaeche         (or new-garage-flaeche "")
+                                               :onClose         #(re-frame/dispatch [::events/close-add-garage-dialog])
+                                               :onChangeCode    (fn [e]
+                                                                  (re-frame/dispatch [::events/set-new-garage-code (.. e -target -value)]))
+                                               :onChangeProperty (fn [v]
+                                                                   (re-frame/dispatch [::events/set-new-garage-property-id v]))
+                                               :onChangeFlaeche (fn [e]
+                                                                  (let [v (.. e -target -value)]
+                                                                    (re-frame/dispatch [::events/set-new-garage-flaeche
+                                                                                        (when (seq v) (js/parseFloat v))])))
+                                               :onSubmit        #(re-frame/dispatch [::events/add-garage])}]))}
          (when add-dialog-open?
            (r/as-element
             [add-apartment
@@ -127,9 +188,14 @@
               :apartments                      (clj->js apartments)
               :isLoading                       saving?
               :code                            new-code
+              :wohnflaeche                     (or new-wohnflaeche "")
               :onChangeAddApartmentDialogClose #(re-frame/dispatch [::events/close-add-dialog])
               :onChangeCode                    (fn [e]
                                                 (re-frame/dispatch [::events/set-new-code (.. e -target -value)]))
               :onChangeProperty                (fn [v]
                                                 (re-frame/dispatch [::events/set-new-property-id v]))
+              :onChangeWohnflaeche             (fn [e]
+                                                (let [v (.. e -target -value)]
+                                                  (re-frame/dispatch [::events/set-new-wohnflaeche
+                                                                      (when (seq v) (js/parseFloat v))])))
               :submitApartment                 #(re-frame/dispatch [::events/add-apartment])}]))]))))

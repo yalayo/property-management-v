@@ -28,7 +28,9 @@
    :admin-users           :admin-list-users
    :survey-questions      :get-survey-questions
    :property-tax-config   :get-property-tax-configs
-   :property-loan         :get-property-loans})
+   :property-loan         :get-property-loans
+   :tenant-miete          :get-all-tenant-mieten
+   :garage                :get-all-garages})
 
 (defn survey-questions
   "Public GET handler — returns all survey questions, no auth required."

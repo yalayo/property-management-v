@@ -65,3 +65,57 @@
  ::rent-save-error
  (fn [db _]
    (assoc-in db [:rent-payments :saving?] false)))
+
+;; ── Tenant Mieten ─────────────────────────────────────────────────────────────
+
+(re-frame/reg-event-fx
+ ::load-all-tenant-mieten
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:tenant-mieten :loading?] true)
+    :dispatch [:app.core-ui.events/query
+               {:entity :tenant-miete}
+               [::tenant-mieten-loaded]
+               [::tenant-mieten-error]]}))
+
+(re-frame/reg-event-db
+ ::tenant-mieten-loaded
+ (fn [db [_ {:keys [tenant-mieten]}]]
+   (-> db
+       (assoc-in [:tenant-mieten :list] tenant-mieten)
+       (assoc-in [:tenant-mieten :loading?] false))))
+
+(re-frame/reg-event-db
+ ::tenant-mieten-error
+ (fn [db _]
+   (assoc-in db [:tenant-mieten :loading?] false)))
+
+(re-frame/reg-event-fx
+ ::upsert-tenant-miete
+ (fn [{:keys [db]} [_ data]]
+   {:db       (assoc-in db [:tenant-mieten :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :upsert-tenant-miete
+               data
+               [::tenant-miete-mutated]
+               [::tenant-miete-save-error]]}))
+
+(re-frame/reg-event-fx
+ ::delete-tenant-miete
+ (fn [{:keys [db]} [_ id]]
+   {:db       (assoc-in db [:tenant-mieten :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :delete-tenant-miete
+               {:id id}
+               [::tenant-miete-mutated]
+               [::tenant-miete-save-error]]}))
+
+(re-frame/reg-event-fx
+ ::tenant-miete-mutated
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:tenant-mieten :saving?] false)
+    :dispatch [::load-all-tenant-mieten]}))
+
+(re-frame/reg-event-db
+ ::tenant-miete-save-error
+ (fn [db _]
+   (assoc-in db [:tenant-mieten :saving?] false)))
