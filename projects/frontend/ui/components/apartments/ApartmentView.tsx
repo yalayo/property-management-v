@@ -80,6 +80,7 @@ type CostEditFields = {
 
 type Props = {
   apartment?: Apartment | null;
+  apartments?: Apartment[];
   properties?: any[];
   tenants?: Tenant[];
   expenseTypes?: CostLine[];
@@ -200,6 +201,7 @@ function tenantDateRange(tn: Tenant, openLabel: string): string {
 
 export default function ApartmentView({
   apartment,
+  apartments = [],
   properties = [],
   tenants = [],
   expenseTypes = [],
@@ -357,13 +359,16 @@ export default function ApartmentView({
         .sort((a: any, b: any) => Number(b.year) - Number(a.year))[0] ?? null;
       const schluessel = String(inherited?.schluessel ?? "Wohnfläche");
       const verteiler  = schluessel === "Wohnfläche"
-        ? (apartment.wohnflaeche != null ? String(apartment.wohnflaeche) : "")
+        ? propertyWohnflaecheStr
         : (inherited?.verteiler  != null ? String(inherited.verteiler)   : "");
+      const anteil     = schluessel === "Wohnfläche"
+        ? (apartment.wohnflaeche != null ? String(apartment.wohnflaeche) : "")
+        : (inherited?.anteil     != null ? String(inherited.anteil)      : "");
       toOpen[lineKey] = {
         value:      inherited ? String(inherited.value) : "",
         verteiler,
         schluessel,
-        anteil:     inherited?.anteil != null ? String(inherited.anteil) : "",
+        anteil,
         fixedValue: false,
       };
     });
@@ -399,6 +404,10 @@ export default function ApartmentView({
   const isOccupied  = !!apartment.occupied;
   const propertyId  = apartment["property-id"] ?? (apartment as any).property_id;
   const property    = properties.find((p: any) => p.id === propertyId);
+  const propertyTotalWohnflaeche = apartments
+    .filter((a) => (a["property-id"] ?? (a as any).property_id) === propertyId && a.wohnflaeche != null)
+    .reduce((sum, a) => sum + parseFloat(String(a.wohnflaeche)), 0);
+  const propertyWohnflaecheStr = propertyTotalWohnflaeche > 0 ? String(propertyTotalWohnflaeche) : "";
 
   const aptTenants   = tenants.filter(tn => String(tn["apartment-id"]) === String(apartment.id));
 
@@ -506,9 +515,11 @@ export default function ApartmentView({
     const inherited     = inheritedCostFor(line.key);
     const schluessel    = String(inherited?.schluessel ?? "Wohnfläche");
     const defaultVert   = schluessel === "Wohnfläche"
-      ? (apartment.wohnflaeche != null ? String(apartment.wohnflaeche) : "")
+      ? propertyWohnflaecheStr
       : (inherited?.verteiler  != null ? String(inherited.verteiler)   : "");
-    const defaultAnteil = inherited?.anteil != null ? String(inherited.anteil) : "";
+    const defaultAnteil = schluessel === "Wohnfläche"
+      ? (apartment.wohnflaeche != null ? String(apartment.wohnflaeche) : "")
+      : (inherited?.anteil     != null ? String(inherited.anteil)      : "");
     const defaultValue  = inherited ? String(inherited.value) : calculateShare(key, defaultVert, defaultAnteil);
     openCostEdit(line.key, {
       value:      defaultValue,

@@ -57,6 +57,7 @@
         selected-id
         [apartment-view
          {:apartment               (clj->js selected-apt)
+          :apartments              (clj->js apartments)
           :initialTab              initial-tab
           :currentYear             current-year
           :onTabChange             (fn [tab] (re-frame/dispatch [::events/set-apartment-tab tab]))
