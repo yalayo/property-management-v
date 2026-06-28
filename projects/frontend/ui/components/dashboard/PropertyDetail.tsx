@@ -512,9 +512,58 @@ export default function PropertyDetail({
   const { t: tCommon } = useTranslation("common");
   const { t: tApts } = useTranslation("apartments");
   const { t: tTenants } = useTranslation("tenants");
+  const { t: tProps } = useTranslation("properties");
 
   const propertyApartments = getApartmentsForProperty(apartments, property.id);
   const propertyTenants = getTenantsForPropertyApartments(propertyApartments, tenants);
+
+  // ── Property field formatting ────────────────────────────────────────────────
+  const num = (v: any) => (v === null || v === undefined || v === "" ? null : parseFloat(String(v).replace(",", ".")));
+  const money = (v: any) => { const n = num(v); return n == null || isNaN(n) ? null : `€ ${formatEur(n)}`; };
+  const area  = (v: any) => { const n = num(v); return n == null || isNaN(n) ? null : `${n.toLocaleString("de-DE")} m²`; };
+  const pct   = (v: any) => { const n = num(v); return n == null || isNaN(n) ? null : `${n.toLocaleString("de-DE")} %`; };
+  const usageKey: Record<string, string> = {
+    "full-rental": "fullRental", "partial-rental": "partialRental",
+    "owner-occupied": "ownerOccupied", "mixed": "mixed",
+  };
+  const usageLabel = property.usage
+    ? tProps(`usage.${usageKey[property.usage] ?? property.usage}`, { defaultValue: property.usage })
+    : null;
+
+  // Section definitions: [translationKey, formattedValue]
+  const basicFields: Array<[string, string | null]> = [
+    [t("address"), property.address || null],
+    [t("city"), property.city || null],
+    [t("postalCode"), property["postal-code"] || null],
+    [t("units"), property.units != null ? String(property.units) : null],
+  ];
+  const fmtDate = (v: any) => {
+    if (!v) return null;
+    const d = new Date(String(v) + (String(v).length === 10 ? "T00:00:00" : ""));
+    return isNaN(d.getTime()) ? String(v) : d.toLocaleDateString(i18n.language === "de" ? "de-DE" : "en-US");
+  };
+  const financialFields: Array<[string, string | null]> = [
+    [tProps("fields.acquisitionDate"), fmtDate(property["acquisition-date"])],
+    [tProps("fields.purchasePrice"), money(property["purchase-price"])],
+    [tProps("fields.landValue"), money(property["land-value"])],
+    [tProps("fields.buildingValue"), money(property["building-value"])],
+    [tProps("fields.currentValue"), money(property["current-value"])],
+  ];
+  const detailFields: Array<[string, string | null]> = [
+    [tProps("fields.yearBuilt"), property["year-built"] != null ? String(property["year-built"]) : null],
+    [tProps("fields.ownershipShare"), pct(property["ownership-share"])],
+    [tProps("fields.livingAreaM2"), area(property["living-area-m2"])],
+    [tProps("fields.rentalAreaM2"), area(property["rental-area-m2"])],
+    [tProps("fields.usage"), usageLabel],
+  ];
+
+  const renderFields = (fields: Array<[string, string | null]>) =>
+    fields.map(([label, value]) => (
+      <div key={label}>
+        <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
+        <p>{value != null && value !== "" ? value : "—"}</p>
+      </div>
+    ));
 
   return (
     <div className="space-y-6">
@@ -527,27 +576,28 @@ export default function PropertyDetail({
       </div>
 
       <Card>
-        <CardContent className="pt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-          <div>
-            <p className="text-xs text-muted-foreground mb-0.5">{t("address")}</p>
-            <p>{property.address}</p>
+        <CardContent className="pt-4 space-y-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+            {renderFields(basicFields)}
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-0.5">{t("city")}</p>
-            <p>{property.city}</p>
+
+          <div className="border-t pt-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+              {tProps("sections.financial")}
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+              {renderFields(financialFields)}
+            </div>
           </div>
-          {property["postal-code"] && (
-            <div>
-              <p className="text-xs text-muted-foreground mb-0.5">{t("postalCode")}</p>
-              <p>{property["postal-code"]}</p>
+
+          <div className="border-t pt-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+              {tProps("sections.propertyDetails")}
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+              {renderFields(detailFields)}
             </div>
-          )}
-          {property.units && (
-            <div>
-              <p className="text-xs text-muted-foreground mb-0.5">{t("units")}</p>
-              <p>{property.units}</p>
-            </div>
-          )}
+          </div>
         </CardContent>
       </Card>
 

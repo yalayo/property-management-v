@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Loader2, ChevronsUpDown, Check, Building2, Hash, Ruler } from "lucide-react";
+import { Loader2, ChevronsUpDown, Check, Building2, Hash, Ruler, Zap, Droplet, Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
@@ -21,10 +21,14 @@ type Props = {
   isLoading?: boolean;
   code?: string;
   wohnflaeche?: string;
+  stromZaehlerNr?: string;
+  wasserZaehlerNrn?: string[];
   onChangeAddApartmentDialogClose?: () => void;
   onChangeCode?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onChangeProperty?: (value: string) => void;
   onChangeWohnflaeche?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onChangeStromZaehlerNr?: (value: string) => void;
+  onChangeWasserZaehlerNrn?: (value: string[]) => void;
   submitApartment?: () => void;
 };
 
@@ -34,10 +38,14 @@ export default function AddApartment({
   isLoading = false,
   code = "",
   wohnflaeche = "",
+  stromZaehlerNr = "",
+  wasserZaehlerNrn = [],
   onChangeAddApartmentDialogClose,
   onChangeCode,
   onChangeProperty,
   onChangeWohnflaeche,
+  onChangeStromZaehlerNr,
+  onChangeWasserZaehlerNrn,
   submitApartment,
 }: Props) {
   const { t } = useTranslation("apartments");
@@ -176,6 +184,61 @@ export default function AddApartment({
             autoComplete="off"
           />
           <p className="text-xs text-muted-foreground">{t("fields.wohnflaecheHint", { defaultValue: "Living area in m². Used for Nebenkosten distribution." })}</p>
+        </div>
+
+        {/* Stromzählernummer (single) */}
+        <div className="space-y-2">
+          <Label htmlFor="apt-strom" className="flex items-center gap-1.5">
+            <Zap className="h-3.5 w-3.5 text-muted-foreground" />
+            {t("fields.stromZaehlerNr", { defaultValue: "Stromzählernummer" })}
+            <span className="text-muted-foreground font-normal text-xs">({t("optional", { defaultValue: "optional" })})</span>
+          </Label>
+          <Input
+            id="apt-strom"
+            value={stromZaehlerNr}
+            onChange={(e) => onChangeStromZaehlerNr?.(e.target.value)}
+            disabled={isLoading}
+            autoComplete="off"
+          />
+        </div>
+
+        {/* Wasserzählernummern (multiple) */}
+        <div className="space-y-2">
+          <Label className="flex items-center gap-1.5">
+            <Droplet className="h-3.5 w-3.5 text-muted-foreground" />
+            {t("fields.wasserZaehlerNrn", { defaultValue: "Wasserzählernummern" })}
+            <span className="text-muted-foreground font-normal text-xs">({t("optional", { defaultValue: "optional" })})</span>
+          </Label>
+          {wasserZaehlerNrn.map((nr, i) => (
+            <div key={i} className="flex gap-2">
+              <Input
+                value={nr}
+                onChange={(e) => {
+                  const arr = [...wasserZaehlerNrn];
+                  arr[i] = e.target.value;
+                  onChangeWasserZaehlerNrn?.(arr);
+                }}
+                disabled={isLoading}
+                autoComplete="off"
+              />
+              <Button
+                type="button" variant="ghost" size="icon"
+                className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
+                onClick={() => onChangeWasserZaehlerNrn?.(wasserZaehlerNrn.filter((_, j) => j !== i))}
+                disabled={isLoading}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+          <Button
+            type="button" variant="outline" size="sm" className="h-8"
+            onClick={() => onChangeWasserZaehlerNrn?.([...wasserZaehlerNrn, ""])}
+            disabled={isLoading}
+          >
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            {t("fields.addWasserZaehler", { defaultValue: "Wasserzähler hinzufügen" })}
+          </Button>
         </div>
 
         {/* Preview badge */}

@@ -1,5 +1,6 @@
 (ns app.apartment-ui.events
   (:require [re-frame.core :as re-frame :refer [after]]
+            [clojure.string :as str]
             [app.apartment-ui.db :as db]))
 
 (def local-storage-interceptor (after db/db->local-store))
@@ -60,7 +61,9 @@
        (assoc-in [:apartments :add-dialog-open?] true)
        (assoc-in [:apartments :new-code] "")
        (assoc-in [:apartments :new-property-id] nil)
-       (assoc-in [:apartments :new-wohnflaeche] nil))))
+       (assoc-in [:apartments :new-wohnflaeche] nil)
+       (assoc-in [:apartments :new-strom-zaehler-nr] "")
+       (assoc-in [:apartments :new-wasser-zaehler-nrn] []))))
 
 (re-frame/reg-event-db
  ::close-add-dialog
@@ -86,17 +89,37 @@
  (fn [db [_ wohnflaeche]]
    (assoc-in db [:apartments :new-wohnflaeche] wohnflaeche)))
 
+(re-frame/reg-event-db
+ ::set-new-strom-zaehler-nr
+ [local-storage-interceptor]
+ (fn [db [_ nr]]
+   (assoc-in db [:apartments :new-strom-zaehler-nr] nr)))
+
+(re-frame/reg-event-db
+ ::set-new-wasser-zaehler-nrn
+ [local-storage-interceptor]
+ (fn [db [_ nrn]]
+   (assoc-in db [:apartments :new-wasser-zaehler-nrn] (vec nrn))))
+
 (re-frame/reg-event-fx
  ::add-apartment
  (fn [{:keys [db]} _]
-   (let [code        (get-in db [:apartments :new-code])
-         property-id (get-in db [:apartments :new-property-id])
-         wohnflaeche (get-in db [:apartments :new-wohnflaeche])]
+   (let [code         (get-in db [:apartments :new-code])
+         property-id  (get-in db [:apartments :new-property-id])
+         wohnflaeche  (get-in db [:apartments :new-wohnflaeche])
+         strom        (get-in db [:apartments :new-strom-zaehler-nr])
+         wasser       (->> (get-in db [:apartments :new-wasser-zaehler-nrn] [])
+                           (map str/trim)
+                           (remove empty?)
+                           vec)
+         strom-trim   (str/trim (or strom ""))]
      {:db       (assoc-in db [:apartments :saving?] true)
       :dispatch [:app.core-ui.events/command
                  :create-apartment
                  (cond-> {:code code :property-id property-id}
-                   (some? wohnflaeche) (assoc :wohnflaeche wohnflaeche))
+                   (some? wohnflaeche)   (assoc :wohnflaeche wohnflaeche)
+                   (seq strom-trim)      (assoc :strom-zaehler-nr strom-trim)
+                   (seq wasser)          (assoc :wasser-zaehler-nrn wasser))
                  [::apartment-added]
                  [::apartment-save-error]]})))
 

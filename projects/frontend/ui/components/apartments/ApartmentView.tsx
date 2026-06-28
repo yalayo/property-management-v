@@ -29,6 +29,8 @@ type Apartment = {
   occupied: number | boolean;
   wohnflaeche?: number | string | null;
   "market-rent"?: number | string | null;
+  "strom-zaehler-nr"?: string | null;
+  "wasser-zaehler-nrn"?: string[] | null;
 };
 
 type OnboardingStatus = {
@@ -124,7 +126,7 @@ type Props = {
   mieteSaving?: boolean;
   onUpsertTenantMiete?: (data: { tenantId: string; year: number; kaltmiete: number; nebenkostenWarm: number }) => void;
   onDeleteTenantMiete?: (id: string) => void;
-  onUpdateApartment?: (id: string, data: { code?: string; wohnflaeche?: number; marketRent?: number }) => void;
+  onUpdateApartment?: (id: string, data: { code?: string; wohnflaeche?: number; marketRent?: number; stromZaehlerNr?: string | null; wasserZaehlerNrn?: string[] }) => void;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -272,7 +274,7 @@ export default function ApartmentView({
     });
   };
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [aptEdit, setAptEdit] = useState<{ code: string; wohnflaeche: string; marketRent: string } | null>(null);
+  const [aptEdit, setAptEdit] = useState<{ code: string; wohnflaeche: string; marketRent: string; stromZaehlerNr: string; wasserZaehlerNrn: string[] } | null>(null);
   const [activeTab, setActiveTabState] = useState<"tenants" | "rent" | "costs" | "settings">(initialTab ?? "tenants");
   const setActiveTab = (tab: "tenants" | "rent" | "costs" | "settings") => {
     setActiveTabState(tab);
@@ -1059,6 +1061,8 @@ export default function ApartmentView({
                     code: apartment.code ?? "",
                     wohnflaeche: apartment.wohnflaeche != null ? String(apartment.wohnflaeche) : "",
                     marketRent: apartment["market-rent"] != null ? String(apartment["market-rent"]) : "",
+                    stromZaehlerNr: apartment["strom-zaehler-nr"] ?? "",
+                    wasserZaehlerNrn: Array.isArray(apartment["wasser-zaehler-nrn"]) ? apartment["wasser-zaehler-nrn"] : [],
                   });
                   setActiveTab("settings");
                 }}
@@ -1648,6 +1652,8 @@ export default function ApartmentView({
                     code: apartment?.code ?? "",
                     wohnflaeche: apartment?.wohnflaeche != null ? String(apartment.wohnflaeche) : "",
                     marketRent: apartment?.["market-rent"] != null ? String(apartment["market-rent"]) : "",
+                    stromZaehlerNr: apartment?.["strom-zaehler-nr"] ?? "",
+                    wasserZaehlerNrn: Array.isArray(apartment?.["wasser-zaehler-nrn"]) ? apartment!["wasser-zaehler-nrn"]! : [],
                   })}
                   disabled={isSaving}
                 >
@@ -1705,18 +1711,74 @@ export default function ApartmentView({
                       {t("fields.marketRentHint", { defaultValue: "Vergleichsmiete für die 66-%-Prüfung (Anlage V)." })}
                     </p>
                   </div>
+
+                  {/* Stromzählernummer (single) */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="apt-strom-edit">
+                      {t("fields.stromZaehlerNr", { defaultValue: "Stromzählernummer" })}
+                      <span className="text-xs text-muted-foreground ml-1">({t("optional", { defaultValue: "optional" })})</span>
+                    </Label>
+                    <Input
+                      id="apt-strom-edit"
+                      value={aptEdit.stromZaehlerNr}
+                      onChange={(e) => setAptEdit((f) => f ? { ...f, stromZaehlerNr: e.target.value } : f)}
+                      disabled={isSaving}
+                      autoComplete="off"
+                    />
+                  </div>
+
+                  {/* Wasserzählernummern (multiple) */}
+                  <div className="space-y-1.5">
+                    <Label>
+                      {t("fields.wasserZaehlerNrn", { defaultValue: "Wasserzählernummern" })}
+                      <span className="text-xs text-muted-foreground ml-1">({t("optional", { defaultValue: "optional" })})</span>
+                    </Label>
+                    {aptEdit.wasserZaehlerNrn.map((nr, i) => (
+                      <div key={i} className="flex gap-2">
+                        <Input
+                          value={nr}
+                          onChange={(e) => setAptEdit((f) => {
+                            if (!f) return f;
+                            const arr = [...f.wasserZaehlerNrn];
+                            arr[i] = e.target.value;
+                            return { ...f, wasserZaehlerNrn: arr };
+                          })}
+                          disabled={isSaving}
+                          autoComplete="off"
+                        />
+                        <Button
+                          type="button" variant="ghost" size="icon"
+                          className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => setAptEdit((f) => f ? { ...f, wasserZaehlerNrn: f.wasserZaehlerNrn.filter((_, j) => j !== i) } : f)}
+                          disabled={isSaving}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button" variant="outline" size="sm" className="h-8"
+                      onClick={() => setAptEdit((f) => f ? { ...f, wasserZaehlerNrn: [...f.wasserZaehlerNrn, ""] } : f)}
+                      disabled={isSaving}
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1.5" />
+                      {t("fields.addWasserZaehler", { defaultValue: "Wasserzähler hinzufügen" })}
+                    </Button>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
                     disabled={isSaving || !aptEdit.code.trim()}
                     onClick={() => {
-                      const data: { code?: string; wohnflaeche?: number; marketRent?: number } = {};
+                      const data: { code?: string; wohnflaeche?: number; marketRent?: number; stromZaehlerNr?: string | null; wasserZaehlerNrn?: string[] } = {};
                       if (aptEdit.code.trim()) data.code = aptEdit.code.trim();
                       const w = parseFloat(aptEdit.wohnflaeche);
                       if (!isNaN(w)) data.wohnflaeche = w;
                       const mr = parseFloat(aptEdit.marketRent);
                       if (!isNaN(mr)) data.marketRent = mr;
+                      data.stromZaehlerNr = aptEdit.stromZaehlerNr.trim();
+                      data.wasserZaehlerNrn = aptEdit.wasserZaehlerNrn.map((s) => s.trim()).filter(Boolean);
                       onUpdateApartment?.(String(apartment!.id), data);
                       setAptEdit(null);
                     }}
@@ -1749,6 +1811,18 @@ export default function ApartmentView({
                   <span className="font-medium">
                     {apartment?.["market-rent"] != null
                       ? `€ ${parseFloat(String(apartment["market-rent"])).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / Mon.`
+                      : "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm gap-4">
+                  <span className="text-muted-foreground shrink-0">{t("fields.stromZaehlerNr", { defaultValue: "Stromzählernummer" })}</span>
+                  <span className="font-medium text-right">{apartment?.["strom-zaehler-nr"] || "—"}</span>
+                </div>
+                <div className="flex justify-between text-sm gap-4">
+                  <span className="text-muted-foreground shrink-0">{t("fields.wasserZaehlerNrn", { defaultValue: "Wasserzählernummern" })}</span>
+                  <span className="font-medium text-right">
+                    {Array.isArray(apartment?.["wasser-zaehler-nrn"]) && apartment["wasser-zaehler-nrn"]!.length > 0
+                      ? apartment["wasser-zaehler-nrn"]!.join(", ")
                       : "—"}
                   </span>
                 </div>

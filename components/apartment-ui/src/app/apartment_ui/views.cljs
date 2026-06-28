@@ -41,6 +41,8 @@
           current-year         @(re-frame/subscribe [::subs/current-year])
           new-code             @(re-frame/subscribe [::subs/new-apartment-code])
           new-wohnflaeche      @(re-frame/subscribe [::subs/new-apartment-wohnflaeche])
+          new-strom            @(re-frame/subscribe [::subs/new-apartment-strom-zaehler-nr])
+          new-wasser           @(re-frame/subscribe [::subs/new-apartment-wasser-zaehler-nrn])
           assign-apt-id        @(re-frame/subscribe [::subs/assign-apt-id])
           assign-error         @(re-frame/subscribe [::subs/assign-error])
           garages              @(re-frame/subscribe [::subs/garages])
@@ -197,6 +199,8 @@
               :isLoading                       saving?
               :code                            new-code
               :wohnflaeche                     (or new-wohnflaeche "")
+              :stromZaehlerNr                  (or new-strom "")
+              :wasserZaehlerNrn                (clj->js (or new-wasser []))
               :onChangeAddApartmentDialogClose #(re-frame/dispatch [::events/close-add-dialog])
               :onChangeCode                    (fn [e]
                                                 (re-frame/dispatch [::events/set-new-code (.. e -target -value)]))
@@ -206,4 +210,9 @@
                                                 (let [v (.. e -target -value)]
                                                   (re-frame/dispatch [::events/set-new-wohnflaeche
                                                                       (when (seq v) (js/parseFloat v))])))
+              :onChangeStromZaehlerNr          (fn [v]
+                                                (re-frame/dispatch [::events/set-new-strom-zaehler-nr v]))
+              :onChangeWasserZaehlerNrn        (fn [arr]
+                                                (re-frame/dispatch [::events/set-new-wasser-zaehler-nrn
+                                                                    (js->clj arr)]))
               :submitApartment                 #(re-frame/dispatch [::events/add-apartment])}]))]))))

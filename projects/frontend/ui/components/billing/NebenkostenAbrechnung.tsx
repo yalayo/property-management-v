@@ -667,6 +667,10 @@ export default function NebenkostenAbrechnung({
     return sum + Number(costEntryFor(aptCosts, key, year)?.value ?? 0);
   }, 0);
 
+  const totalAnnualPropertyCosts = activeCostLines.reduce((sum, key) => {
+    return sum + (effectiveCostValue(propertyCosts, key, year) ?? 0);
+  }, 0);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -818,7 +822,11 @@ export default function NebenkostenAbrechnung({
                   );
                 })
               )}
-              <div className="flex items-center justify-between px-4 py-2 border-t border-dashed text-sm">
+              <div className="flex items-center justify-between px-4 py-2 border-t border-dashed text-sm text-muted-foreground">
+                <span>{t("totalPropertyCosts", { defaultValue: "Gesamtkosten" })}</span>
+                <span className="tabular-nums">€ {formatEur(totalAnnualPropertyCosts)}</span>
+              </div>
+              <div className="flex items-center justify-between px-4 py-2 border-t text-sm">
                 <span className="font-medium">{t("totalCosts")}</span>
                 <span className="tabular-nums font-medium">€ {formatEur(totalAnnualShare)}</span>
               </div>

@@ -261,7 +261,9 @@
                                                                                   (cond-> {}
                                                                                     (:code d)        (assoc :code (:code d))
                                                                                     (:wohnflaeche d) (assoc :wohnflaeche (:wohnflaeche d))
-                                                                                    (some? (:marketRent d)) (assoc :market-rent (:marketRent d)))])))}])
+                                                                                    (some? (:marketRent d)) (assoc :market-rent (:marketRent d))
+                                                                                    (some? (:stromZaehlerNr d))   (assoc :strom-zaehler-nr (:stromZaehlerNr d))
+                                                                                    (some? (:wasserZaehlerNrn d)) (assoc :wasser-zaehler-nrn (:wasserZaehlerNrn d)))])))}])
            :rentSaving         rent-saving?
            :onAssignPayment    (when can-create?
                                  (fn [data]

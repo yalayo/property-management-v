@@ -80,17 +80,21 @@
       (if (or (nil? property-id) (nil? code))
         {:error :missing-required-fields}
         {:action :create-apartment
-         :entity {:property-id property-id
-                  :code        code
-                  :wohnflaeche (get data :wohnflaeche)
-                  :market-rent (get data :market-rent)}}))
+         :entity {:property-id       property-id
+                  :code              code
+                  :wohnflaeche       (get data :wohnflaeche)
+                  :market-rent       (get data :market-rent)
+                  :strom-zaehler-nr  (get data :strom-zaehler-nr)
+                  :wasser-zaehler-nrn (get data :wasser-zaehler-nrn)}}))
 
     :update-apartment
     {:action  :update-apartment
-     :updates {:code        (get data :code)
-               :occupied    (get data :occupied)
-               :wohnflaeche (get data :wohnflaeche)
-               :market-rent (get data :market-rent)}}
+     :updates {:code              (get data :code)
+               :occupied          (get data :occupied)
+               :wohnflaeche       (get data :wohnflaeche)
+               :market-rent       (get data :market-rent)
+               :strom-zaehler-nr  (get data :strom-zaehler-nr)
+               :wasser-zaehler-nrn (get data :wasser-zaehler-nrn)}}
 
     :create-tenant
     (let [{:keys [first-name last-name]} data]

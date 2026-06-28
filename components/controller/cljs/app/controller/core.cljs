@@ -304,7 +304,11 @@
                                        (some? (:wohnflaeche (:entity result)))
                                        (assoc :apartment/wohnflaeche (js/parseFloat (str (:wohnflaeche (:entity result)))))
                                        (some? (:market-rent (:entity result)))
-                                       (assoc :apartment/market-rent (js/parseFloat (str (:market-rent (:entity result))))))] nil)]
+                                       (assoc :apartment/market-rent (js/parseFloat (str (:market-rent (:entity result)))))
+                                       (some? (:strom-zaehler-nr (:entity result)))
+                                       (assoc :apartment/strom-zaehler-nr (:strom-zaehler-nr (:entity result)))
+                                       (some? (:wasser-zaehler-nrn (:entity result)))
+                                       (assoc :apartment/wasser-zaehler-nrn (vec (:wasser-zaehler-nrn (:entity result)))))] nil)]
                                   {:tx-id tx-id :apartment-id (first entity-ids)})))))))))
 
 (defn- handle-update-apartment! [core storage data user]
@@ -317,12 +321,14 @@
                     (let [result ((:process core) {:command :update-apartment :data data})]
                       (if (:error result)
                         result
-                        (let [{:keys [code occupied wohnflaeche market-rent]} (:updates result)
+                        (let [{:keys [code occupied wohnflaeche market-rent strom-zaehler-nr wasser-zaehler-nrn]} (:updates result)
                               facts (cond-> {:db/id eid}
                                       (some? code)        (assoc :apartment/code code)
                                       (some? occupied)    (assoc :apartment/occupied (boolean occupied))
                                       (some? wohnflaeche) (assoc :apartment/wohnflaeche (js/parseFloat (str wohnflaeche)))
-                                      (some? market-rent) (assoc :apartment/market-rent (js/parseFloat (str market-rent))))]
+                                      (some? market-rent) (assoc :apartment/market-rent (js/parseFloat (str market-rent)))
+                                      (some? strom-zaehler-nr)   (assoc :apartment/strom-zaehler-nr strom-zaehler-nr)
+                                      (some? wasser-zaehler-nrn) (assoc :apartment/wasser-zaehler-nrn (vec wasser-zaehler-nrn)))]
                           (js-await [{:keys [tx-id]}
                                      ((:transact! storage)
                                       [facts] nil)]

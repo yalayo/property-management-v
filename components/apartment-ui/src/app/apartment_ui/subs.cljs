@@ -42,6 +42,16 @@
    (get-in db [:apartments :new-wohnflaeche] "")))
 
 (re-frame/reg-sub
+ ::new-apartment-strom-zaehler-nr
+ (fn [db _]
+   (get-in db [:apartments :new-strom-zaehler-nr] "")))
+
+(re-frame/reg-sub
+ ::new-apartment-wasser-zaehler-nrn
+ (fn [db _]
+   (get-in db [:apartments :new-wasser-zaehler-nrn] [])))
+
+(re-frame/reg-sub
  ::property-filter
  (fn [db _]
    (get-in db [:apartments :property-filter])))
