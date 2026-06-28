@@ -411,24 +411,19 @@ export default function ApartmentView({
     .reduce((sum, a) => sum + parseFloat(String(a.wohnflaeche)), 0);
   const propertyWohnflaecheStr = propertyTotalWohnflaeche > 0 ? String(propertyTotalWohnflaeche) : "";
 
-  const daysInYear = isLeapYear(year) ? 366 : 365;
-  const activeResidentsForApt = (aptId: number | string): number | null => {
-    const t = tenants.find((tn: Tenant) =>
-      String(tn["apartment-id"]) === String(aptId) && tenantActiveInYear(tn, year)
-    );
-    if (!t) return null;
-    const rc = t["residents-count"];
-    return rc != null && !isNaN(Number(rc)) ? Number(rc) : null;
-  };
-  const aptResidents     = activeResidentsForApt(apartment.id);
-  const aptPersonDays    = aptResidents != null ? aptResidents * daysInYear : 0;
-  const aptPersonDaysStr = aptResidents != null && aptPersonDays > 0 ? String(aptPersonDays) : "";
+  const aptPersonDaysForApt = (aptId: number | string): number =>
+    tenants
+      .filter((tn: Tenant) => String(tn["apartment-id"]) === String(aptId) && tenantActiveInYear(tn, year))
+      .reduce((sum, tn) => {
+        const rc = tn["residents-count"];
+        const count = rc != null && !isNaN(Number(rc)) ? Number(rc) : 0;
+        return sum + count * tenantDaysInYear(tn, year);
+      }, 0);
+  const aptPersonDays    = aptPersonDaysForApt(apartment.id);
+  const aptPersonDaysStr = aptPersonDays > 0 ? String(aptPersonDays) : "";
   const propertyPersonDays = apartments
     .filter((a) => (a["property-id"] ?? (a as any).property_id) === propertyId)
-    .reduce((sum, a) => {
-      const rc = activeResidentsForApt(a.id);
-      return sum + (rc != null ? rc * daysInYear : 0);
-    }, 0);
+    .reduce((sum, a) => sum + aptPersonDaysForApt(a.id), 0);
   const propertyPersonDaysStr = propertyPersonDays > 0 ? String(propertyPersonDays) : "";
 
   const aptTenants   = tenants.filter(tn => String(tn["apartment-id"]) === String(apartment.id));
