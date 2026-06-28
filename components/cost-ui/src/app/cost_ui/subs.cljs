@@ -32,6 +32,11 @@
    (get-in db [:apartment-costs :saving?] false)))
 
 (re-frame/reg-sub
+ ::apt-cost-save-error?
+ (fn [db _]
+   (get-in db [:apartment-costs :save-error?] false)))
+
+(re-frame/reg-sub
  ::all-costs
  (fn [db _]
    (get-in db [:all-costs :list] [])))

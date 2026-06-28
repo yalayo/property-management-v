@@ -93,6 +93,8 @@ type Props = {
   aptCosts?: any[];
   aptCostsLoading?: boolean;
   aptCostsSaving?: boolean;
+  aptCostSaveError?: boolean;
+  onClearAptCostError?: () => void;
   onLoadAptCosts?: (apartmentId: string) => void;
   onAddAptCost?: (data: { apartmentId: string; line: string; name: string; year: number; value: number; verteiler?: number; anteil?: number; schluessel?: string }) => void;
   onUpdateAptCost?: (data: { id: string; value: number; verteiler?: number; anteil?: number; schluessel?: string }) => void;
@@ -217,6 +219,8 @@ export default function ApartmentView({
   aptCosts = [],
   aptCostsLoading,
   aptCostsSaving,
+  aptCostSaveError,
+  onClearAptCostError,
   onLoadAptCosts,
   onAddAptCost,
   onUpdateAptCost,
@@ -292,6 +296,12 @@ export default function ApartmentView({
     if (initialTab) setActiveTabState(initialTab);
   }, [initialTab]);
 
+  useEffect(() => {
+    if (!aptCostSaveError) return;
+    toast({ title: tCommon("saveError", { defaultValue: "Save failed. Please try again." }), variant: "destructive" });
+    onClearAptCostError?.();
+  }, [aptCostSaveError]);
+
   // ── Tenants-tab state ────────────────────────────────────────────────────
   const [mgmtTenantTab,    setMgmtTenantTab]    = useState<string | null>(null);
   const [editingTenantId,  setEditingTenantId]  = useState<string | null>(null);
@@ -316,8 +326,6 @@ export default function ApartmentView({
   const [costInput,   setCostInput]  = useState<Record<string, CostEditFields | null>>({});
   const [savingKeys,  setSavingKeys] = useState<Set<string>>(new Set());
   const [addLineOpen, setAddLineOpen]= useState(false);
-  const savingKeysRef = useRef<Set<string>>(new Set());
-  savingKeysRef.current = savingKeys;
 
   // ── Miete-edit state ─────────────────────────────────────────────────────
   const [editingMieteTenantId, setEditingMieteTenantId] = useState<string | null>(null);
@@ -347,26 +355,6 @@ export default function ApartmentView({
     setMieteForm({ kaltmiete: "", nebenkostenWarm: "" });
     autoPopulatedKey.current = "";
   }, [year]);
-
-  // When aptCosts refreshes after a successful add, clean up savingKeys + costInput
-  // so the UI transitions from "saving…" to the normal read-only state.
-  useEffect(() => {
-    const nowSaved = aptCosts
-      .filter((c: any) => Number(c.year) === year)
-      .map((c: any) => c.line as string);
-    const toCleanup = [...savingKeysRef.current].filter(k => nowSaved.includes(k));
-    if (toCleanup.length === 0) return;
-    setSavingKeys(prev => {
-      const next = new Set([...prev]);
-      toCleanup.forEach(k => next.delete(k));
-      return next;
-    });
-    setCostInput(prev => {
-      const next = { ...prev };
-      toCleanup.forEach(k => delete next[k]);
-      return next;
-    });
-  }, [aptCosts, year]);
 
   // Load property-level costs when the nebenkosten tab is opened (data may not yet be loaded)
   useEffect(() => {
@@ -417,8 +405,7 @@ export default function ApartmentView({
     }
   }, [activeTab, year, apartment.id, dataTenantTab, aptCosts, allCosts, expenseTypes, propertyId, tenants, apartments]);
 
-  // Auto-close pending cost edits once saved
-  const prevAptCostsRef = useRef(aptCosts);
+  // Safety net: if savingKeys still has entries that are now confirmed in aptCosts, clean them up.
   useEffect(() => {
     if (savingKeys.size === 0) return;
     const yearEntries = aptCosts.filter((c: any) => Number(c.year) === year);
@@ -427,7 +414,6 @@ export default function ApartmentView({
       setCostInput(prev => { const n = { ...prev }; nowSaved.forEach(k => delete n[k]); return n; });
       setSavingKeys(prev => { const n = new Set(prev); nowSaved.forEach(k => n.delete(k)); return n; });
     }
-    prevAptCostsRef.current = aptCosts;
   }, [aptCosts, year, savingKeys]);
 
   if (!apartment) {
@@ -544,14 +530,13 @@ export default function ApartmentView({
     const existing = costEntryFor(lineKey);
     if (existing) {
       onUpdateAptCost?.({ id: existing.id, ...payload });
-      closeCostEdit(lineKey);
     } else {
       const line = costLines.find(l => l.key === lineKey);
       if (!line) return;
       onAddAptCost?.({ apartmentId: String(apartment.id), line: lineKey, name: costLineName(line, i18n.language), year, ...payload });
-      setSavingKeys(prev => new Set([...prev, lineKey]));
     }
-    toast({ title: tCommon("saved") });
+    closeCostEdit(lineKey);
+    toast({ title: tCommon("saved"), duration: 2000 });
   };
 
   const pendingCostKeys     = [...savingKeys].filter(k => !savedCostKeys.includes(k));
@@ -606,6 +591,7 @@ export default function ApartmentView({
 
   const commitAllPendingCosts = () => {
     const keys = editingNewCostKeys;
+    const dispatched: string[] = [];
     keys.forEach(lineKey => {
       const fields = costInput[lineKey];
       if (!fields) return;
@@ -622,15 +608,21 @@ export default function ApartmentView({
       const existing = costEntryFor(lineKey);
       if (existing) {
         onUpdateAptCost?.({ id: existing.id, ...payload });
-        closeCostEdit(lineKey);
       } else {
         const line = costLines.find(l => l.key === lineKey);
         if (!line) return;
         onAddAptCost?.({ apartmentId: String(apartment.id), line: lineKey, name: costLineName(line, i18n.language), year, ...payload });
-        setSavingKeys(prev => new Set([...prev, lineKey]));
       }
+      dispatched.push(lineKey);
     });
-    if (keys.length > 0) toast({ title: tCommon("saved") });
+    if (dispatched.length > 0) {
+      setCostInput(prev => {
+        const next = { ...prev };
+        dispatched.forEach(k => delete next[k]);
+        return next;
+      });
+      toast({ title: tCommon("saved"), duration: 2000 });
+    }
   };
 
   // ── Rent helpers ───────────────────────────────────────────────────────────
@@ -681,7 +673,7 @@ export default function ApartmentView({
       onAddRentPayment?.({ apartmentId: String(apartment.id), year, month, value, kaltmiete: kalt, nebenkostenWarm: nk });
     }
     closeRentEdit(month);
-    toast({ title: tCommon("saved") });
+    toast({ title: tCommon("saved"), duration: 2000 });
   };
 
   const prevRentMonthsToCopy = MONTHS.filter(m => {
@@ -711,7 +703,7 @@ export default function ApartmentView({
   const handleDelete = () => {
     onDelete?.(apartment.id);
     setConfirmDelete(false);
-    toast({ title: tCommon("deleted") });
+    toast({ title: tCommon("deleted"), duration: 2000 });
   };
 
   const handleOnboarding = () => {
@@ -734,14 +726,14 @@ export default function ApartmentView({
       endDate:   addForm.endDate || undefined,
     });
     setAddForm({ firstName: "", lastName: "", email: "", phone: "", startDate: `${year}-01-01`, endDate: "" });
-    toast({ title: tCommon("saved") });
+    toast({ title: tCommon("saved"), duration: 2000 });
   };
 
   const handleAssignExisting = (tenant: Tenant) => {
     setLocalAssignedTenant(tenant);
     onAssignExistingTenant?.(apartment.id, tenant.id);
     onAfterAssign?.();
-    toast({ title: tCommon("saved") });
+    toast({ title: tCommon("saved"), duration: 2000 });
   };
 
   const mieteForTenantYear = (tenantId: string): TenantMiete | undefined =>
@@ -776,7 +768,7 @@ export default function ApartmentView({
       nebenkostenWarm: isNaN(nk)  ? 0 : nk,
     });
     setEditingMieteTenantId(null);
-    toast({ title: tCommon("saved") });
+    toast({ title: tCommon("saved"), duration: 2000 });
   };
 
   const startEdit = (tenant: Tenant) => {
@@ -804,7 +796,7 @@ export default function ApartmentView({
     if ((editForm.endDate   ?? "") !== (orig?.["end-date"]   ?? ""))               changed.endDate   = editForm.endDate;
     if (Object.keys(changed).length > 0) {
       onUpdateTenant?.(tenantId, changed);
-      toast({ title: tCommon("saved") });
+      toast({ title: tCommon("saved"), duration: 2000 });
     }
     setEditingTenantId(null);
     setEditForm({});
@@ -984,7 +976,7 @@ export default function ApartmentView({
               <Pencil className="h-3.5 w-3.5" />
             </Button>
             <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-              disabled={aptCostsSaving} onClick={() => { onDeleteAptCost?.(entry.id); toast({ title: tCommon("deleted") }); }}>
+              disabled={aptCostsSaving} onClick={() => { onDeleteAptCost?.(entry.id); toast({ title: tCommon("deleted"), duration: 2000 }); }}>
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </>
@@ -1051,7 +1043,7 @@ export default function ApartmentView({
               <Pencil className="h-3.5 w-3.5" />
             </Button>
             <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
-              disabled={rentSaving} onClick={() => { onDeleteRentPayment?.(entry.id); toast({ title: tCommon("deleted") }); }}>
+              disabled={rentSaving} onClick={() => { onDeleteRentPayment?.(entry.id); toast({ title: tCommon("deleted"), duration: 2000 }); }}>
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </>
@@ -1063,7 +1055,7 @@ export default function ApartmentView({
                 title={tCosts("fillFromTenant")} disabled={rentSaving || tenantKalt + tenantNk <= 0}
                 onClick={() => {
                   const value = tenantKalt + tenantNk;
-                  if (value > 0) { onAddRentPayment?.({ apartmentId: String(apartment.id), year, month, value, kaltmiete: tenantKalt, nebenkostenWarm: tenantNk }); toast({ title: tCommon("saved") }); }
+                  if (value > 0) { onAddRentPayment?.({ apartmentId: String(apartment.id), year, month, value, kaltmiete: tenantKalt, nebenkostenWarm: tenantNk }); toast({ title: tCommon("saved"), duration: 2000 }); }
                 }}>
                 <UserCheck className="h-3.5 w-3.5" />
               </Button>

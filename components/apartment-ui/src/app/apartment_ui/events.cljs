@@ -360,21 +360,49 @@
  (fn [db _]
    (assoc-in db [:garages :selected-id] nil)))
 
+(re-frame/reg-event-db
+ ::set-new-garage-tenant-id
+ [local-storage-interceptor]
+ (fn [db [_ tenant-id]]
+   (assoc-in db [:garages :new-tenant-id] tenant-id)))
+
 (re-frame/reg-event-fx
  ::add-garage
  (fn [{:keys [db]} _]
    (let [code         (get-in db [:garages :new-code])
          property-id  (get-in db [:garages :new-property-id])
          flaeche      (get-in db [:garages :new-flaeche])
-         monthly-rent (get-in db [:garages :new-monthly-rent])]
+         monthly-rent (get-in db [:garages :new-monthly-rent])
+         tenant-id    (get-in db [:garages :new-tenant-id])]
      {:db       (assoc-in db [:garages :saving?] true)
       :dispatch [:app.core-ui.events/command
                  :create-garage
                  (cond-> {:code code :property-id property-id}
                    (some? flaeche)      (assoc :flaeche flaeche)
-                   (some? monthly-rent) (assoc :monthly-rent monthly-rent))
+                   (some? monthly-rent) (assoc :monthly-rent monthly-rent)
+                   (some? tenant-id)    (assoc :tenant-id tenant-id))
                  [::garage-added]
                  [::garage-save-error]]})))
+
+(re-frame/reg-event-fx
+ ::assign-tenant-to-garage
+ (fn [{:keys [db]} [_ garage-id tenant-id]]
+   {:db       (assoc-in db [:garages :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :assign-tenant-to-garage
+               {:garage-id garage-id :tenant-id tenant-id}
+               [::garage-updated]
+               [::garage-save-error]]}))
+
+(re-frame/reg-event-fx
+ ::unassign-tenant-from-garage
+ (fn [{:keys [db]} [_ garage-id]]
+   {:db       (assoc-in db [:garages :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :unassign-tenant-from-garage
+               {:garage-id garage-id}
+               [::garage-updated]
+               [::garage-save-error]]}))
 
 (re-frame/reg-event-fx
  ::garage-added
@@ -437,7 +465,8 @@
        (assoc-in [:garages :new-code] "")
        (assoc-in [:garages :new-property-id] nil)
        (assoc-in [:garages :new-flaeche] nil)
-       (assoc-in [:garages :new-monthly-rent] nil))))
+       (assoc-in [:garages :new-monthly-rent] nil)
+       (assoc-in [:garages :new-tenant-id] nil))))
 
 (re-frame/reg-event-db
  ::close-add-garage-dialog

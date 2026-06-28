@@ -52,6 +52,7 @@
           new-garage-code      @(re-frame/subscribe [::subs/new-garage-code])
           new-garage-flaeche   @(re-frame/subscribe [::subs/new-garage-flaeche])
           new-garage-rent      @(re-frame/subscribe [::subs/new-garage-monthly-rent])
+          new-garage-tenant-id @(re-frame/subscribe [::subs/new-garage-tenant-id])
           selected-apt         (when selected-id (first (filter #(= (:db/id %) selected-id) apartments)))
           selected-garage      (when selected-garage-id (first (filter #(= (:db/id %) selected-garage-id) garages)))
           assign-apt           (when assign-apt-id (first (filter #(= (:db/id %) assign-apt-id) apartments)))
@@ -121,19 +122,25 @@
 
         selected-garage-id
         [garage-view
-         {:garage     (clj->js selected-garage)
-          :isSaving   garages-saving?
-          :isReadOnly is-read-only?
-          :onBack     #(re-frame/dispatch [::events/clear-selected-garage])
-          :onUpdate   (fn [id data]
-                        (let [d (js->clj data :keywordize-keys true)]
-                          (re-frame/dispatch [::events/update-garage id
-                                             (cond-> {}
-                                               (:code d)              (assoc :code (:code d))
-                                               (:flaeche d)           (assoc :flaeche (:flaeche d))
-                                               (some? (:monthlyRent d)) (assoc :monthly-rent (:monthlyRent d))
-                                               (some? (:occupied d))  (assoc :occupied (:occupied d)))])))
-          :onDelete   (fn [id] (re-frame/dispatch [::events/delete-garage id]))}]
+         {:garage           (clj->js selected-garage)
+          :properties       (clj->js (or properties []))
+          :tenants          (clj->js (or tenants []))
+          :isSaving         garages-saving?
+          :isReadOnly       is-read-only?
+          :onBack           #(re-frame/dispatch [::events/clear-selected-garage])
+          :onUpdate         (fn [id data]
+                              (let [d (js->clj data :keywordize-keys true)]
+                                (re-frame/dispatch [::events/update-garage id
+                                                   (cond-> {}
+                                                     (:code d)              (assoc :code (:code d))
+                                                     (:flaeche d)           (assoc :flaeche (:flaeche d))
+                                                     (some? (:monthlyRent d)) (assoc :monthly-rent (:monthlyRent d))
+                                                     (some? (:occupied d))  (assoc :occupied (:occupied d)))])))
+          :onDelete         (fn [id] (re-frame/dispatch [::events/delete-garage id]))
+          :onAssignTenant   (fn [garage-id tenant-id]
+                              (re-frame/dispatch [::events/assign-tenant-to-garage garage-id tenant-id]))
+          :onUnassignTenant (fn [garage-id]
+                              (re-frame/dispatch [::events/unassign-tenant-from-garage garage-id]))}]
 
         :else
         [apartments-list
@@ -174,16 +181,21 @@
           :addGarageDialogContent         (when garage-add-open?
                                             (r/as-element
                                              [add-garage
-                                              {:properties      (clj->js properties)
-                                               :isLoading       garages-saving?
-                                               :code            new-garage-code
-                                               :flaeche         (or new-garage-flaeche "")
-                                               :monthlyRent     (or new-garage-rent "")
+                                              {:properties       (clj->js properties)
+                                               :tenants          (clj->js (or tenants []))
+                                               :isLoading        garages-saving?
+                                               :code             new-garage-code
+                                               :flaeche          (or new-garage-flaeche "")
+                                               :monthlyRent      (or new-garage-rent "")
+                                               :selectedTenantId (when new-garage-tenant-id (str new-garage-tenant-id))
                                                :onClose         #(re-frame/dispatch [::events/close-add-garage-dialog])
                                                :onChangeCode    (fn [e]
                                                                   (re-frame/dispatch [::events/set-new-garage-code (.. e -target -value)]))
                                                :onChangeProperty (fn [v]
                                                                    (re-frame/dispatch [::events/set-new-garage-property-id v]))
+                                               :onChangeTenant   (fn [v]
+                                                                   (re-frame/dispatch [::events/set-new-garage-tenant-id
+                                                                                       (when (seq v) (js/parseInt v))]))
                                                :onChangeFlaeche (fn [e]
                                                                   (let [v (.. e -target -value)]
                                                                     (re-frame/dispatch [::events/set-new-garage-flaeche

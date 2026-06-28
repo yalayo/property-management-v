@@ -77,6 +77,7 @@
         apt-costs            @(re-frame/subscribe [::cost-subs/apartment-costs])
         apt-costs-loading?   @(re-frame/subscribe [::cost-subs/apt-costs-loading?])
         apt-costs-saving?    @(re-frame/subscribe [::cost-subs/apt-costs-saving?])
+        apt-cost-save-error? @(re-frame/subscribe [::cost-subs/apt-cost-save-error?])
         rent-payments        @(re-frame/subscribe [::rent-subs/rent-payments])
         rent-loading?        @(re-frame/subscribe [::rent-subs/loading?])
         rent-saving?         @(re-frame/subscribe [::rent-subs/saving?])
@@ -190,8 +191,10 @@
                         :nebenkosten-warm  (:nebenkostenWarm d)}])))
                                                :tenants-saving?    tenants-saving?
                                                :apt-costs          (clj->js apt-costs)
-                                               :apt-costs-loading? apt-costs-loading?
-                                               :apt-costs-saving?  apt-costs-saving?
+                                               :apt-costs-loading?    apt-costs-loading?
+                                               :apt-costs-saving?     apt-costs-saving?
+                                               :apt-cost-save-error?  apt-cost-save-error?
+                                               :on-clear-apt-cost-error (fn [] (re-frame/dispatch [::cost-events/clear-apt-cost-error]))
                                                :on-load-apt-costs  (fn [apt-id]
                                                                      (re-frame/dispatch [::cost-events/load-apartment-costs apt-id]))
                                                :on-add-apt-cost    (fn [data]

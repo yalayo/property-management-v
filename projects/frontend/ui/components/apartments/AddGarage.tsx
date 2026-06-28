@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Loader2, ChevronsUpDown, Check, Building2, Hash, Ruler, Euro } from "lucide-react";
+import { Loader2, ChevronsUpDown, Check, Building2, Hash, Ruler, Euro, User } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
@@ -14,29 +14,47 @@ type Property = {
   name: string;
 };
 
+type Tenant = {
+  id: number | string;
+  "first-name"?: string;
+  "last-name"?: string;
+  name?: string;
+};
+
 type Props = {
   properties?: Property[];
+  tenants?: Tenant[];
   isLoading?: boolean;
   code?: string;
   flaeche?: string;
   monthlyRent?: string;
+  selectedTenantId?: string;
   onClose?: () => void;
   onChangeCode?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onChangeProperty?: (value: string) => void;
+  onChangeTenant?: (value: string) => void;
   onChangeFlaeche?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onChangeMonthlyRent?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit?: () => void;
 };
 
+function tenantDisplayName(t: Tenant): string {
+  if (t["first-name"]) return [t["first-name"], t["last-name"]].filter(Boolean).join(" ");
+  return t.name ?? String(t.id);
+}
+
 export default function AddGarage({
   properties = [],
+  tenants = [],
   isLoading = false,
   code = "",
   flaeche = "",
   monthlyRent = "",
+  selectedTenantId = "",
   onClose,
   onChangeCode,
   onChangeProperty,
+  onChangeTenant,
   onChangeFlaeche,
   onChangeMonthlyRent,
   onSubmit,
@@ -45,13 +63,20 @@ export default function AddGarage({
 
   const [propertyOpen, setPropertyOpen] = useState(false);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
+  const [tenantOpen, setTenantOpen] = useState(false);
 
   const selectedProperty = properties.find((p) => String(p.id) === selectedPropertyId);
+  const selectedTenant   = tenants.find((t) => String(t.id) === selectedTenantId);
 
   const handlePropertySelect = (id: string) => {
     setSelectedPropertyId(id);
     setPropertyOpen(false);
     onChangeProperty?.(id);
+  };
+
+  const handleTenantSelect = (id: string) => {
+    setTenantOpen(false);
+    onChangeTenant?.(id === selectedTenantId ? "" : id);
   };
 
   const canSubmit = !!selectedPropertyId && !!code.trim() && !isLoading;
@@ -129,6 +154,58 @@ export default function AddGarage({
           />
         </div>
 
+        {/* Tenant picker (optional) */}
+        <div className="space-y-2">
+          <Label className="flex items-center gap-1.5">
+            <User className="h-3.5 w-3.5 text-muted-foreground" />
+            {"Mieter"}
+            <span className="text-muted-foreground font-normal text-xs">
+              ({tCommon("optional", { defaultValue: "optional" })})
+            </span>
+          </Label>
+          <Popover open={tenantOpen} onOpenChange={setTenantOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={tenantOpen}
+                className="w-full justify-between font-normal"
+                disabled={isLoading}
+              >
+                <span className={cn(!selectedTenant && "text-muted-foreground")}>
+                  {selectedTenant ? tenantDisplayName(selectedTenant) : "Mieter auswählen (optional)"}
+                </span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+              <Command>
+                <CommandInput placeholder={"Mieter suchen …"} />
+                <CommandList>
+                  <CommandEmpty>{"Kein Mieter gefunden."}</CommandEmpty>
+                  <CommandGroup>
+                    {tenants.map((t) => (
+                      <CommandItem
+                        key={t.id}
+                        value={tenantDisplayName(t)}
+                        onSelect={() => handleTenantSelect(String(t.id))}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            selectedTenantId === String(t.id) ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        {tenantDisplayName(t)}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        </div>
+
         {/* Fläche input */}
         <div className="space-y-2">
           <Label htmlFor="garage-flaeche-new" className="flex items-center gap-1.5">
@@ -185,6 +262,7 @@ export default function AddGarage({
               <p className="text-xs text-muted-foreground">{"Vorschau"}</p>
               <p className="text-sm font-medium truncate">
                 {selectedProperty.name} · {code.trim()}
+                {selectedTenant && ` · ${tenantDisplayName(selectedTenant)}`}
               </p>
             </div>
           </div>

@@ -65,13 +65,16 @@
         (if (some? handler)
           (js-await
            [raw-user (authenticate request env)]
-           (let [user (when raw-user (js->clj raw-user :keywordize-keys true))]
-             (-> (js/Promise.resolve (handler {:route route :request request :env env :execution-ctx ctx :user user}))
-               (.then (fn [resp] (add-cors-response resp origin)))
-               (.catch (fn [err]
-                         (js/console.error "Handler error:" err)
-                         (let [status (if (= "schema-missing" (aget err "code")) 503 500)]
-                           (add-cors-response (cf/response-error {:error (.-message err)} {:status status}) origin)))))))
+           (let [user          (when raw-user (js->clj raw-user :keywordize-keys true))
+                 auth-required? (get-in route-data [method-k :auth-required?] false)]
+             (if (and auth-required? (nil? user))
+               (add-cors-response (cf/response-edn {:error :unauthenticated} {:status 401}) origin)
+               (-> (js/Promise.resolve (handler {:route route :request request :env env :execution-ctx ctx :user user}))
+                 (.then (fn [resp] (add-cors-response resp origin)))
+                 (.catch (fn [err]
+                           (js/console.error "Handler error:" err)
+                           (let [status (if (= "schema-missing" (aget err "code")) 503 500)]
+                             (add-cors-response (cf/response-error {:error (.-message err)} {:status status}) origin))))))))
           (add-cors-response (cf/response-error {:error "Not found"} {:status 404}) origin))))))
 
 

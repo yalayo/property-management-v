@@ -90,6 +90,20 @@
                                :on-success      [::on-success form-id]
                                :on-failure      [::on-failure form-id]}})))
 
+(re-frame/reg-event-fx ::api-failure
+  interceptors
+  (fn [{:keys [db]} [_ on-failure error]]
+    (let [status    (:status error)
+          response  (:response error)
+          auth-err? (or (= 401 status)
+                        (= :unauthenticated (:error response))
+                        (= :unauthorized    (:error response)))]
+      (if auth-err?
+        {:db           (dissoc db :user)
+         :rules/logout nil}
+        (when on-failure
+          {:dispatch (conj (if (vector? on-failure) on-failure [on-failure]) error)})))))
+
 (re-frame/reg-event-fx ::command
   (fn [{:keys [db]} [_ cmd-type data on-success on-failure]]
     (let [token (get-in db [:user :token] "")]
@@ -101,7 +115,7 @@
                     :response-format (ajax-edn/edn-response-format)
                     :timeout         8000
                     :on-success      on-success
-                    :on-failure      on-failure}})))
+                    :on-failure      [::api-failure on-failure]}})))
 
 (re-frame/reg-event-fx ::query
   (fn [{:keys [db]} [_ params on-success on-failure]]
@@ -114,7 +128,7 @@
                     :response-format (ajax-edn/edn-response-format)
                     :timeout         8000
                     :on-success      on-success
-                    :on-failure      on-failure}})))
+                    :on-failure      [::api-failure on-failure]}})))
 
 (re-frame/reg-event-fx ::on-success
   [->local-store]

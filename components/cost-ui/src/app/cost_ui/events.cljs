@@ -128,14 +128,24 @@
  ::apt-cost-mutated
  (fn [{:keys [db]} _]
    (let [apartment-id (get-in db [:apartment-costs :apartment-id])]
-     {:db         (assoc-in db [:apartment-costs :saving?] false)
+     {:db         (-> db
+                      (assoc-in [:apartment-costs :saving?]    false)
+                      (assoc-in [:apartment-costs :save-error?] false))
       :dispatch-n [[::load-apartment-costs apartment-id]
                    [::load-all-apt-costs]]})))
 
 (re-frame/reg-event-db
  ::apt-cost-error
+ (fn [db [_ error]]
+   (js/console.error "Apartment cost save failed:" (clj->js error))
+   (-> db
+       (assoc-in [:apartment-costs :saving?]    false)
+       (assoc-in [:apartment-costs :save-error?] true))))
+
+(re-frame/reg-event-db
+ ::clear-apt-cost-error
  (fn [db _]
-   (assoc-in db [:apartment-costs :saving?] false)))
+   (assoc-in db [:apartment-costs :save-error?] false)))
 
 ;; ── Org-wide queries (analytics / accounting) ────────────────────────────
 

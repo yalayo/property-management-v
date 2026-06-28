@@ -137,6 +137,11 @@
    (get-in db [:garages :new-monthly-rent] "")))
 
 (re-frame/reg-sub
+ ::new-garage-tenant-id
+ (fn [db _]
+   (get-in db [:garages :new-tenant-id])))
+
+(re-frame/reg-sub
  ::onboardings-by-apartment
  (fn [db _]
    (->> (get-in db [:apartments :onboardings] [])
