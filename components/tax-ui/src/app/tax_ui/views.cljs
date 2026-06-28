@@ -9,18 +9,21 @@
 
 (defn component [_]
   (re-frame/dispatch [::events/load-tax-data])
-  (fn [{:keys [properties apartments all-rent-payments all-costs is-read-only?]}]
-    (let [loading? @(re-frame/subscribe [::subs/loading?])
-          saving?  @(re-frame/subscribe [::subs/saving?])
-          configs  @(re-frame/subscribe [::subs/tax-configs])
-          loans    @(re-frame/subscribe [::subs/loans])]
+  (fn [{:keys [properties apartments garages all-rent-payments all-costs is-read-only?]}]
+    (let [loading?     @(re-frame/subscribe [::subs/loading?])
+          saving?      @(re-frame/subscribe [::subs/saving?])
+          configs      @(re-frame/subscribe [::subs/tax-configs])
+          loans        @(re-frame/subscribe [::subs/loans])
+          maintenances @(re-frame/subscribe [::subs/maintenances])]
       [anlage-v
        {:properties      (clj->js (or properties []))
         :apartments      (clj->js (or apartments []))
+        :garages         (clj->js (or garages []))
         :allRentPayments (clj->js (or all-rent-payments []))
         :allCosts        (clj->js (or all-costs []))
         :taxConfigs      (clj->js configs)
         :loans           (clj->js loans)
+        :maintenances    (clj->js maintenances)
         :isReadOnly      is-read-only?
         :isLoading       loading?
         :isSaving        saving?
@@ -49,4 +52,22 @@
                                                   :annual-interest (:annualInterest d)
                                                   :notes           (:notes d)}])))
         :onDeleteLoan    (fn [id]
-                           (re-frame/dispatch [::events/delete-loan id]))}])))
+                           (re-frame/dispatch [::events/delete-loan id]))
+        :onAddMaintenance    (fn [data]
+                               (let [d (js->clj data :keywordize-keys true)]
+                                 (re-frame/dispatch [::events/create-maintenance
+                                                     {:property-id  (:propertyId d)
+                                                      :year         (:year d)
+                                                      :description  (:description d)
+                                                      :amount       (:amount d)
+                                                      :spread-years (:spreadYears d)}])))
+        :onUpdateMaintenance (fn [data]
+                               (let [d (js->clj data :keywordize-keys true)]
+                                 (re-frame/dispatch [::events/update-maintenance
+                                                     {:id           (:id d)
+                                                      :year         (:year d)
+                                                      :description  (:description d)
+                                                      :amount       (:amount d)
+                                                      :spread-years (:spreadYears d)}])))
+        :onDeleteMaintenance (fn [id]
+                               (re-frame/dispatch [::events/delete-maintenance id]))}])))

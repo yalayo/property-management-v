@@ -14,6 +14,7 @@ type Garage = {
   "property-id"?: string | number;
   property_id?: string | number;
   flaeche?: number | string | null;
+  "monthly-rent"?: number | string | null;
   occupied?: boolean | number;
 };
 
@@ -22,20 +23,21 @@ type Props = {
   isSaving?: boolean;
   isReadOnly?: boolean;
   onBack?: () => void;
-  onUpdate?: (id: string, data: { code?: string; flaeche?: number; occupied?: boolean }) => void;
+  onUpdate?: (id: string, data: { code?: string; flaeche?: number; monthlyRent?: number; occupied?: boolean }) => void;
   onDelete?: (id: string) => void;
 };
 
 export default function GarageView({ garage, isSaving = false, isReadOnly = false, onBack, onUpdate, onDelete }: Props) {
   const { t: tCommon } = useTranslation("common");
 
-  const [editForm, setEditForm] = useState<{ code: string; flaeche: string } | null>(null);
+  const [editForm, setEditForm] = useState<{ code: string; flaeche: string; monthlyRent: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   if (!garage) return null;
 
   const isOccupied = !!garage.occupied;
   const flaeche = garage.flaeche != null ? parseFloat(String(garage.flaeche)) : null;
+  const monthlyRent = garage["monthly-rent"] != null ? parseFloat(String(garage["monthly-rent"])) : null;
 
   const handleToggle = (val: boolean) => {
     onUpdate?.(garage.id, { occupied: val });
@@ -45,15 +47,18 @@ export default function GarageView({ garage, isSaving = false, isReadOnly = fals
     setEditForm({
       code: garage.code ?? "",
       flaeche: flaeche != null ? String(flaeche) : "",
+      monthlyRent: monthlyRent != null ? String(monthlyRent) : "",
     });
   };
 
   const saveEdit = () => {
     if (!editForm) return;
-    const data: { code?: string; flaeche?: number } = {};
+    const data: { code?: string; flaeche?: number; monthlyRent?: number } = {};
     if (editForm.code.trim()) data.code = editForm.code.trim();
     const f = parseFloat(editForm.flaeche);
     if (!isNaN(f)) data.flaeche = f;
+    const r = parseFloat(editForm.monthlyRent);
+    if (!isNaN(r)) data.monthlyRent = r;
     onUpdate?.(garage.id, data);
     setEditForm(null);
   };
@@ -115,6 +120,20 @@ export default function GarageView({ garage, isSaving = false, isReadOnly = fals
                   disabled={isSaving}
                 />
               </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="garage-rent">{"Miete / Monat (€)"}</Label>
+                <Input
+                  id="garage-rent"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  value={editForm.monthlyRent}
+                  onChange={(e) => setEditForm((f) => f ? { ...f, monthlyRent: e.target.value } : f)}
+                  disabled={isSaving}
+                />
+                <p className="text-xs text-muted-foreground">{"Jahresmiete fließt in die Anlage V (Zeile 15) ein."}</p>
+              </div>
             </div>
             <div className="flex gap-2">
               <Button size="sm" onClick={saveEdit} disabled={isSaving || !editForm.code.trim()}>
@@ -137,6 +156,12 @@ export default function GarageView({ garage, isSaving = false, isReadOnly = fals
               <span className="text-muted-foreground">{"Fläche"}</span>
               <span className="font-medium">
                 {flaeche != null ? `${flaeche.toLocaleString("de-DE")} m²` : "—"}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">{"Miete / Monat"}</span>
+              <span className="font-medium">
+                {monthlyRent != null ? `€ ${monthlyRent.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
               </span>
             </div>
           </div>

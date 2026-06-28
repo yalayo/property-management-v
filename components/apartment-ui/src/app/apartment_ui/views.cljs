@@ -49,6 +49,7 @@
           selected-garage-id   @(re-frame/subscribe [::subs/selected-garage-id])
           new-garage-code      @(re-frame/subscribe [::subs/new-garage-code])
           new-garage-flaeche   @(re-frame/subscribe [::subs/new-garage-flaeche])
+          new-garage-rent      @(re-frame/subscribe [::subs/new-garage-monthly-rent])
           selected-apt         (when selected-id (first (filter #(= (:db/id %) selected-id) apartments)))
           selected-garage      (when selected-garage-id (first (filter #(= (:db/id %) selected-garage-id) garages)))
           assign-apt           (when assign-apt-id (first (filter #(= (:db/id %) assign-apt-id) apartments)))
@@ -125,6 +126,7 @@
                                              (cond-> {}
                                                (:code d)              (assoc :code (:code d))
                                                (:flaeche d)           (assoc :flaeche (:flaeche d))
+                                               (some? (:monthlyRent d)) (assoc :monthly-rent (:monthlyRent d))
                                                (some? (:occupied d))  (assoc :occupied (:occupied d)))])))
           :onDelete   (fn [id] (re-frame/dispatch [::events/delete-garage id]))}]
 
@@ -171,6 +173,7 @@
                                                :isLoading       garages-saving?
                                                :code            new-garage-code
                                                :flaeche         (or new-garage-flaeche "")
+                                               :monthlyRent     (or new-garage-rent "")
                                                :onClose         #(re-frame/dispatch [::events/close-add-garage-dialog])
                                                :onChangeCode    (fn [e]
                                                                   (re-frame/dispatch [::events/set-new-garage-code (.. e -target -value)]))
@@ -180,6 +183,10 @@
                                                                   (let [v (.. e -target -value)]
                                                                     (re-frame/dispatch [::events/set-new-garage-flaeche
                                                                                         (when (seq v) (js/parseFloat v))])))
+                                               :onChangeMonthlyRent (fn [e]
+                                                                      (let [v (.. e -target -value)]
+                                                                        (re-frame/dispatch [::events/set-new-garage-monthly-rent
+                                                                                            (when (seq v) (js/parseFloat v))])))
                                                :onSubmit        #(re-frame/dispatch [::events/add-garage])}]))}
          (when add-dialog-open?
            (r/as-element

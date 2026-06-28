@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Loader2, ChevronsUpDown, Check, Building2, Hash, Ruler } from "lucide-react";
+import { Loader2, ChevronsUpDown, Check, Building2, Hash, Ruler, Euro } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
@@ -19,10 +19,12 @@ type Props = {
   isLoading?: boolean;
   code?: string;
   flaeche?: string;
+  monthlyRent?: string;
   onClose?: () => void;
   onChangeCode?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onChangeProperty?: (value: string) => void;
   onChangeFlaeche?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onChangeMonthlyRent?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit?: () => void;
 };
 
@@ -31,10 +33,12 @@ export default function AddGarage({
   isLoading = false,
   code = "",
   flaeche = "",
+  monthlyRent = "",
   onClose,
   onChangeCode,
   onChangeProperty,
   onChangeFlaeche,
+  onChangeMonthlyRent,
   onSubmit,
 }: Props) {
   const { t: tCommon } = useTranslation("common");
@@ -146,6 +150,32 @@ export default function AddGarage({
             disabled={isLoading}
             autoComplete="off"
           />
+        </div>
+
+        {/* Monthly rent input */}
+        <div className="space-y-2">
+          <Label htmlFor="garage-rent-new" className="flex items-center gap-1.5">
+            <Euro className="h-3.5 w-3.5 text-muted-foreground" />
+            {"Miete / Monat (€)"}
+            <span className="text-muted-foreground font-normal text-xs">
+              ({tCommon("optional", { defaultValue: "optional" })})
+            </span>
+          </Label>
+          <Input
+            id="garage-rent-new"
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.01"
+            placeholder={"z. B. 50"}
+            value={monthlyRent}
+            onChange={onChangeMonthlyRent}
+            disabled={isLoading}
+            autoComplete="off"
+          />
+          <p className="text-xs text-muted-foreground">
+            {"Wird in der Steuererklärung (Anlage V) als Einnahme erfasst."}
+          </p>
         </div>
 
         {selectedProperty && code.trim() && (

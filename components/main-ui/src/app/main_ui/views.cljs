@@ -63,6 +63,7 @@
         prop-loading?        @(re-frame/subscribe [::property-subs/loading?])
         prop-saving?         @(re-frame/subscribe [::property-subs/saving?])
         all-apartments       @(re-frame/subscribe [::apartment-subs/apartments])
+        all-garages          @(re-frame/subscribe [::apartment-subs/garages])
         apts-loading?        @(re-frame/subscribe [::apartment-subs/loading?])
         apts-saving?         @(re-frame/subscribe [::apartment-subs/saving?])
         selected-apt-id      @(re-frame/subscribe [::apartment-subs/selected-apartment-id])
@@ -259,7 +260,8 @@
                                                                                  [::apartment-events/update-apartment id
                                                                                   (cond-> {}
                                                                                     (:code d)        (assoc :code (:code d))
-                                                                                    (:wohnflaeche d) (assoc :wohnflaeche (:wohnflaeche d)))])))}])
+                                                                                    (:wohnflaeche d) (assoc :wohnflaeche (:wohnflaeche d))
+                                                                                    (some? (:marketRent d)) (assoc :market-rent (:marketRent d)))])))}])
            :rentSaving         rent-saving?
            :onAssignPayment    (when can-create?
                                  (fn [data]
@@ -277,6 +279,7 @@
            :taxView            (r/as-element [tax-ui/component
                                               {:properties       properties
                                                :apartments       all-apartments
+                                               :garages          all-garages
                                                :all-rent-payments all-rent-payments
                                                :all-costs        all-costs
                                                :is-read-only?    (not can-create?)}])

@@ -20,3 +20,8 @@
  ::loans
  (fn [db _]
    (get-in db [:tax :loans] [])))
+
+(re-frame/reg-sub
+ ::maintenances
+ (fn [db _]
+   (get-in db [:tax :maintenances] [])))

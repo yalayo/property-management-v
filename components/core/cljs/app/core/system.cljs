@@ -82,13 +82,15 @@
         {:action :create-apartment
          :entity {:property-id property-id
                   :code        code
-                  :wohnflaeche (get data :wohnflaeche)}}))
+                  :wohnflaeche (get data :wohnflaeche)
+                  :market-rent (get data :market-rent)}}))
 
     :update-apartment
     {:action  :update-apartment
      :updates {:code        (get data :code)
                :occupied    (get data :occupied)
-               :wohnflaeche (get data :wohnflaeche)}}
+               :wohnflaeche (get data :wohnflaeche)
+               :market-rent (get data :market-rent)}}
 
     :create-tenant
     (let [{:keys [first-name last-name]} data]
@@ -132,15 +134,17 @@
       (if (or (nil? property-id) (nil? code))
         {:error :missing-required-fields}
         {:action :create-garage
-         :entity {:property-id property-id
-                  :code        code
-                  :flaeche     (get data :flaeche)}}))
+         :entity {:property-id  property-id
+                  :code         code
+                  :flaeche      (get data :flaeche)
+                  :monthly-rent (get data :monthly-rent)}}))
 
     :update-garage
     {:action  :update-garage
-     :updates {:code     (get data :code)
-               :occupied (get data :occupied)
-               :flaeche  (get data :flaeche)}}
+     :updates {:code         (get data :code)
+               :occupied     (get data :occupied)
+               :flaeche      (get data :flaeche)
+               :monthly-rent (get data :monthly-rent)}}
 
     {:error :unknown-command}))
 

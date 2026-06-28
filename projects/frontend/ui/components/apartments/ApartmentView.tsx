@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Checkbox } from "../ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
 const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 const SCHLUESSEL_OPTIONS = ["Wohnfläche", "Verbraucht", "Anzahl Personen", "MEA"];
@@ -27,6 +28,7 @@ type Apartment = {
   code: string;
   occupied: number | boolean;
   wohnflaeche?: number | string | null;
+  "market-rent"?: number | string | null;
 };
 
 type OnboardingStatus = {
@@ -49,6 +51,7 @@ type Tenant = {
   "end-date"?: string;
   kaltmiete?: number | string;
   "nebenkosten-warm"?: number | string;
+  "residents-count"?: number | string | null;
 };
 
 type TenantUpdateData = {
@@ -121,7 +124,7 @@ type Props = {
   mieteSaving?: boolean;
   onUpsertTenantMiete?: (data: { tenantId: string; year: number; kaltmiete: number; nebenkostenWarm: number }) => void;
   onDeleteTenantMiete?: (id: string) => void;
-  onUpdateApartment?: (id: string, data: { code?: string; wohnflaeche?: number }) => void;
+  onUpdateApartment?: (id: string, data: { code?: string; wohnflaeche?: number; marketRent?: number }) => void;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -269,7 +272,7 @@ export default function ApartmentView({
     });
   };
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [aptEdit, setAptEdit] = useState<{ code: string; wohnflaeche: string } | null>(null);
+  const [aptEdit, setAptEdit] = useState<{ code: string; wohnflaeche: string; marketRent: string } | null>(null);
   const [activeTab, setActiveTabState] = useState<"tenants" | "rent" | "costs" | "settings">(initialTab ?? "tenants");
   const setActiveTab = (tab: "tenants" | "rent" | "costs" | "settings") => {
     setActiveTabState(tab);
@@ -358,12 +361,9 @@ export default function ApartmentView({
         .filter((c: any) => c.line === lineKey && Number(c.year) < year)
         .sort((a: any, b: any) => Number(b.year) - Number(a.year))[0] ?? null;
       const schluessel = String(inherited?.schluessel ?? "Wohnfläche");
-      const verteiler  = schluessel === "Wohnfläche"       ? propertyWohnflaecheStr
-                       : schluessel === "Anzahl Personen"  ? propertyPersonDaysStr
-                       : (inherited?.verteiler != null     ? String(inherited.verteiler) : "");
-      const anteil     = schluessel === "Wohnfläche"       ? (apartment.wohnflaeche != null ? String(apartment.wohnflaeche) : "")
-                       : schluessel === "Anzahl Personen"  ? aptPersonDaysStr
-                       : (inherited?.anteil    != null     ? String(inherited.anteil)    : "");
+      const auto       = defaultsForSchluessel(schluessel);
+      const verteiler  = auto.verteiler || (inherited?.verteiler != null ? String(inherited.verteiler) : "");
+      const anteil     = auto.anteil    || (inherited?.anteil    != null ? String(inherited.anteil)    : "");
       toOpen[lineKey] = {
         value:      inherited ? String(inherited.value) : "",
         verteiler,
@@ -410,13 +410,23 @@ export default function ApartmentView({
   const propertyWohnflaecheStr = propertyTotalWohnflaeche > 0 ? String(propertyTotalWohnflaeche) : "";
 
   const daysInYear = isLeapYear(year) ? 366 : 365;
-  const activeTenantsForApt = (aptId: number | string) =>
-    tenants.filter((tn: Tenant) => String(tn["apartment-id"]) === String(aptId) && tenantActiveInYear(tn, year)).length;
-  const aptPersonDays      = activeTenantsForApt(apartment.id) * daysInYear;
-  const aptPersonDaysStr   = aptPersonDays > 0 ? String(aptPersonDays) : "";
+  const activeResidentsForApt = (aptId: number | string): number | null => {
+    const t = tenants.find((tn: Tenant) =>
+      String(tn["apartment-id"]) === String(aptId) && tenantActiveInYear(tn, year)
+    );
+    if (!t) return null;
+    const rc = t["residents-count"];
+    return rc != null && !isNaN(Number(rc)) ? Number(rc) : null;
+  };
+  const aptResidents     = activeResidentsForApt(apartment.id);
+  const aptPersonDays    = aptResidents != null ? aptResidents * daysInYear : 0;
+  const aptPersonDaysStr = aptResidents != null && aptPersonDays > 0 ? String(aptPersonDays) : "";
   const propertyPersonDays = apartments
     .filter((a) => (a["property-id"] ?? (a as any).property_id) === propertyId)
-    .reduce((sum, a) => sum + activeTenantsForApt(a.id) * daysInYear, 0);
+    .reduce((sum, a) => {
+      const rc = activeResidentsForApt(a.id);
+      return sum + (rc != null ? rc * daysInYear : 0);
+    }, 0);
   const propertyPersonDaysStr = propertyPersonDays > 0 ? String(propertyPersonDays) : "";
 
   const aptTenants   = tenants.filter(tn => String(tn["apartment-id"]) === String(apartment.id));
@@ -451,6 +461,12 @@ export default function ApartmentView({
       .filter((c: any) => c.line === lineKey && Number(c.year) < year)
       .sort((a: any, b: any) => Number(b.year) - Number(a.year))[0];
     return inherited ? Number(inherited.value) : null;
+  };
+
+  const defaultsForSchluessel = (schl: string): { verteiler: string; anteil: string } => {
+    if (schl === "Wohnfläche")      return { verteiler: propertyWohnflaecheStr, anteil: apartment.wohnflaeche != null ? String(apartment.wohnflaeche) : "" };
+    if (schl === "Anzahl Personen") return { verteiler: propertyPersonDaysStr,   anteil: aptPersonDaysStr };
+    return { verteiler: "", anteil: "" };
   };
 
   const calculateShare = (lineKey: string, verteilerStr: string, anteilStr: string): string => {
@@ -524,12 +540,9 @@ export default function ApartmentView({
     if (!line) return;
     const inherited     = inheritedCostFor(line.key);
     const schluessel    = String(inherited?.schluessel ?? "Wohnfläche");
-    const defaultVert   = schluessel === "Wohnfläche"      ? propertyWohnflaecheStr
-                        : schluessel === "Anzahl Personen" ? propertyPersonDaysStr
-                        : (inherited?.verteiler != null    ? String(inherited.verteiler) : "");
-    const defaultAnteil = schluessel === "Wohnfläche"      ? (apartment.wohnflaeche != null ? String(apartment.wohnflaeche) : "")
-                        : schluessel === "Anzahl Personen" ? aptPersonDaysStr
-                        : (inherited?.anteil    != null    ? String(inherited.anteil)    : "");
+    const auto          = defaultsForSchluessel(schluessel);
+    const defaultVert   = auto.verteiler || (inherited?.verteiler != null ? String(inherited.verteiler) : "");
+    const defaultAnteil = auto.anteil    || (inherited?.anteil    != null ? String(inherited.anteil)    : "");
     const defaultValue  = inherited ? String(inherited.value) : calculateShare(key, defaultVert, defaultAnteil);
     openCostEdit(line.key, {
       value:      defaultValue,
@@ -800,13 +813,30 @@ export default function ApartmentView({
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground">{tCosts("schluessel")}</label>
-                <Input type="text" list={`schluessel-opts-${line.key}`} value={fields.schluessel}
-                  onChange={e => setCostInput(prev => ({ ...prev, [line.key]: { ...prev[line.key]!, schluessel: e.target.value } }))}
-                  onKeyDown={e => { if (e.key === "Enter") commitCost(line.key); if (e.key === "Escape") closeCostEdit(line.key); }}
-                  className="h-7 text-sm" />
-                <datalist id={`schluessel-opts-${line.key}`}>
-                  {SCHLUESSEL_OPTIONS.map(o => <option key={o} value={o} />)}
-                </datalist>
+                <Select
+                  value={fields.schluessel}
+                  onValueChange={schl => {
+                    const { verteiler, anteil } = defaultsForSchluessel(schl);
+                    const calc = calculateShare(line.key, verteiler, anteil);
+                    setCostInput(prev => ({
+                      ...prev,
+                      [line.key]: {
+                        ...prev[line.key]!,
+                        schluessel: schl,
+                        verteiler,
+                        anteil,
+                        ...(calc && !prev[line.key]!.fixedValue ? { value: calc } : {}),
+                      },
+                    }));
+                  }}
+                >
+                  <SelectTrigger className="h-7 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SCHLUESSEL_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground">{tCosts("anteil")}</label>
@@ -884,7 +914,7 @@ export default function ApartmentView({
               onClick={() => openCostEdit(line.key, {
                 value:      String(entry.value),
                 verteiler:  entry.verteiler != null ? String(entry.verteiler) : "",
-                schluessel: String(entry.schluessel ?? ""),
+                schluessel: String(entry.schluessel || "Wohnfläche"),
                 anteil:     entry.anteil != null ? String(entry.anteil) : "",
                 fixedValue: false,
               })}>
@@ -1028,6 +1058,7 @@ export default function ApartmentView({
                   setAptEdit({
                     code: apartment.code ?? "",
                     wohnflaeche: apartment.wohnflaeche != null ? String(apartment.wohnflaeche) : "",
+                    marketRent: apartment["market-rent"] != null ? String(apartment["market-rent"]) : "",
                   });
                   setActiveTab("settings");
                 }}
@@ -1616,6 +1647,7 @@ export default function ApartmentView({
                   onClick={() => setAptEdit({
                     code: apartment?.code ?? "",
                     wohnflaeche: apartment?.wohnflaeche != null ? String(apartment.wohnflaeche) : "",
+                    marketRent: apartment?.["market-rent"] != null ? String(apartment["market-rent"]) : "",
                   })}
                   disabled={isSaving}
                 >
@@ -1654,16 +1686,37 @@ export default function ApartmentView({
                       disabled={isSaving}
                     />
                   </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="apt-market-rent-edit">
+                      {t("fields.marketRent", { defaultValue: "Ortsübliche Miete" })}
+                      <span className="text-xs text-muted-foreground ml-1">(€ / Monat)</span>
+                    </Label>
+                    <Input
+                      id="apt-market-rent-edit"
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.01"
+                      value={aptEdit.marketRent}
+                      onChange={(e) => setAptEdit((f) => f ? { ...f, marketRent: e.target.value } : f)}
+                      disabled={isSaving}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {t("fields.marketRentHint", { defaultValue: "Vergleichsmiete für die 66-%-Prüfung (Anlage V)." })}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
                     disabled={isSaving || !aptEdit.code.trim()}
                     onClick={() => {
-                      const data: { code?: string; wohnflaeche?: number } = {};
+                      const data: { code?: string; wohnflaeche?: number; marketRent?: number } = {};
                       if (aptEdit.code.trim()) data.code = aptEdit.code.trim();
                       const w = parseFloat(aptEdit.wohnflaeche);
                       if (!isNaN(w)) data.wohnflaeche = w;
+                      const mr = parseFloat(aptEdit.marketRent);
+                      if (!isNaN(mr)) data.marketRent = mr;
                       onUpdateApartment?.(String(apartment!.id), data);
                       setAptEdit(null);
                     }}
@@ -1688,6 +1741,14 @@ export default function ApartmentView({
                   <span className="font-medium">
                     {apartment?.wohnflaeche != null
                       ? `${parseFloat(String(apartment.wohnflaeche)).toLocaleString("de-DE")} m²`
+                      : "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{t("fields.marketRent", { defaultValue: "Ortsübliche Miete" })}</span>
+                  <span className="font-medium">
+                    {apartment?.["market-rent"] != null
+                      ? `€ ${parseFloat(String(apartment["market-rent"])).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / Mon.`
                       : "—"}
                   </span>
                 </div>

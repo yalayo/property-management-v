@@ -12,6 +12,10 @@
                  [:app.core-ui.events/query
                   {:entity :property-loan}
                   [::loans-loaded]
+                  [::tax-error]]
+                 [:app.core-ui.events/query
+                  {:entity :property-maintenance}
+                  [::maintenances-loaded]
                   [::tax-error]]]}))
 
 (re-frame/reg-event-db
@@ -93,3 +97,49 @@
  ::tax-save-error
  (fn [db _]
    (assoc-in db [:tax :saving?] false)))
+
+;; ── Maintenance (Erhaltungsaufwand) ────────────────────────────────────────
+
+(re-frame/reg-event-db
+ ::maintenances-loaded
+ (fn [db [_ {:keys [property-maintenances]}]]
+   (assoc-in db [:tax :maintenances] (or property-maintenances []))))
+
+(re-frame/reg-event-fx
+ ::create-maintenance
+ (fn [{:keys [db]} [_ data]]
+   {:db       (assoc-in db [:tax :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :create-property-maintenance
+               data
+               [::maintenance-mutated]
+               [::tax-save-error]]}))
+
+(re-frame/reg-event-fx
+ ::update-maintenance
+ (fn [{:keys [db]} [_ data]]
+   {:db       (assoc-in db [:tax :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :update-property-maintenance
+               data
+               [::maintenance-mutated]
+               [::tax-save-error]]}))
+
+(re-frame/reg-event-fx
+ ::delete-maintenance
+ (fn [{:keys [db]} [_ id]]
+   {:db       (assoc-in db [:tax :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :delete-property-maintenance
+               {:id id}
+               [::maintenance-mutated]
+               [::tax-save-error]]}))
+
+(re-frame/reg-event-fx
+ ::maintenance-mutated
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:tax :saving?] false)
+    :dispatch [:app.core-ui.events/query
+               {:entity :property-maintenance}
+               [::maintenances-loaded]
+               [::tax-error]]}))

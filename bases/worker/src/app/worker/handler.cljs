@@ -29,6 +29,7 @@
    :survey-questions      :get-survey-questions
    :property-tax-config   :get-property-tax-configs
    :property-loan         :get-property-loans
+   :property-maintenance  :get-property-maintenances
    :tenant-miete          :get-all-tenant-mieten
    :garage                :get-all-garages})
 

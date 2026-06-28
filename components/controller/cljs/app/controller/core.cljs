@@ -302,7 +302,9 @@
                                               :apartment/code            code
                                               :apartment/occupied        false}
                                        (some? (:wohnflaeche (:entity result)))
-                                       (assoc :apartment/wohnflaeche (js/parseFloat (str (:wohnflaeche (:entity result))))))] nil)]
+                                       (assoc :apartment/wohnflaeche (js/parseFloat (str (:wohnflaeche (:entity result)))))
+                                       (some? (:market-rent (:entity result)))
+                                       (assoc :apartment/market-rent (js/parseFloat (str (:market-rent (:entity result))))))] nil)]
                                   {:tx-id tx-id :apartment-id (first entity-ids)})))))))))
 
 (defn- handle-update-apartment! [core storage data user]
@@ -315,11 +317,12 @@
                     (let [result ((:process core) {:command :update-apartment :data data})]
                       (if (:error result)
                         result
-                        (let [{:keys [code occupied wohnflaeche]} (:updates result)
+                        (let [{:keys [code occupied wohnflaeche market-rent]} (:updates result)
                               facts (cond-> {:db/id eid}
                                       (some? code)        (assoc :apartment/code code)
                                       (some? occupied)    (assoc :apartment/occupied (boolean occupied))
-                                      (some? wohnflaeche) (assoc :apartment/wohnflaeche (js/parseFloat (str wohnflaeche))))]
+                                      (some? wohnflaeche) (assoc :apartment/wohnflaeche (js/parseFloat (str wohnflaeche)))
+                                      (some? market-rent) (assoc :apartment/market-rent (js/parseFloat (str market-rent))))]
                           (js-await [{:keys [tx-id]}
                                      ((:transact! storage)
                                       [facts] nil)]
@@ -756,7 +759,7 @@
       (let [result ((:process core) {:command :create-garage :data data})]
         (if (:error result)
           result
-          (let [{:keys [property-id code flaeche]} (:entity result)]
+          (let [{:keys [property-id code flaeche monthly-rent]} (:entity result)]
             (js-await [{:keys [entity-ids]}
                        ((:transact! storage)
                         [(cond-> {:db/type                "garage"
@@ -764,7 +767,8 @@
                                   :garage/property-id     property-id
                                   :garage/code            code
                                   :garage/occupied        false}
-                           (some? flaeche) (assoc :garage/flaeche (js/parseFloat (str flaeche))))]
+                           (some? flaeche)      (assoc :garage/flaeche (js/parseFloat (str flaeche)))
+                           (some? monthly-rent) (assoc :garage/monthly-rent (js/parseFloat (str monthly-rent))))]
                         nil)]
                       {:garage-id (first entity-ids)})))))))
 
@@ -778,11 +782,12 @@
                     (let [result ((:process core) {:command :update-garage :data data})]
                       (if (:error result)
                         result
-                        (let [{:keys [code occupied flaeche]} (:updates result)
+                        (let [{:keys [code occupied flaeche monthly-rent]} (:updates result)
                               facts (cond-> {:db/id eid}
-                                      (some? code)     (assoc :garage/code code)
-                                      (some? occupied) (assoc :garage/occupied (boolean occupied))
-                                      (some? flaeche)  (assoc :garage/flaeche (js/parseFloat (str flaeche))))]
+                                      (some? code)         (assoc :garage/code code)
+                                      (some? occupied)     (assoc :garage/occupied (boolean occupied))
+                                      (some? flaeche)      (assoc :garage/flaeche (js/parseFloat (str flaeche)))
+                                      (some? monthly-rent) (assoc :garage/monthly-rent (js/parseFloat (str monthly-rent))))]
                           (js-await [{:keys [tx-id]}
                                      ((:transact! storage) [facts] nil)]
                                     {:tx-id tx-id}))))))))))
@@ -910,6 +915,58 @@
       (let [eid (:id data)]
         (js-await [entity ((:pull storage) eid '*)]
                   (if (not= (:property-loan/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [_ ((:excise! storage) eid nil)]
+                              {:ok true})))))))
+
+;; ---------------------------------------------------------------------------
+;; Property Maintenance (Erhaltungsaufwand) handlers
+;; ---------------------------------------------------------------------------
+
+(defn- handle-get-property-maintenances! [storage user]
+  (with-org user
+    (fn [org-id]
+      (js-await [eids         ((:find-by-attr storage) :property-maintenance/organization-id org-id)
+                 maintenances (pull-many+ storage eids '[*])]
+                {:property-maintenances maintenances}))))
+
+(defn- handle-create-property-maintenance! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [{:keys [property-id year description amount spread-years]} data]
+        (js-await [{:keys [tx-id entity-ids]}
+                   ((:transact! storage)
+                    [(cond-> {:db/type                              "property-maintenance"
+                              :property-maintenance/organization-id org-id
+                              :property-maintenance/property-id     property-id
+                              :property-maintenance/year            year
+                              :property-maintenance/amount          amount
+                              :property-maintenance/spread-years    (or spread-years 1)}
+                       description (assoc :property-maintenance/description description))] nil)]
+                  {:tx-id tx-id :maintenance-id (first entity-ids)})))))
+
+(defn- handle-update-property-maintenance! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:property-maintenance/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [{:keys [tx-id]}
+                               ((:transact! storage)
+                                [(cond-> {:db/id eid}
+                                   (some? (:year data))         (assoc :property-maintenance/year         (:year data))
+                                   (some? (:amount data))       (assoc :property-maintenance/amount       (:amount data))
+                                   (some? (:spread-years data)) (assoc :property-maintenance/spread-years (:spread-years data))
+                                   (some? (:description data))  (assoc :property-maintenance/description  (:description data)))] nil)]
+                              {:tx-id tx-id})))))))
+
+(defn- handle-delete-property-maintenance! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:property-maintenance/organization-id entity) org-id)
                     {:error :not-found}
                     (js-await [_ ((:excise! storage) eid nil)]
                               {:ok true})))))))
@@ -1286,4 +1343,8 @@
     :create-property-loan            (handle-create-property-loan! storage data user)
     :update-property-loan            (handle-update-property-loan! storage data user)
     :delete-property-loan            (handle-delete-property-loan! storage data user)
+    :get-property-maintenances       (handle-get-property-maintenances! storage user)
+    :create-property-maintenance     (handle-create-property-maintenance! storage data user)
+    :update-property-maintenance     (handle-update-property-maintenance! storage data user)
+    :delete-property-maintenance     (handle-delete-property-maintenance! storage data user)
     {:error :unknown-command}))

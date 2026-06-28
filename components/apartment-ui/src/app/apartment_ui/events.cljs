@@ -340,14 +340,16 @@
 (re-frame/reg-event-fx
  ::add-garage
  (fn [{:keys [db]} _]
-   (let [code        (get-in db [:garages :new-code])
-         property-id (get-in db [:garages :new-property-id])
-         flaeche     (get-in db [:garages :new-flaeche])]
+   (let [code         (get-in db [:garages :new-code])
+         property-id  (get-in db [:garages :new-property-id])
+         flaeche      (get-in db [:garages :new-flaeche])
+         monthly-rent (get-in db [:garages :new-monthly-rent])]
      {:db       (assoc-in db [:garages :saving?] true)
       :dispatch [:app.core-ui.events/command
                  :create-garage
                  (cond-> {:code code :property-id property-id}
-                   (some? flaeche) (assoc :flaeche flaeche))
+                   (some? flaeche)      (assoc :flaeche flaeche)
+                   (some? monthly-rent) (assoc :monthly-rent monthly-rent))
                  [::garage-added]
                  [::garage-save-error]]})))
 
@@ -411,7 +413,8 @@
        (assoc-in [:garages :add-dialog-open?] true)
        (assoc-in [:garages :new-code] "")
        (assoc-in [:garages :new-property-id] nil)
-       (assoc-in [:garages :new-flaeche] nil))))
+       (assoc-in [:garages :new-flaeche] nil)
+       (assoc-in [:garages :new-monthly-rent] nil))))
 
 (re-frame/reg-event-db
  ::close-add-garage-dialog
@@ -436,6 +439,12 @@
  [local-storage-interceptor]
  (fn [db [_ flaeche]]
    (assoc-in db [:garages :new-flaeche] flaeche)))
+
+(re-frame/reg-event-db
+ ::set-new-garage-monthly-rent
+ [local-storage-interceptor]
+ (fn [db [_ monthly-rent]]
+   (assoc-in db [:garages :new-monthly-rent] monthly-rent)))
 
 ;; ── Tenant onboarding ─────────────────────────────────────────────────────
 

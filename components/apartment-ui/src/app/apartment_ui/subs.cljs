@@ -122,6 +122,11 @@
    (get-in db [:garages :new-flaeche] "")))
 
 (re-frame/reg-sub
+ ::new-garage-monthly-rent
+ (fn [db _]
+   (get-in db [:garages :new-monthly-rent] "")))
+
+(re-frame/reg-sub
  ::onboardings-by-apartment
  (fn [db _]
    (->> (get-in db [:apartments :onboardings] [])
