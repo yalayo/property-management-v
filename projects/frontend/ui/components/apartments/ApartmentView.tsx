@@ -17,6 +17,7 @@ import { Checkbox } from "../ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import ApartmentBillingPanel from "../billing/ApartmentBillingPanel";
 
 const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 const SCHLUESSEL_OPTIONS = ["Wohnfläche", "Verbraucht", "Anzahl Personen", "MEA"];
@@ -118,15 +119,18 @@ type Props = {
   onUpdateTenant?: (tenantId: string, data: TenantUpdateData) => void;
   onCreateTenant?: (apartmentId: number, data: { firstName: string; lastName?: string; email?: string; phone?: string; startDate: string; endDate?: string }) => void;
   createTenantError?: string;
-  initialTab?: "tenants" | "rent" | "costs" | "settings";
+  initialTab?: "tenants" | "rent" | "costs" | "nebenkosten" | "settings";
   currentYear?: number;
-  onTabChange?: (tab: "tenants" | "rent" | "costs" | "settings") => void;
+  onTabChange?: (tab: "tenants" | "rent" | "costs" | "nebenkosten" | "settings") => void;
   onYearChange?: (year: number) => void;
   tenantMieten?: TenantMiete[];
   mieteSaving?: boolean;
   onUpsertTenantMiete?: (data: { tenantId: string; year: number; kaltmiete: number; nebenkostenWarm: number }) => void;
   onDeleteTenantMiete?: (id: string) => void;
   onUpdateApartment?: (id: string, data: { code?: string; wohnflaeche?: number; marketRent?: number; stromZaehlerNr?: string | null; wasserZaehlerNrn?: string[] }) => void;
+  onLoadCosts?: (propertyId: string) => void;
+  onEditProperty?: (id: string, data: any) => void;
+  propertySaving?: boolean;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -248,6 +252,9 @@ export default function ApartmentView({
   onUpsertTenantMiete,
   onDeleteTenantMiete,
   onUpdateApartment,
+  onLoadCosts,
+  onEditProperty,
+  propertySaving: _propertySaving,
 }: Props) {
   const { t }         = useTranslation("apartments");
   const { t: tCosts } = useTranslation("costs");
@@ -275,8 +282,8 @@ export default function ApartmentView({
   };
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [aptEdit, setAptEdit] = useState<{ code: string; wohnflaeche: string; marketRent: string; stromZaehlerNr: string; wasserZaehlerNrn: string[] } | null>(null);
-  const [activeTab, setActiveTabState] = useState<"tenants" | "rent" | "costs" | "settings">(initialTab ?? "tenants");
-  const setActiveTab = (tab: "tenants" | "rent" | "costs" | "settings") => {
+  const [activeTab, setActiveTabState] = useState<"tenants" | "rent" | "costs" | "nebenkosten" | "settings">(initialTab ?? "tenants");
+  const setActiveTab = (tab: "tenants" | "rent" | "costs" | "nebenkosten" | "settings") => {
     setActiveTabState(tab);
     onTabChange?.(tab);
   };
@@ -309,6 +316,8 @@ export default function ApartmentView({
   const [costInput,   setCostInput]  = useState<Record<string, CostEditFields | null>>({});
   const [savingKeys,  setSavingKeys] = useState<Set<string>>(new Set());
   const [addLineOpen, setAddLineOpen]= useState(false);
+  const savingKeysRef = useRef<Set<string>>(new Set());
+  savingKeysRef.current = savingKeys;
 
   // ── Miete-edit state ─────────────────────────────────────────────────────
   const [editingMieteTenantId, setEditingMieteTenantId] = useState<string | null>(null);
@@ -336,7 +345,34 @@ export default function ApartmentView({
     setAddForm(f => ({ ...f, startDate: `${year}-01-01`, endDate: "" }));
     setEditingMieteTenantId(null);
     setMieteForm({ kaltmiete: "", nebenkostenWarm: "" });
+    autoPopulatedKey.current = "";
   }, [year]);
+
+  // When aptCosts refreshes after a successful add, clean up savingKeys + costInput
+  // so the UI transitions from "saving…" to the normal read-only state.
+  useEffect(() => {
+    const nowSaved = aptCosts
+      .filter((c: any) => Number(c.year) === year)
+      .map((c: any) => c.line as string);
+    const toCleanup = [...savingKeysRef.current].filter(k => nowSaved.includes(k));
+    if (toCleanup.length === 0) return;
+    setSavingKeys(prev => {
+      const next = new Set([...prev]);
+      toCleanup.forEach(k => next.delete(k));
+      return next;
+    });
+    setCostInput(prev => {
+      const next = { ...prev };
+      toCleanup.forEach(k => delete next[k]);
+      return next;
+    });
+  }, [aptCosts, year]);
+
+  // Load property-level costs when the nebenkosten tab is opened (data may not yet be loaded)
+  useEffect(() => {
+    if (activeTab !== "nebenkosten") return;
+    if (propertyId) onLoadCosts?.(String(propertyId));
+  }, [activeTab, propertyId]);
 
   // Auto-populate all property cost lines when the costs tab is opened for a year with no saved entries.
   // dataTenantTab is part of the key so switching tenants (which clears costInput) re-triggers population.
@@ -525,6 +561,7 @@ export default function ApartmentView({
     ...pendingCostKeys.map(k => costLines.find(l => l.key === k)),
     ...editingNewCostKeys.map(k => costLines.find(l => l.key === k)),
   ].filter(Boolean) as CostLine[];
+  const isAutoFilled        = savedCostKeys.length === 0 && activeCostLines.length > 0;
   const availableCostLines  = costLines.filter(l => !savedCostKeys.includes(l.key) && costInput[l.key] == null && !savingKeys.has(l.key));
   const prevCostLinesToCopy = availableCostLines.filter(l => inheritedCostFor(l.key));
 
@@ -565,6 +602,35 @@ export default function ApartmentView({
         });
       }
     });
+  };
+
+  const commitAllPendingCosts = () => {
+    const keys = editingNewCostKeys;
+    keys.forEach(lineKey => {
+      const fields = costInput[lineKey];
+      if (!fields) return;
+      const value = parseFloat(fields.value.replace(",", "."));
+      if (isNaN(value) || value <= 0) return;
+      const verteilerVal = parseFloat(fields.verteiler.replace(",", "."));
+      const anteilVal    = parseFloat(fields.anteil.replace(",", "."));
+      const payload = {
+        value,
+        verteiler:  isNaN(verteilerVal) ? undefined : verteilerVal,
+        anteil:     isNaN(anteilVal)    ? undefined : anteilVal,
+        schluessel: fields.schluessel.trim() || undefined,
+      };
+      const existing = costEntryFor(lineKey);
+      if (existing) {
+        onUpdateAptCost?.({ id: existing.id, ...payload });
+        closeCostEdit(lineKey);
+      } else {
+        const line = costLines.find(l => l.key === lineKey);
+        if (!line) return;
+        onAddAptCost?.({ apartmentId: String(apartment.id), line: lineKey, name: costLineName(line, i18n.language), year, ...payload });
+        setSavingKeys(prev => new Set([...prev, lineKey]));
+      }
+    });
+    if (keys.length > 0) toast({ title: tCommon("saved") });
   };
 
   // ── Rent helpers ───────────────────────────────────────────────────────────
@@ -1073,7 +1139,7 @@ export default function ApartmentView({
 
       {/* ── Tab bar (segmented control) ── */}
       <div className="bg-muted rounded-lg p-1 flex mb-5">
-        {(["tenants", "rent", "costs", "settings"] as const).map(tab => (
+        {(["tenants", "rent", "costs", "nebenkosten", "settings"] as const).map(tab => (
           <button
             key={tab}
             type="button"
@@ -1547,45 +1613,114 @@ export default function ApartmentView({
                 </div>
               )}
               <div className="space-y-3">
-                {(() => {
-                  const isAutoFilled = savedCostKeys.length === 0 && activeCostLines.length > 0;
-                  return (
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-base font-semibold">{tCosts("aptNebenkosten")}</h3>
-                        {isAutoFilled && (
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {tCosts("autoFilledHint", { year: year - 1, defaultValue: `Verteiler from ${year - 1} pre-filled — adjust if needed and save each line.` })}
-                          </p>
-                        )}
-                      </div>
-                      {!isAutoFilled && prevCostLinesToCopy.length > 0 && (
-                        <Button variant="outline" size="sm" className="h-7 text-xs" disabled={aptCostsSaving} onClick={copyPrevYearCosts}>
-                          <Copy className="h-3 w-3 mr-1.5" />
-                          {tCosts("copyFromYear", { year: year - 1 })}
-                        </Button>
-                      )}
-                    </div>
-                  );
-                })()}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-semibold">{tCosts("aptNebenkosten")}</h3>
+                    {isAutoFilled && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {tCosts("autoFilledHint", { year: year - 1, defaultValue: `Pre-filled from ${year - 1} — adjust Schlüssel or Anteil if needed, then save.` })}
+                      </p>
+                    )}
+                  </div>
+                  {isAutoFilled && editingNewCostKeys.length > 0 && (
+                    <Button size="sm" className="h-7 px-3 text-xs" disabled={aptCostsSaving} onClick={commitAllPendingCosts}>
+                      <Check className="h-3 w-3 mr-1.5" />
+                      {tCosts("saveAll", { defaultValue: "Save All" })}
+                    </Button>
+                  )}
+                  {!isAutoFilled && prevCostLinesToCopy.length > 0 && (
+                    <Button variant="outline" size="sm" className="h-7 text-xs" disabled={aptCostsSaving} onClick={copyPrevYearCosts}>
+                      <Copy className="h-3 w-3 mr-1.5" />
+                      {tCosts("copyFromYear", { year: year - 1 })}
+                    </Button>
+                  )}
+                </div>
                 {aptCostsLoading ? (
                   <p className="text-sm text-muted-foreground">{tCosts("loading")}</p>
                 ) : (
                   <div className="space-y-2">
                     {activeCostLines.length > 0 && (
-                      <Card>
-                        <div className="hidden sm:flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground border-b bg-muted/30">
-                          <span className="flex-1" />
-                          <span className="w-24 text-right">{tCosts("gesamtkosten")}</span>
-                          <span className="w-10 text-right">{tCosts("verteiler")}</span>
-                          <span className="w-20">{tCosts("schluessel")}</span>
-                          <span className="w-10 text-right">{tCosts("anteil")}</span>
-                          <span className="w-16" />
-                        </div>
-                        <CardContent className="p-0">
-                          {activeCostLines.map(line => <React.Fragment key={line.id}>{CostRow({ line })}</React.Fragment>)}
-                        </CardContent>
-                      </Card>
+                      isAutoFilled && editingNewCostKeys.length > 0 ? (
+                        <Card>
+                          <div className="hidden sm:flex items-center gap-2 px-4 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/30">
+                            <span className="flex-1">{tCosts("costLine", { defaultValue: "Kostenart" })}</span>
+                            <span className="w-24 text-right">{tCosts("gesamtkosten")}</span>
+                            <span className="w-10 text-right">{tCosts("verteiler")}</span>
+                            <span className="w-24">{tCosts("schluessel")}</span>
+                            <span className="w-20 text-right">{tCosts("anteil")}</span>
+                            <span className="w-24 text-right">{tCosts("betrag", { defaultValue: "Betrag" })}</span>
+                            <span className="w-7" />
+                          </div>
+                          <CardContent className="p-0 divide-y">
+                            {editingNewCostKeys.map(lineKey => {
+                              const fields = costInput[lineKey];
+                              if (!fields) return null;
+                              const line = costLines.find(l => l.key === lineKey);
+                              if (!line) return null;
+                              const isSavingLine = savingKeys.has(lineKey);
+                              const propTotal    = getPropertyCostTotal(lineKey);
+                              const name         = costLineName(line, i18n.language);
+                              const betrag       = fields.value ? parseFloat(fields.value) : null;
+                              return (
+                                <div key={lineKey} className={`flex items-center gap-2 px-4 py-2.5 text-sm${isSavingLine ? " opacity-50" : ""}`}>
+                                  <span className="flex-1 min-w-0 font-medium truncate">{name}</span>
+                                  <span className="shrink-0 w-24 text-right tabular-nums text-muted-foreground text-xs">
+                                    {propTotal != null ? `€ ${propTotal.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
+                                  </span>
+                                  <span className="shrink-0 w-10 text-right tabular-nums text-muted-foreground text-xs">
+                                    {fields.verteiler || "—"}
+                                  </span>
+                                  <span className="shrink-0 w-24 text-sm text-muted-foreground truncate">
+                                    {fields.schluessel || "—"}
+                                  </span>
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={fields.anteil}
+                                    disabled={isSavingLine}
+                                    className="shrink-0 h-7 text-sm text-right w-20"
+                                    onChange={e => {
+                                      const val = e.target.value;
+                                      const calc = calculateShare(lineKey, fields.verteiler, val);
+                                      setCostInput(prev => ({
+                                        ...prev,
+                                        [lineKey]: { ...prev[lineKey]!, anteil: val, ...(calc ? { value: calc } : {}) },
+                                      }));
+                                    }}
+                                    onKeyDown={e => { if (e.key === "Enter") commitCost(lineKey); }}
+                                  />
+                                  <span className="shrink-0 w-24 text-right tabular-nums font-medium">
+                                    {betrag != null ? `€ ${betrag.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
+                                  </span>
+                                  <Button
+                                    size="sm" variant="ghost"
+                                    className="shrink-0 h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                                    disabled={isSavingLine || aptCostsSaving || !fields.value}
+                                    title={tCosts("save")}
+                                    onClick={() => commitCost(lineKey)}
+                                  >
+                                    <Check className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              );
+                            })}
+                          </CardContent>
+                        </Card>
+                      ) : (
+                        <Card>
+                          <div className="hidden sm:flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground border-b bg-muted/30">
+                            <span className="flex-1" />
+                            <span className="w-24 text-right">{tCosts("gesamtkosten")}</span>
+                            <span className="w-10 text-right">{tCosts("verteiler")}</span>
+                            <span className="w-20">{tCosts("schluessel")}</span>
+                            <span className="w-10 text-right">{tCosts("anteil")}</span>
+                            <span className="w-16" />
+                          </div>
+                          <CardContent className="p-0">
+                            {activeCostLines.map(line => <React.Fragment key={line.id}>{CostRow({ line })}</React.Fragment>)}
+                          </CardContent>
+                        </Card>
+                      )
                     )}
                     {availableCostLines.length > 0 && (
                       <Popover open={addLineOpen} onOpenChange={setAddLineOpen}>
@@ -1631,6 +1766,21 @@ export default function ApartmentView({
             </>
           )}
       </div>)}
+
+      {/* ── Nebenkosten tab ── */}
+      {activeTab === "nebenkosten" && (
+        <ApartmentBillingPanel
+          year={year}
+          property={property}
+          apartment={apartment}
+          tenants={tenants}
+          aptCosts={aptCosts}
+          propertyCosts={propertyCosts}
+          expenseTypes={expenseTypes}
+          rentPayments={rentPayments}
+          isLoading={aptCostsLoading || rentLoading}
+        />
+      )}
 
       {/* ── Settings tab ── */}
       {activeTab === "settings" && (<div className="space-y-4">

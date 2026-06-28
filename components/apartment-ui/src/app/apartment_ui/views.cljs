@@ -27,7 +27,7 @@
                rent-payments rent-loading? rent-saving?
                on-load-rent-payments on-add-rent-payment on-update-rent-payment on-delete-rent-payment
                tenant-mieten miete-saving? on-upsert-tenant-miete on-delete-tenant-miete
-               on-update-apartment
+               on-update-apartment on-load-costs on-edit-property prop-saving?
                is-read-only? _on-go-back]}]
     (let [apartments           @(re-frame/subscribe [::subs/apartments])
           loading?             @(re-frame/subscribe [::subs/loading?])
@@ -90,6 +90,9 @@
           :onUpsertTenantMiete     on-upsert-tenant-miete
           :onDeleteTenantMiete     on-delete-tenant-miete
           :onUpdateApartment       on-update-apartment
+          :onLoadCosts             on-load-costs
+          :onEditProperty          on-edit-property
+          :propertySaving          prop-saving?
           :isSaving                saving?
           :tenantsSaving           tenants-saving?
           :isOnboarding            onboarding?

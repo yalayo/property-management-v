@@ -263,7 +263,25 @@
                                                                                     (:wohnflaeche d) (assoc :wohnflaeche (:wohnflaeche d))
                                                                                     (some? (:marketRent d)) (assoc :market-rent (:marketRent d))
                                                                                     (some? (:stromZaehlerNr d))   (assoc :strom-zaehler-nr (:stromZaehlerNr d))
-                                                                                    (some? (:wasserZaehlerNrn d)) (assoc :wasser-zaehler-nrn (:wasserZaehlerNrn d)))])))}])
+                                                                                    (some? (:wasserZaehlerNrn d)) (assoc :wasser-zaehler-nrn (:wasserZaehlerNrn d)))])))
+                                               :on-load-costs               (fn [property-id]
+                                                                              (re-frame/dispatch [::cost-events/load-costs property-id]))
+                                               :on-edit-property            (when can-create?
+                                                                              (fn [id data]
+                                                                                (let [d (js->clj data :keywordize-keys true)]
+                                                                                  (re-frame/dispatch
+                                                                                   [::property-events/update-property id
+                                                                                    {:name                 (:name d)
+                                                                                     :address              (:address d)
+                                                                                     :city                 (:city d)
+                                                                                     :postal-code          (:postalCode d)
+                                                                                     :units                (:units d)
+                                                                                     :iban                 (:iban d)
+                                                                                     :bank-name            (:bankName d)
+                                                                                     :landlord-name        (:landlordName d)
+                                                                                     :landlord-street      (:landlordStreet d)
+                                                                                     :landlord-postal-city (:landlordPostalCity d)}]))))
+                                               :prop-saving?                prop-saving?}])
            :rentSaving         rent-saving?
            :onAssignPayment    (when can-create?
                                  (fn [data]
