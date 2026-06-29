@@ -362,15 +362,15 @@ export default function ApartmentView({
     if (propertyId) onLoadCosts?.(String(propertyId));
   }, [activeTab, propertyId]);
 
-  // Auto-populate all property cost lines when the costs tab is opened for a year with no saved entries.
-  // dataTenantTab is part of the key so switching tenants (which clears costInput) re-triggers population.
+  // Auto-populate unsaved property cost lines when the costs tab is opened.
+  // Only skips lines that are already stored for this year; partially-saved years
+  // still get the remaining lines pre-filled. dataTenantTab is in the key so
+  // switching tenants re-triggers. Year-change resets autoPopulatedKey so
+  // navigating to another year and back re-triggers for the remaining lines.
   useEffect(() => {
     if (activeTab !== "costs") return;
     const aptYear = `${apartment.id}:${year}:${dataTenantTab}`;
     if (autoPopulatedKey.current === aptYear) return;
-
-    const hasEntriesThisYear = aptCosts.some((c: any) => Number(c.year) === year);
-    if (hasEntriesThisYear) return;
 
     if (!propertyId) return;
     const propLineKeys = new Set(
@@ -380,8 +380,16 @@ export default function ApartmentView({
     );
     if (propLineKeys.size === 0) return;
 
+    // Lines already saved this year — skip them, show the rest
+    const savedThisYear = new Set(
+      aptCosts
+        .filter((c: any) => Number(c.year) === year)
+        .map((c: any) => c.line as string)
+    );
+
     const toOpen: Record<string, CostEditFields> = {};
     propLineKeys.forEach(lineKey => {
+      if (savedThisYear.has(lineKey)) return;
       if (!expenseTypes.find((l: any) => l.key === lineKey)) return;
       const inherited  = [...aptCosts]
         .filter((c: any) => c.line === lineKey && Number(c.year) < year)
@@ -399,8 +407,9 @@ export default function ApartmentView({
       };
     });
 
+    // Mark as populated regardless (all lines either saved or now in toOpen)
+    autoPopulatedKey.current = aptYear;
     if (Object.keys(toOpen).length > 0) {
-      autoPopulatedKey.current = aptYear;
       setCostInput(toOpen);
     }
   }, [activeTab, year, apartment.id, dataTenantTab, aptCosts, allCosts, expenseTypes, propertyId, tenants, apartments]);
