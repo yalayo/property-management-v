@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
 import AddTenantForm from "../tenants/AddTenant";
+import AddApartment from "../apartments/AddApartment";
 import { getApartmentsForProperty, getTenantsForPropertyApartments, getApartmentCode } from "../../lib/propertyUtils";
 
 type CostLine = { id: string; key: string; name?: string; "name-en"?: string; "name-de"?: string };
@@ -40,7 +41,7 @@ type Props = {
   onBack: () => void;
   onViewApartment?: (aptId: any) => void;
   onViewTenant?: (tenantId: any) => void;
-  onAddApartment?: (code: string) => void;
+  onAddApartment?: (propertyId: string, data: { code: string; wohnflaeche?: string; stromZaehlerNr?: string; wasserZaehlerNrn?: string[] }) => void;
   onAddTenant?: (data: any) => void;
   aptsSaving?: boolean;
   tenantsSaving?: boolean;
@@ -48,24 +49,39 @@ type Props = {
 
 // ── Apartments tab ────────────────────────────────────────────────────────────
 
-function ApartmentsTab({ apartments, tenants, t, tApts, tCommon, onViewApartment, onAddApartment, aptsSaving, isReadOnly }: {
+function ApartmentsTab({ apartments, tenants, t, tApts, propertyId, onViewApartment, onAddApartment, aptsSaving, isReadOnly }: {
   apartments: any[];
   tenants: any[];
   t: (key: string) => string;
   tApts: (key: string, opts?: any) => string;
-  tCommon: (key: string) => string;
+  propertyId: string;
   onViewApartment?: (aptId: any) => void;
-  onAddApartment?: (code: string) => void;
+  onAddApartment?: (propertyId: string, data: { code: string; wohnflaeche?: string; stromZaehlerNr?: string; wasserZaehlerNrn?: string[] }) => void;
   aptsSaving?: boolean;
   isReadOnly?: boolean;
 }) {
   const [addOpen, setAddOpen] = useState(false);
   const [newCode, setNewCode] = useState("");
+  const [newWohnflaeche, setNewWohnflaeche] = useState("");
+  const [newStrom, setNewStrom] = useState("");
+  const [newWasser, setNewWasser] = useState<string[]>([]);
 
-  const handleAdd = () => {
-    if (!newCode.trim()) return;
-    onAddApartment?.(newCode.trim());
+  const resetForm = () => {
     setNewCode("");
+    setNewWohnflaeche("");
+    setNewStrom("");
+    setNewWasser([]);
+  };
+
+  const handleSubmit = () => {
+    if (!newCode.trim()) return;
+    onAddApartment?.(propertyId, {
+      code: newCode.trim(),
+      wohnflaeche: newWohnflaeche || undefined,
+      stromZaehlerNr: newStrom || undefined,
+      wasserZaehlerNrn: newWasser.length > 0 ? newWasser : undefined,
+    });
+    resetForm();
     setAddOpen(false);
   };
 
@@ -80,33 +96,23 @@ function ApartmentsTab({ apartments, tenants, t, tApts, tCommon, onViewApartment
         )}
       </div>
 
-      <Dialog open={addOpen} onOpenChange={(open) => { setAddOpen(open); if (!open) setNewCode(""); }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{tApts("addApartment")}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-1">
-            <div className="space-y-1.5">
-              <Label htmlFor="new-apt-code">{tApts("fields.code")}</Label>
-              <Input
-                id="new-apt-code"
-                placeholder={tApts("placeholders.code")}
-                value={newCode}
-                onChange={(e) => setNewCode(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
-                autoFocus
-              />
-              <p className="text-xs text-muted-foreground">{tApts("fields.codeHint")}</p>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => { setAddOpen(false); setNewCode(""); }}>
-                {tCommon("cancel")}
-              </Button>
-              <Button onClick={handleAdd} disabled={!newCode.trim() || aptsSaving}>
-                {aptsSaving ? tCommon("saving") : tApts("addApartment")}
-              </Button>
-            </div>
-          </div>
+      <Dialog open={addOpen} onOpenChange={(open) => { setAddOpen(open); if (!open) resetForm(); }}>
+        <DialogContent className="sm:max-w-lg">
+          <AddApartment
+            apartments={apartments}
+            isLoading={aptsSaving}
+            code={newCode}
+            wohnflaeche={newWohnflaeche}
+            stromZaehlerNr={newStrom}
+            wasserZaehlerNrn={newWasser}
+            initialPropertyId={propertyId}
+            onChangeAddApartmentDialogClose={() => { setAddOpen(false); resetForm(); }}
+            onChangeCode={(e) => setNewCode(e.target.value)}
+            onChangeWohnflaeche={(e) => setNewWohnflaeche(e.target.value)}
+            onChangeStromZaehlerNr={(v) => setNewStrom(v)}
+            onChangeWasserZaehlerNrn={(v) => setNewWasser(v)}
+            submitApartment={handleSubmit}
+          />
         </DialogContent>
       </Dialog>
 
@@ -630,7 +636,7 @@ export default function PropertyDetail({
             tenants={tenants}
             t={t}
             tApts={tApts}
-            tCommon={tCommon}
+            propertyId={String(property.id)}
             onViewApartment={onViewApartment}
             onAddApartment={onAddApartment}
             aptsSaving={aptsSaving}

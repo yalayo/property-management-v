@@ -419,10 +419,18 @@
                                       (re-frame/dispatch [::apartment-events/select-apartment apt-id initial-tab]))
            :onClearSelectedApartment #(re-frame/dispatch [::apartment-events/clear-selected-apartment])
            :onAddApartment     (when can-create?
-                                 (fn [property-id code]
-                                   (re-frame/dispatch [::apartment-events/set-new-property-id property-id])
-                                   (re-frame/dispatch [::apartment-events/set-new-code code])
-                                   (re-frame/dispatch [::apartment-events/add-apartment])))
+                                 (fn [property-id js-data]
+                                   (let [d (js->clj js-data :keywordize-keys true)]
+                                     (re-frame/dispatch [::apartment-events/set-new-property-id property-id])
+                                     (re-frame/dispatch [::apartment-events/set-new-code (:code d)])
+                                     (re-frame/dispatch [::apartment-events/set-new-wohnflaeche
+                                                         (when (seq (:wohnflaeche d))
+                                                           (js/parseFloat (:wohnflaeche d)))])
+                                     (re-frame/dispatch [::apartment-events/set-new-strom-zaehler-nr
+                                                         (not-empty (:stromZaehlerNr d))])
+                                     (re-frame/dispatch [::apartment-events/set-new-wasser-zaehler-nrn
+                                                         (or (:wasserZaehlerNrn d) [])])
+                                     (re-frame/dispatch [::apartment-events/add-apartment]))))
            :onAddTenant        (when can-create?
                                  (fn [data]
                                    (let [d (js->clj data :keywordize-keys true)]

@@ -23,6 +23,7 @@ type Props = {
   wohnflaeche?: string;
   stromZaehlerNr?: string;
   wasserZaehlerNrn?: string[];
+  initialPropertyId?: string;
   onChangeAddApartmentDialogClose?: () => void;
   onChangeCode?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onChangeProperty?: (value: string) => void;
@@ -40,6 +41,7 @@ export default function AddApartment({
   wohnflaeche = "",
   stromZaehlerNr = "",
   wasserZaehlerNrn = [],
+  initialPropertyId,
   onChangeAddApartmentDialogClose,
   onChangeCode,
   onChangeProperty,
@@ -52,7 +54,7 @@ export default function AddApartment({
   const { t: tCommon } = useTranslation("common");
 
   const [propertyOpen, setPropertyOpen] = useState(false);
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>(initialPropertyId ?? "");
   const [codeError, setCodeError] = useState<string>("");
 
   const selectedProperty = properties.find((p) => String(p.id) === selectedPropertyId);
@@ -84,7 +86,7 @@ export default function AddApartment({
     submitApartment?.();
   };
 
-  const canSubmit = !!selectedPropertyId && !!code.trim() && !isLoading;
+  const canSubmit = !!(initialPropertyId || selectedPropertyId) && !!code.trim() && !isLoading;
 
   return (
     <div className="space-y-6">
@@ -94,54 +96,56 @@ export default function AddApartment({
       </DialogHeader>
 
       <div className="space-y-5">
-        {/* Property picker */}
-        <div className="space-y-2">
-          <Label className="flex items-center gap-1.5">
-            <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-            {t("fields.property")}
-          </Label>
-          <Popover open={propertyOpen} onOpenChange={setPropertyOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                aria-expanded={propertyOpen}
-                className="w-full justify-between font-normal"
-                disabled={isLoading}
-              >
-                <span className={cn(!selectedProperty && "text-muted-foreground")}>
-                  {selectedProperty ? selectedProperty.name : t("fields.selectProperty")}
-                </span>
-                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-              <Command>
-                <CommandInput placeholder={t("fields.searchProperty")} />
-                <CommandList>
-                  <CommandEmpty>{t("fields.noPropertyFound")}</CommandEmpty>
-                  <CommandGroup>
-                    {properties.map((p) => (
-                      <CommandItem
-                        key={p.id}
-                        value={p.name}
-                        onSelect={() => handlePropertySelect(String(p.id))}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            selectedPropertyId === String(p.id) ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                        {p.name}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-        </div>
+        {/* Property picker — hidden when property is pre-selected (e.g. from property detail view) */}
+        {!initialPropertyId && (
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1.5">
+              <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+              {t("fields.property")}
+            </Label>
+            <Popover open={propertyOpen} onOpenChange={setPropertyOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={propertyOpen}
+                  className="w-full justify-between font-normal"
+                  disabled={isLoading}
+                >
+                  <span className={cn(!selectedProperty && "text-muted-foreground")}>
+                    {selectedProperty ? selectedProperty.name : t("fields.selectProperty")}
+                  </span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder={t("fields.searchProperty")} />
+                  <CommandList>
+                    <CommandEmpty>{t("fields.noPropertyFound")}</CommandEmpty>
+                    <CommandGroup>
+                      {properties.map((p) => (
+                        <CommandItem
+                          key={p.id}
+                          value={p.name}
+                          onSelect={() => handlePropertySelect(String(p.id))}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedPropertyId === String(p.id) ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {p.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
 
         {/* Code input */}
         <div className="space-y-2">
