@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CheckCircle2, XCircle, FileText } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
+import { cn } from "../../lib/utils";
 import { generateBillingPdf, downloadPdf } from "./pdfGenerator";
 import type { CostLineItem } from "./pdfGenerator";
 
@@ -90,6 +91,10 @@ export default function ApartmentBillingPanel({
 }: Props) {
   const { t, i18n } = useTranslation("abrechnung");
   const [generating, setGenerating] = useState(false);
+  const [selectedTenantIdx, setSelectedTenantIdx] = useState(0);
+
+  // Reset tab when year or apartment changes
+  useEffect(() => { setSelectedTenantIdx(0); }, [year, apartment?.id]);
 
   // Expense type name + method maps
   const expenseTypeMap = useMemo(() => {
@@ -122,6 +127,8 @@ export default function ApartmentBillingPanel({
     });
   }, [tenants, apartment, year]);
 
+  const isMultiTenant = tenantsForApt.length > 1;
+
   // Unique cost lines from propertyCosts with any entry ≤ year
   const activeCostLines = useMemo(() => {
     const keys = new Set<string>();
@@ -141,29 +148,10 @@ export default function ApartmentBillingPanel({
     [activeCostLines, aptCosts, year]
   );
 
-  // Union of active months across all tenants
-  const tenantActiveMonths = useMemo(() => {
-    const s = new Set<number>();
-    tenantsForApt.forEach(tn => tenantActiveMonthsFor(tn, year).forEach(m => s.add(m)));
-    return [...s].sort((a, b) => a - b);
-  }, [tenantsForApt, year]);
-
-  const missingRentMonths = useMemo(
-    () => tenantActiveMonths.filter(m => !paidMonths.has(m)),
-    [tenantActiveMonths, paidMonths]
-  );
-
   const hasTenant = tenantsForApt.length > 0;
   const hasIban   = !!(property?.iban);
 
-  const isFullyReady =
-    hasTenant &&
-    hasIban &&
-    activeCostLines.length > 0 &&
-    missingCostLines.length === 0 &&
-    (tenantActiveMonths.length === 0 || missingRentMonths.length === 0);
-
-  // Per-tenant billing calculation
+  // Per-tenant billing calculation (prorated days + cost breakdown + missing months)
   const perTenantInfo = useMemo(() => {
     const yearDays = isLeapYear(year) ? 366 : 365;
     return tenantsForApt.map((tenant: any) => {
@@ -187,10 +175,20 @@ export default function ApartmentBillingPanel({
     });
   }, [tenantsForApt, year, paidMonths, activeCostLines, aptCosts, hasIban, missingCostLines]);
 
-  // Totals
-  const totalAnnualShare = activeCostLines.reduce(
-    (sum, key) => sum + Number(costEntryForYear(aptCosts, key, year)?.value ?? 0), 0
-  );
+  // Selected tenant (clamped to valid range)
+  const selectedInfo = perTenantInfo.length > 0
+    ? perTenantInfo[Math.min(selectedTenantIdx, perTenantInfo.length - 1)]
+    : null;
+
+  // Readiness for the currently selected tenant
+  const isReady =
+    hasTenant &&
+    hasIban &&
+    activeCostLines.length > 0 &&
+    missingCostLines.length === 0 &&
+    (selectedInfo?.missingMonths.length ?? 0) === 0;
+
+  // Totals (property-level, shown once in table footer)
   const totalAnnualPropertyCosts = activeCostLines.reduce(
     (sum, key) => sum + (effectiveCostVal(propertyCosts, key, year) ?? 0), 0
   );
@@ -271,9 +269,12 @@ export default function ApartmentBillingPanel({
     return <p className="text-sm text-muted-foreground py-8 text-center">Laden…</p>;
   }
 
+  const monthName = (m: number) =>
+    new Date(year, m - 1).toLocaleString(i18n.language === "de" ? "de-DE" : "en-US", { month: "long" });
+
   return (
     <div className="space-y-4">
-      {/* Tenant info + bank info */}
+      {/* Tenant overview card */}
       <Card>
         <CardContent className="pt-4 pb-4">
           <p className="text-xs text-muted-foreground mb-2">{t("tenant")}</p>
@@ -294,7 +295,7 @@ export default function ApartmentBillingPanel({
                     <span className="font-medium">{tenantDisplayName(tenant)}</span>
                     <span className="text-xs text-muted-foreground tabular-nums">
                       {fmtGermanDate(effStart)} – {fmtGermanDate(effEnd)}
-                      <span className="ml-1.5">({days} Tage)</span>
+                      <span className="ml-1.5">({days} {t("days", { defaultValue: "Tage" })})</span>
                     </span>
                   </div>
                 );
@@ -314,12 +315,35 @@ export default function ApartmentBillingPanel({
         </CardContent>
       </Card>
 
-      {/* Readiness */}
+      {/* Tenant tab selector — only when multiple tenants in the year */}
+      {isMultiTenant && (
+        <div className="flex gap-0 border-b">
+          {perTenantInfo.map((info, i) => (
+            <button
+              key={i}
+              className={cn(
+                "pb-2 px-4 text-sm font-medium border-b-2 transition-colors",
+                selectedTenantIdx === i
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+              onClick={() => setSelectedTenantIdx(i)}
+            >
+              {tenantDisplayName(info.tenant)}
+              <span className="ml-1.5 text-xs opacity-60">
+                ({info.days} {t("days", { defaultValue: "Tage" })})
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Status card — per tenant when multi-tenant, apartment-level when single */}
       <Card>
         <CardContent className="pt-4 pb-4">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-semibold">{t("readiness")}</p>
-            {isFullyReady ? (
+            {isReady ? (
               <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
                 <CheckCircle2 className="h-4 w-4" /> {t("ready")}
               </span>
@@ -329,7 +353,7 @@ export default function ApartmentBillingPanel({
               </span>
             )}
           </div>
-          {!isFullyReady && (
+          {!isReady && (
             <div className="flex flex-col gap-1.5">
               {!hasTenant && <Missing label={t("missingTenant")} />}
               {!hasIban   && <Missing label={t("missingIban")} />}
@@ -337,17 +361,15 @@ export default function ApartmentBillingPanel({
               {missingCostLines.map(key => (
                 <Missing key={key} label={`${t("missingShare")}: ${lineName(key)}`} />
               ))}
-              {missingRentMonths.map(m => (
-                <Missing key={m} label={`${t("missingRentMonth")}: ${new Date(year, m - 1).toLocaleString(
-                  i18n.language === "de" ? "de-DE" : "en-US", { month: "long" }
-                )}`} />
+              {(selectedInfo?.missingMonths ?? []).map(m => (
+                <Missing key={m} label={`${t("missingRentMonth")}: ${monthName(m)}`} />
               ))}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Cost breakdown table */}
+      {/* Cost breakdown — "Ihr Anteil" shows the selected tenant's prorated share */}
       <Card>
         <CardContent className="p-0">
           <div className="grid grid-cols-[2fr_auto_1fr_1fr_1fr_1fr] text-xs font-medium text-muted-foreground border-b px-4 py-2 gap-1">
@@ -362,10 +384,10 @@ export default function ApartmentBillingPanel({
             <div className="px-4 py-6 text-center text-sm text-muted-foreground">{t("noCostLines")}</div>
           ) : (
             activeCostLines.map(key => {
-              const propTotal  = effectiveCostVal(propertyCosts, key, year);
-              const aptEntry   = costEntryForYear(aptCosts, key, year);
-              const aptShare   = aptEntry ? Number(aptEntry.value) : null;
-              const method     = lineMethod(key);
+              const propTotal = effectiveCostVal(propertyCosts, key, year);
+              const aptEntry  = costEntryForYear(aptCosts, key, year);
+              const method    = lineMethod(key);
+              const tenantShare = selectedInfo?.costBreakdown.find(b => b.key === key)?.share ?? null;
               return (
                 <div key={key} className="grid grid-cols-[2fr_auto_1fr_1fr_1fr_1fr] text-sm px-4 py-2 border-b last:border-b-0 gap-1 items-center">
                   <span>{lineName(key)}</span>
@@ -375,7 +397,9 @@ export default function ApartmentBillingPanel({
                   </span>
                   <span className="text-right tabular-nums text-muted-foreground">{aptEntry?.verteiler ?? "—"}</span>
                   <span className="text-right tabular-nums text-muted-foreground">{aptEntry?.schluessel ?? "—"}</span>
-                  <span className="text-right tabular-nums">{aptShare != null ? `€ ${formatEur(aptShare)}` : "—"}</span>
+                  <span className="text-right tabular-nums">
+                    {tenantShare != null ? `€ ${formatEur(tenantShare)}` : "—"}
+                  </span>
                 </div>
               );
             })
@@ -386,48 +410,59 @@ export default function ApartmentBillingPanel({
           </div>
           <div className="flex items-center justify-between px-4 py-2 border-t text-sm">
             <span className="font-medium">{t("totalCosts")}</span>
-            <span className="tabular-nums font-medium">€ {formatEur(totalAnnualShare)}</span>
+            <span className="tabular-nums font-medium">
+              {selectedInfo != null ? `€ ${formatEur(selectedInfo.proratedTotal)}` : "—"}
+            </span>
           </div>
         </CardContent>
       </Card>
 
-      {/* Per-tenant prorated billing */}
-      {perTenantInfo.length > 0 && (
+      {/* Summary + PDF for the selected tenant */}
+      {selectedInfo && (
         <Card>
-          <CardContent className="p-0">
-            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] text-xs font-medium text-muted-foreground border-b px-4 py-2 gap-2">
-              <span>{t("tenant")}</span>
-              <span className="text-right">{t("share")}</span>
-              <span className="text-right">{t("prepayment")}</span>
-              <span className="text-right">{t("netPayment")}</span>
-              <span />
+          <CardContent className="pt-4 pb-4 space-y-2.5">
+            {isMultiTenant && (
+              <p className="text-xs text-muted-foreground pb-1">
+                {tenantDisplayName(selectedInfo.tenant)}
+                {" · "}
+                {selectedInfo.days} {t("days", { defaultValue: "Tage" })}
+                {" "}
+                ({Math.round(selectedInfo.ratio * 100)}%)
+              </p>
+            )}
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">{t("share")}</span>
+              <span className="tabular-nums">€ {formatEur(selectedInfo.proratedTotal)}</span>
             </div>
-            {perTenantInfo.map((info, i) => (
-              <div key={i} className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] items-center px-4 py-3 border-b last:border-b-0 gap-2">
-                <div>
-                  <p className="text-sm font-medium">{tenantDisplayName(info.tenant)}</p>
-                  <p className="text-xs text-muted-foreground tabular-nums">
-                    {info.days} Tage ({Math.round(info.ratio * 100)}%)
-                  </p>
-                </div>
-                <span className="text-right tabular-nums text-sm">€ {formatEur(info.proratedTotal)}</span>
-                <span className="text-right tabular-nums text-sm text-muted-foreground">
-                  − € {formatEur(info.prepayment)}
-                </span>
-                <span className={`text-right tabular-nums text-sm font-semibold ${info.net >= 0 ? "text-destructive" : "text-green-600"}`}>
-                  € {formatEur(Math.abs(info.net))}
-                </span>
-                <Button
-                  size="sm"
-                  disabled={!info.canGenerate || generating}
-                  onClick={() => handleGenerateForTenant(info)}
-                  className="h-7 gap-1.5 shrink-0"
-                >
-                  <FileText className="h-3.5 w-3.5" />
-                  {generating ? t("generating") : t("generate")}
-                </Button>
-              </div>
-            ))}
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">{t("prepayment")}</span>
+              <span className="tabular-nums text-muted-foreground">− € {formatEur(selectedInfo.prepayment)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm border-t pt-2.5">
+              <span className="font-semibold">{t("netPayment")}</span>
+              <span className={cn(
+                "tabular-nums font-semibold",
+                selectedInfo.net >= 0 ? "text-destructive" : "text-green-600"
+              )}>
+                € {formatEur(Math.abs(selectedInfo.net))}
+                {selectedInfo.net < 0 && (
+                  <span className="text-xs font-normal ml-1 opacity-70">
+                    ({t("credit", { defaultValue: "Guthaben" })})
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex justify-end pt-1">
+              <Button
+                size="sm"
+                disabled={!selectedInfo.canGenerate || generating}
+                onClick={() => handleGenerateForTenant(selectedInfo)}
+                className="gap-1.5"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                {generating ? t("generating") : t("generate")}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
