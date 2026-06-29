@@ -128,10 +128,14 @@ function ApartmentsTab({ apartments, tenants, t, tApts, propertyId, onViewApartm
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {apartments.map((apt: any, index: number) => {
-            const aptId = apt["db/id"] ?? apt.id;
+            const aptId = apt.id ?? apt["db/id"];
             const code = apt["apartment/code"] ?? apt.code ?? "—";
             const occupied: boolean = !!(apt["apartment/occupied"] ?? apt.occupied);
-            const aptTenants = tenants.filter((tn: any) => tn["apartment-id"] === aptId);
+            const aptTenants = tenants.filter((tn: any) => {
+              const raw = tn["apartment-id"];
+              const tid = raw != null && typeof raw === "object" ? (raw.id ?? raw["db/id"]) : raw;
+              return String(tid) === String(aptId);
+            });
             const activeTenant = aptTenants.find((tn: any) => !tn["end-date"] || new Date(tn["end-date"]) >= new Date());
 
             return (

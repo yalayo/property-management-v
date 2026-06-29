@@ -118,14 +118,23 @@ export default function ApartmentsList({
   const [filterText, setFilterText] = useState("");
 
   const today = new Date().toISOString().split("T")[0];
+
+  // Normalize an apartment-id value that may arrive as a plain number OR as an
+  // entity-ref object { id, ... } depending on how DataScript serialised the ref.
+  const resolveAptId = (raw: any): number | null => {
+    if (raw == null) return null;
+    if (typeof raw === "object") return Number(raw.id ?? raw["db/id"] ?? NaN);
+    return Number(raw);
+  };
+
   const currentTenantByApt: Record<number, TenantSummary> = {};
   for (const tn of tenants) {
-    const aptId = tn["apartment-id"];
-    if (!aptId) continue;
+    const aptId = resolveAptId(tn["apartment-id"]);
+    if (aptId == null || isNaN(aptId)) continue;
     const end   = tn["end-date"]   ?? "";
     const start = tn["start-date"] ?? "";
     if ((!end || end >= today) && (!start || start <= today)) {
-      currentTenantByApt[Number(aptId)] = tn;
+      currentTenantByApt[aptId] = tn;
     }
   }
 
@@ -184,13 +193,14 @@ export default function ApartmentsList({
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {pagedApartments.map((apt) => {
               const isOccupied  = !!apt.occupied;
-              const onboarding  = onboardingsByApartment[apt.id];
-              const curTenant   = currentTenantByApt[apt.id] ?? null;
+              const aptEntityId = apt.id ?? apt["db/id"];
+              const onboarding  = onboardingsByApartment[aptEntityId];
+              const curTenant   = currentTenantByApt[aptEntityId] ?? null;
               const kalt        = parseFloat(String(curTenant?.kaltmiete ?? 0).replace(",", ".")) || 0;
               const nk          = parseFloat(String(curTenant?.["nebenkosten-warm"] ?? 0).replace(",", ".")) || 0;
               const monthlyRent = kalt + nk;
               return (
-                <Card key={apt.id} className="overflow-hidden">
+                <Card key={aptEntityId} className="overflow-hidden">
                   <div className="p-4 flex flex-col gap-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -202,7 +212,7 @@ export default function ApartmentsList({
                         <button
                           type="button"
                           className="font-semibold text-lg hover:underline hover:text-primary transition-colors text-left"
-                          onClick={() => onSelectApartment?.(apt.id)}
+                          onClick={() => onSelectApartment?.(aptEntityId)}
                         >
                           {apt.code}
                         </button>
@@ -259,7 +269,7 @@ export default function ApartmentsList({
                         size="sm"
                         className="w-full"
                         disabled={isReadOnly}
-                        onClick={() => onAssignTenant?.(apt.id)}
+                        onClick={() => onAssignTenant?.(aptEntityId)}
                       >
                         <UserPlus className="h-3.5 w-3.5 mr-1.5" />
                         {t("assign")}
