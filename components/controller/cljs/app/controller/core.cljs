@@ -492,16 +492,18 @@
 (defn- handle-create-cost! [storage data user]
   (with-org user
     (fn [org-id]
-      (let [{:keys [property-id line name year value]} data]
+      (let [{:keys [property-id line name year value source-file recorded-at]} data]
         (js-await [{:keys [tx-id entity-ids]}
                    ((:transact! storage)
-                    [{:db/type              "cost"
-                      :cost/organization-id  org-id
-                      :cost/property-id      property-id
-                      :cost/line             line
-                      :cost/name             name
-                      :cost/year             year
-                      :cost/value            value}] nil)]
+                    [(cond-> {:db/type              "cost"
+                               :cost/organization-id  org-id
+                               :cost/property-id      property-id
+                               :cost/line             line
+                               :cost/name             name
+                               :cost/year             year
+                               :cost/value            value}
+                       (some? source-file) (assoc :cost/source-file source-file)
+                       (some? recorded-at) (assoc :cost/recorded-at recorded-at))] nil)]
                   {:tx-id tx-id :cost-id (first entity-ids)})))))
 
 (defn- handle-update-cost! [storage data user]
@@ -543,7 +545,8 @@
 (defn- handle-create-rent-payment! [storage data user]
   (with-org user
     (fn [org-id]
-      (let [{:keys [apartment-id year month value kaltmiete nebenkosten-warm date description]} data]
+      (let [{:keys [apartment-id year month value kaltmiete nebenkosten-warm date description
+                    payment-type source-file recorded-at]} data]
         (js-await [{:keys [tx-id entity-ids]}
                    ((:transact! storage)
                     [(cond-> {:db/type                      "rent-payment"
@@ -555,7 +558,10 @@
                                :rent-payment/date             date
                                :rent-payment/description      description}
                        (some? kaltmiete)        (assoc :rent-payment/kaltmiete kaltmiete)
-                       (some? nebenkosten-warm) (assoc :rent-payment/nebenkosten-warm nebenkosten-warm))] nil)]
+                       (some? nebenkosten-warm) (assoc :rent-payment/nebenkosten-warm nebenkosten-warm)
+                       (some? payment-type)     (assoc :rent-payment/payment-type payment-type)
+                       (some? source-file)      (assoc :rent-payment/source-file source-file)
+                       (some? recorded-at)      (assoc :rent-payment/recorded-at recorded-at))] nil)]
                   {:tx-id tx-id :rent-payment-id (first entity-ids)})))))
 
 (defn- handle-update-rent-payment! [storage data user]

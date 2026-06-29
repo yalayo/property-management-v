@@ -292,12 +292,27 @@
                                    (let [d (js->clj data :keywordize-keys true)]
                                      (re-frame/dispatch
                                       [::rent-events/create-rent-payment
-                                       {:apartment-id (:apartmentId d)
-                                        :year         (:year d)
-                                        :month        (:month d)
-                                        :value        (:value d)
-                                        :date         (:date d)
-                                        :description  (:description d)}]))))
+                                       {:apartment-id  (:apartmentId d)
+                                        :year          (:year d)
+                                        :month         (:month d)
+                                        :value         (:value d)
+                                        :date          (:date d)
+                                        :description   (:description d)
+                                        :payment-type  (:type d)
+                                        :source-file   (:sourceFile d)
+                                        :recorded-at   (:recordedAt d)}]))))
+           :onRecordExpense    (when can-create?
+                                 (fn [data]
+                                   (let [d (js->clj data :keywordize-keys true)]
+                                     (re-frame/dispatch
+                                      [::cost-events/create-cost
+                                       {:property-id (:propertyId d)
+                                        :line        (or (not-empty (:expenseLine d)) "sonstige")
+                                        :name        (:description d)
+                                        :year        (:year d)
+                                        :value       (:value d)
+                                        :source-file (:sourceFile d)
+                                        :recorded-at (:recordedAt d)}]))))
            :tenantsView        (r/as-element [tenant-ui/component {:apartments    available-apartments
                                                                                :is-read-only? (not can-create?)}])
            :taxView            (r/as-element [tax-ui/component
