@@ -529,6 +529,13 @@ export default function ApartmentView({
     };
     const existing = costEntryFor(lineKey);
     if (existing) {
+      const eq = (a: any, b: any) => (a ?? null) === (b ?? null);
+      const unchanged =
+        eq(payload.value,      existing.value) &&
+        eq(payload.verteiler,  existing.verteiler) &&
+        eq(payload.anteil,     existing.anteil) &&
+        eq(payload.schluessel, existing.schluessel);
+      if (unchanged) { closeCostEdit(lineKey); return; }
       onUpdateAptCost?.({ id: existing.id, ...payload });
     } else {
       const line = costLines.find(l => l.key === lineKey);

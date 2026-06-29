@@ -329,8 +329,34 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
       return;
     }
     if (onEditProperty && editingProperty) {
-      onEditProperty(editingProperty.id, data);
-      toast({ title: tCommon("saved") });
+      const orig = editingProperty;
+      const origPostal = orig["postal-code"] ?? orig.postal_code ?? orig.postalCode ?? "";
+      const origOwnership = orig["ownership-share"] ?? orig.ownershipShare ?? null;
+      const eqOpt = (a: any, b: any) => (a ?? null) === (b ?? null);
+
+      const changes: Record<string, any> = {};
+      if (String(data.name)       !== String(orig.name    ?? ""))  changes.name       = data.name;
+      if (String(data.address)    !== String(orig.address  ?? ""))  changes.address    = data.address;
+      if (String(data.city)       !== String(orig.city     ?? ""))  changes.city       = data.city;
+      if (String(data.postalCode) !== String(origPostal))           changes.postalCode = data.postalCode;
+      if ((data.units as number)  !== (orig.units ?? 1))            changes.units      = data.units;
+
+      const origAcq = orig["acquisition-date"] ?? orig.acquisitionDate ?? null;
+      if ((data.acquisitionDate || null) !== origAcq)               changes.acquisitionDate = data.acquisitionDate;
+      if (!eqOpt(data.purchasePrice,  orig["purchase-price"]))      changes.purchasePrice   = data.purchasePrice;
+      if (!eqOpt(data.currentValue,   orig["current-value"]))       changes.currentValue    = data.currentValue;
+      if (!eqOpt(data.landValue,      orig["land-value"]))          changes.landValue       = data.landValue;
+      if (!eqOpt(data.buildingValue,  orig["building-value"]))      changes.buildingValue   = data.buildingValue;
+      if (!eqOpt(data.ownershipShare, origOwnership))               changes.ownershipShare  = data.ownershipShare;
+      if (!eqOpt(data.livingAreaM2,   orig["living-area-m2"]))      changes.livingAreaM2    = data.livingAreaM2;
+      if (!eqOpt(data.rentalAreaM2,   orig["rental-area-m2"]))      changes.rentalAreaM2    = data.rentalAreaM2;
+      if (!eqOpt(data.yearBuilt,      orig["year-built"]))          changes.yearBuilt       = data.yearBuilt;
+      if ((data.usage || null) !== (orig.usage ?? null))            changes.usage           = data.usage;
+
+      if (Object.keys(changes).length > 0) {
+        onEditProperty(editingProperty.id, changes);
+        toast({ title: tCommon("saved") });
+      }
     }
     setEditingProperty(null);
     editForm.reset();

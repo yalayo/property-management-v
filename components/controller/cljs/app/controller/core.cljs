@@ -229,28 +229,28 @@
                                         {:error :duplicate-name}
                                         (js-await [{:keys [tx-id]}
                                                    ((:transact! storage)
-                                                    [(cond-> {:db/id                   eid
-                                                              :property/name           name
-                                                              :property/address        address
-                                                              :property/city           city
-                                                              :property/postal-code    postal-code
-                                                              :property/country        country
-                                                              :property/units          units
-                                                              :property/purchase-price purchase-price
-                                                              :property/current-value  current-value}
-                                                       iban             (assoc :property/iban             iban)
-                                                       bank-name        (assoc :property/bank-name        bank-name)
-                                                       landlord-name         (assoc :property/landlord-name         landlord-name)
-                                                       landlord-street       (assoc :property/landlord-street       landlord-street)
-                                                       landlord-postal-city  (assoc :property/landlord-postal-city  landlord-postal-city)
-                                                       acquisition-date (assoc :property/acquisition-date acquisition-date)
-                                                       land-value       (assoc :property/land-value       land-value)
-                                                       building-value   (assoc :property/building-value   building-value)
-                                                       ownership-share  (assoc :property/ownership-share  ownership-share)
-                                                       living-area-m2   (assoc :property/living-area-m2   living-area-m2)
-                                                       rental-area-m2   (assoc :property/rental-area-m2   rental-area-m2)
-                                                       year-built       (assoc :property/year-built       year-built)
-                                                       usage            (assoc :property/usage            usage))] nil)]
+                                                    [(cond-> {:db/id eid}
+                                                       (some? name)                 (assoc :property/name                 name)
+                                                       (some? address)              (assoc :property/address              address)
+                                                       (some? city)                 (assoc :property/city                 city)
+                                                       (some? postal-code)          (assoc :property/postal-code          postal-code)
+                                                       (some? country)              (assoc :property/country              country)
+                                                       (some? units)                (assoc :property/units                units)
+                                                       (some? purchase-price)       (assoc :property/purchase-price       purchase-price)
+                                                       (some? current-value)        (assoc :property/current-value        current-value)
+                                                       (some? iban)                 (assoc :property/iban                 iban)
+                                                       (some? bank-name)            (assoc :property/bank-name            bank-name)
+                                                       (some? landlord-name)        (assoc :property/landlord-name        landlord-name)
+                                                       (some? landlord-street)      (assoc :property/landlord-street      landlord-street)
+                                                       (some? landlord-postal-city) (assoc :property/landlord-postal-city landlord-postal-city)
+                                                       (some? acquisition-date)     (assoc :property/acquisition-date     acquisition-date)
+                                                       (some? land-value)           (assoc :property/land-value           land-value)
+                                                       (some? building-value)       (assoc :property/building-value       building-value)
+                                                       (some? ownership-share)      (assoc :property/ownership-share      ownership-share)
+                                                       (some? living-area-m2)       (assoc :property/living-area-m2       living-area-m2)
+                                                       (some? rental-area-m2)       (assoc :property/rental-area-m2       rental-area-m2)
+                                                       (some? year-built)           (assoc :property/year-built           year-built)
+                                                       (some? usage)                (assoc :property/usage                usage))] nil)]
                                                   {:tx-id tx-id})))))))))))))
 
 (defn- handle-delete-property! [storage data user]
@@ -623,11 +623,11 @@
                     {:error :not-found}
                     (js-await [{:keys [tx-id]}
                                ((:transact! storage)
-                                [{:db/id                  eid
-                                  :apartment-cost/value        (:value data)
-                                  :apartment-cost/verteiler    (:verteiler data)
-                                  :apartment-cost/anteil       (:anteil data)
-                                  :apartment-cost/schluessel   (:schluessel data)}] nil)]
+                                [(cond-> {:db/id eid}
+                                   (some? (:value     data)) (assoc :apartment-cost/value     (:value     data))
+                                   (some? (:verteiler data)) (assoc :apartment-cost/verteiler (:verteiler data))
+                                   (some? (:anteil    data)) (assoc :apartment-cost/anteil    (:anteil    data))
+                                   (some? (:schluessel data)) (assoc :apartment-cost/schluessel (:schluessel data)))] nil)]
                               {:tx-id tx-id})))))))
 
 (defn- handle-delete-apartment-cost! [storage data user]

@@ -30,13 +30,21 @@
                              (let [d (js->clj data :keywordize-keys true)]
                                (re-frame/dispatch
                                 [::events/update-property id
-                                 {:name           (:name d)
-                                  :address        (:address d)
-                                  :city           (:city d)
-                                  :postal-code    (:postalCode d)
-                                  :units          (:units d)
-                                  :purchase-price (:purchasePrice d)
-                                  :current-value  (:currentValue d)}])))
+                                 {:name             (:name d)
+                                  :address          (:address d)
+                                  :city             (:city d)
+                                  :postal-code      (:postalCode d)
+                                  :units            (:units d)
+                                  :acquisition-date (:acquisitionDate d)
+                                  :purchase-price   (:purchasePrice d)
+                                  :current-value    (:currentValue d)
+                                  :land-value       (:landValue d)
+                                  :building-value   (:buildingValue d)
+                                  :ownership-share  (:ownershipShare d)
+                                  :living-area-m2   (:livingAreaM2 d)
+                                  :rental-area-m2   (:rentalAreaM2 d)
+                                  :year-built       (:yearBuilt d)
+                                  :usage            (:usage d)}])))
         :onDeleteProperty  (fn [id]
                              (re-frame/dispatch [::events/delete-property id]))
         :onViewApartments  on-view-apartments
