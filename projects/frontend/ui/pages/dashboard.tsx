@@ -325,6 +325,14 @@ export default function Dashboard(props) {
                 onAddTenant={(data) => props.onAddTenant?.(data)}
                 aptsSaving={props.aptsSaving}
                 tenantsSaving={props.tenantsSaving}
+                garages={props.garages ?? []}
+                garagesSaving={props.aptsSaving}
+                onAddGarage={props.onAddGarage}
+                onViewGarage={(garageId) => {
+                  props.onSelectGarageInline?.(garageId);
+                  setActiveTab("apartments");
+                  props.onChangeTab?.("apartments");
+                }}
               />
             ) : (
               <PropertyList

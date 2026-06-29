@@ -306,8 +306,8 @@ export default function ApartmentsList({
       </CardContent>
 
       {/* Garages section */}
-      <div className="mt-8">
-        <div className="flex items-center justify-between mb-4">
+      <div className="px-6 pb-6 border-t">
+        <div className="flex items-center justify-between mt-6 mb-4">
           <div className="flex items-center gap-2">
             <Warehouse className="h-4 w-4 text-muted-foreground" />
             <h3 className="font-semibold">{"Garagen"}</h3>

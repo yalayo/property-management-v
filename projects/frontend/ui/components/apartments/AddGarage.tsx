@@ -25,6 +25,7 @@ type Props = {
   properties?: Property[];
   tenants?: Tenant[];
   isLoading?: boolean;
+  initialPropertyId?: string;
   code?: string;
   flaeche?: string;
   monthlyRent?: string;
@@ -47,6 +48,7 @@ export default function AddGarage({
   properties = [],
   tenants = [],
   isLoading = false,
+  initialPropertyId,
   code = "",
   flaeche = "",
   monthlyRent = "",
@@ -62,10 +64,10 @@ export default function AddGarage({
   const { t: tCommon } = useTranslation("common");
 
   const [propertyOpen, setPropertyOpen] = useState(false);
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>(initialPropertyId ?? "");
   const [tenantOpen, setTenantOpen] = useState(false);
 
-  const selectedProperty = properties.find((p) => String(p.id) === selectedPropertyId);
+  const selectedProperty = properties.find((p) => String(p.id) === (initialPropertyId ?? selectedPropertyId));
   const selectedTenant   = tenants.find((t) => String(t.id) === selectedTenantId);
 
   const handlePropertySelect = (id: string) => {
@@ -79,7 +81,7 @@ export default function AddGarage({
     onChangeTenant?.(id === selectedTenantId ? "" : id);
   };
 
-  const canSubmit = !!selectedPropertyId && !!code.trim() && !isLoading;
+  const canSubmit = !!(initialPropertyId || selectedPropertyId) && !!code.trim() && !isLoading;
 
   return (
     <div className="space-y-6">
@@ -89,8 +91,8 @@ export default function AddGarage({
       </DialogHeader>
 
       <div className="space-y-5">
-        {/* Property picker */}
-        <div className="space-y-2">
+        {/* Property picker — hidden when pre-selected from property context */}
+        {!initialPropertyId && <div className="space-y-2">
           <Label className="flex items-center gap-1.5">
             <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
             {"Objekt"}
@@ -136,7 +138,7 @@ export default function AddGarage({
               </Command>
             </PopoverContent>
           </Popover>
-        </div>
+        </div>}
 
         {/* Code input */}
         <div className="space-y-2">

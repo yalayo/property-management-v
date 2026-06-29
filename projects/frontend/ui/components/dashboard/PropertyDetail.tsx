@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, ChevronRight, CalendarClock, Copy, Pencil, Plus, Trash2, Building2, User } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarClock, Copy, Pencil, Plus, Trash2, Building2, User, Warehouse } from "lucide-react";
 import { useToast } from "../../hooks/use-toast";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
 import AddTenantForm from "../tenants/AddTenant";
 import AddApartment from "../apartments/AddApartment";
+import AddGarage from "../apartments/AddGarage";
 import { getApartmentsForProperty, getTenantsForPropertyApartments, getApartmentCode } from "../../lib/propertyUtils";
 
 type CostLine = { id: string; key: string; name?: string; "name-en"?: string; "name-de"?: string };
@@ -45,6 +46,10 @@ type Props = {
   onAddTenant?: (data: any) => void;
   aptsSaving?: boolean;
   tenantsSaving?: boolean;
+  garages?: any[];
+  garagesSaving?: boolean;
+  onAddGarage?: (propertyId: string, data: { code: string; flaeche?: string; monthlyRent?: string; tenantId?: string }) => void;
+  onViewGarage?: (garageId: string) => void;
 };
 
 // ── Apartments tab ────────────────────────────────────────────────────────────
@@ -249,6 +254,120 @@ function TenantsTab({ tenants, allTenants, propertyApartments, apartments, t, tT
                         ? tTenants("fromTo", { from: tenant["start-date"], to: tenant["end-date"] })
                         : tTenants("from", { from: tenant["start-date"] })}
                     </p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Garages tab ───────────────────────────────────────────────────────────────
+
+function GaragesTab({ garages, propertyId, tenants, properties, onAddGarage, onViewGarage, garagesSaving, isReadOnly }: {
+  garages: any[];
+  propertyId: string;
+  tenants: any[];
+  properties: any[];
+  onAddGarage?: (propertyId: string, data: { code: string; flaeche?: string; monthlyRent?: string; tenantId?: string }) => void;
+  onViewGarage?: (garageId: string) => void;
+  garagesSaving?: boolean;
+  isReadOnly?: boolean;
+}) {
+  const [addOpen, setAddOpen] = useState(false);
+  const [code, setCode] = useState("");
+  const [flaeche, setFlaeche] = useState("");
+  const [monthlyRent, setMonthlyRent] = useState("");
+  const [tenantId, setTenantId] = useState("");
+
+  const reset = () => { setCode(""); setFlaeche(""); setMonthlyRent(""); setTenantId(""); };
+
+  const handleSubmit = () => {
+    if (!code.trim()) return;
+    onAddGarage?.(propertyId, {
+      code: code.trim(),
+      flaeche: flaeche || undefined,
+      monthlyRent: monthlyRent || undefined,
+      tenantId: tenantId || undefined,
+    });
+    reset();
+    setAddOpen(false);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        {!isReadOnly && onAddGarage && (
+          <Button size="sm" onClick={() => setAddOpen(true)}>
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            {"Garage hinzufügen"}
+          </Button>
+        )}
+      </div>
+
+      <Dialog open={addOpen} onOpenChange={(open) => { setAddOpen(open); if (!open) reset(); }}>
+        <DialogContent className="sm:max-w-lg">
+          <AddGarage
+            initialPropertyId={propertyId}
+            properties={properties}
+            tenants={tenants}
+            isLoading={garagesSaving}
+            code={code}
+            flaeche={flaeche}
+            monthlyRent={monthlyRent}
+            selectedTenantId={tenantId}
+            onClose={() => { setAddOpen(false); reset(); }}
+            onChangeCode={(e) => setCode(e.target.value)}
+            onChangeFlaeche={(e) => setFlaeche(e.target.value)}
+            onChangeMonthlyRent={(e) => setMonthlyRent(e.target.value)}
+            onChangeTenant={(id) => setTenantId(id)}
+            onSubmit={handleSubmit}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {garages.length === 0 ? (
+        <div className="text-center py-10 text-sm text-muted-foreground">
+          {"Noch keine Garagen für dieses Objekt"}
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {garages.map((g: any) => {
+            const gId       = g.id ?? g["db/id"];
+            const gCode     = g.code ?? "—";
+            const occupied  = !!(g.occupied);
+            const flaeche   = g.flaeche != null ? parseFloat(String(g.flaeche)) : null;
+            const monthlyRent = g["monthly-rent"] ?? g.monthlyRent;
+            const tenantName  = g["tenant-name"] ?? null;
+            return (
+              <Card key={gId} className="overflow-hidden">
+                <CardContent className="pt-4 pb-3 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <button
+                      className="font-semibold text-left hover:underline hover:text-primary leading-tight flex items-center gap-1.5"
+                      onClick={() => onViewGarage?.(String(gId))}
+                    >
+                      <Warehouse className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      {gCode}
+                    </button>
+                    <Badge variant={occupied ? "default" : "secondary"} className="text-xs shrink-0 ml-2">
+                      {occupied ? "Belegt" : "Frei"}
+                    </Badge>
+                  </div>
+                  {tenantName && (
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <User className="h-3.5 w-3.5 shrink-0" />
+                      <span>{tenantName}</span>
+                    </div>
+                  )}
+                  {(flaeche != null || monthlyRent != null) && (
+                    <div className="flex gap-3 text-xs text-muted-foreground">
+                      {flaeche != null && <span>{flaeche.toLocaleString("de-DE")} m²</span>}
+                      {monthlyRent != null && <span>€ {parseFloat(String(monthlyRent)).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / Mo.</span>}
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -513,6 +632,10 @@ export default function PropertyDetail({
   onAddTenant,
   aptsSaving,
   tenantsSaving,
+  garages = [],
+  garagesSaving,
+  onAddGarage,
+  onViewGarage,
 }: Props) {
   const { t, i18n } = useTranslation("costs");
   const { t: tCommon } = useTranslation("common");
@@ -522,6 +645,9 @@ export default function PropertyDetail({
 
   const propertyApartments = getApartmentsForProperty(apartments, property.id);
   const propertyTenants = getTenantsForPropertyApartments(propertyApartments, tenants);
+  const propertyGarages = garages.filter((g: any) =>
+    String(g["property-id"] ?? g.property_id ?? g.propertyId ?? "") === String(property.id)
+  );
 
   // ── Property field formatting ────────────────────────────────────────────────
   const num = (v: any) => (v === null || v === undefined || v === "" ? null : parseFloat(String(v).replace(",", ".")));
@@ -617,6 +743,14 @@ export default function PropertyDetail({
               </span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="garages" className="flex-1">
+            {"Garagen"}
+            {propertyGarages.length > 0 && (
+              <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
+                {propertyGarages.length}
+              </span>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="tenants" className="flex-1">
             {t("tabs.tenants")}
             {propertyTenants.length > 0 && (
@@ -656,6 +790,19 @@ export default function PropertyDetail({
             onViewTenant={onViewTenant}
             onAddTenant={onAddTenant}
             tenantsSaving={tenantsSaving}
+            isReadOnly={isReadOnly}
+          />
+        </TabsContent>
+
+        <TabsContent value="garages" className="mt-4">
+          <GaragesTab
+            garages={propertyGarages}
+            propertyId={String(property.id)}
+            tenants={tenants}
+            properties={[{ id: property.id, name: property.name }]}
+            onAddGarage={onAddGarage}
+            onViewGarage={onViewGarage}
+            garagesSaving={garagesSaving}
             isReadOnly={isReadOnly}
           />
         </TabsContent>

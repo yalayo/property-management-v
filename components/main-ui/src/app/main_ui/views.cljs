@@ -159,6 +159,7 @@
                                    (js/localStorage.removeItem "pm-pending-plan")
                                    (re-frame/dispatch [::events/change-active-section "payment"])
                                    (payment-ui/select-tier tier)))
+           :garages            (clj->js all-garages)
            :properties         (clj->js properties)
            :propertiesLoading  prop-loading?
            :apartmentsLoading  apts-loading?
@@ -443,6 +444,22 @@
                                                           :end-date     (:endDate d)
                                                           :apartment-id (when-not (empty? (:apartmentId d))
                                                                           (:apartmentId d))}]))))
+           :onAddGarage         (when can-create?
+                                  (fn [property-id js-data]
+                                    (let [d (js->clj js-data :keywordize-keys true)]
+                                      (re-frame/dispatch [::apartment-events/set-new-garage-property-id property-id])
+                                      (re-frame/dispatch [::apartment-events/set-new-garage-code (:code d)])
+                                      (when (seq (:flaeche d))
+                                        (re-frame/dispatch [::apartment-events/set-new-garage-flaeche
+                                                            (js/parseFloat (:flaeche d))]))
+                                      (when (seq (:monthlyRent d))
+                                        (re-frame/dispatch [::apartment-events/set-new-garage-monthly-rent
+                                                            (js/parseFloat (:monthlyRent d))]))
+                                      (when (seq (:tenantId d))
+                                        (re-frame/dispatch [::apartment-events/set-new-garage-tenant-id (:tenantId d)]))
+                                      (re-frame/dispatch [::apartment-events/add-garage]))))
+           :onSelectGarageInline (fn [garage-id]
+                                   (re-frame/dispatch [::apartment-events/select-garage garage-id]))
            :onNavigateToApartment (fn [apt-id initial-tab]
                                     (re-frame/dispatch [::apartment-events/select-apartment apt-id initial-tab])
                                     (re-frame/dispatch [::events/set-dashboard-tab "apartments"]))
