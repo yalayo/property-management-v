@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft, CalendarClock, ChevronLeft, ChevronRight, Trash2, Loader2,
   DoorOpen, DoorClosed, UserPlus, Clock, CheckCircle2,
-  Search, Pencil, Check, X, AlertCircle, Copy, Plus, UserCheck, Euro,
+  Search, Pencil, Check, X, AlertCircle, Copy, Plus, UserCheck, Euro, Landmark,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useToast } from "../../hooks/use-toast";
@@ -425,7 +425,13 @@ export default function ApartmentView({
   }
 
   // ── Derived data ─────────────────────────────────────────────────────────
-  const isOccupied  = !!apartment.occupied;
+  // apartment.occupied can be stale; derive from active tenants as fallback
+  const today_occ = new Date().toISOString().slice(0, 10);
+  const isOccupied = !!apartment.occupied || tenants.some(tn => {
+    if (String(tn["apartment-id"]) !== String(apartment.id)) return false;
+    const s = tn["start-date"] ?? ""; const e = tn["end-date"] ?? "";
+    return (!s || s <= today_occ) && (!e || e >= today_occ);
+  });
   const propertyId  = apartment["property-id"] ?? (apartment as any).property_id;
   const property    = properties.find((p: any) => p.id === propertyId);
   const propertyTotalWohnflaeche = apartments
@@ -1039,12 +1045,30 @@ export default function ApartmentView({
       );
     }
 
+    // Reconciliation: compute expected rent to compare with bank amount
+    const reconciled = !!entry?.["source-file"];
+    const bankValue  = reconciled ? Number(entry.value) : null;
+    const expectedValue = hasTenant ? tenantKalt + tenantNk : null;
+    const amountsMatch  = reconciled && expectedValue != null
+      ? Math.abs((bankValue ?? 0) - expectedValue) < 0.01
+      : true;
+    const reconTooltip  = reconciled
+      ? amountsMatch
+        ? `Kontoauszug: ${entry["source-file"]}`
+        : `Kontoauszug: ${entry["source-file"]}\nBankbetrag: € ${formatEur(bankValue ?? 0)}\nErwartet: € ${formatEur(expectedValue ?? 0)}`
+      : undefined;
+
     return (
       <div className="flex items-center gap-3 px-4 py-3 text-sm border-b last:border-b-0">
         <span className="flex-1 font-medium capitalize">{monthName(month)}</span>
         {entry ? (
           <>
             <span className="tabular-nums text-right w-28">€{formatEur(Number(entry.value))}</span>
+            {reconciled && (
+              <span title={reconTooltip} className={`shrink-0 cursor-help ${amountsMatch ? "text-green-600" : "text-amber-500"}`}>
+                <Landmark className="h-3.5 w-3.5" />
+              </span>
+            )}
             <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground"
               disabled={rentSaving} onClick={() => openRentEdit(month, entry)}>
               <Pencil className="h-3.5 w-3.5" />

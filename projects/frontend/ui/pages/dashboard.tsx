@@ -356,8 +356,11 @@ export default function Dashboard(props) {
           {activeTab === "bank" && (
             <BankStatement
               apartments={props.apartments}
+              tenants={props.tenants}
               properties={props.properties}
               expenseTypes={props.expenseTypes}
+              allRentPayments={props.rentPayments}
+              allCosts={props.allCosts}
               isSaving={props.rentSaving}
               onAssignPayment={props.onAssignPayment}
               onRecordExpense={props.onRecordExpense}
