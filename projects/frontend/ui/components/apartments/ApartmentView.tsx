@@ -1614,13 +1614,13 @@ export default function ApartmentView({
                       </p>
                     )}
                   </div>
-                  {isAutoFilled && editingNewCostKeys.length > 0 && (
+                  {editingNewCostKeys.length > 0 && (
                     <Button size="sm" className="h-7 px-3 text-xs" disabled={aptCostsSaving} onClick={commitAllPendingCosts}>
                       <Check className="h-3 w-3 mr-1.5" />
                       {tCosts("saveAll", { defaultValue: "Save All" })}
                     </Button>
                   )}
-                  {!isAutoFilled && prevCostLinesToCopy.length > 0 && (
+                  {editingNewCostKeys.length === 0 && prevCostLinesToCopy.length > 0 && (
                     <Button variant="outline" size="sm" className="h-7 text-xs" disabled={aptCostsSaving} onClick={copyPrevYearCosts}>
                       <Copy className="h-3 w-3 mr-1.5" />
                       {tCosts("copyFromYear", { year: year - 1 })}
@@ -1631,9 +1631,8 @@ export default function ApartmentView({
                   <p className="text-sm text-muted-foreground">{tCosts("loading")}</p>
                 ) : (
                   <div className="space-y-2">
-                    {activeCostLines.length > 0 && (
-                      isAutoFilled && editingNewCostKeys.length > 0 ? (
-                        <Card>
+                    {editingNewCostKeys.length > 0 && (
+                      <Card>
                           <div className="hidden sm:flex items-center gap-2 px-4 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/30">
                             <span className="flex-1">{tCosts("costLine", { defaultValue: "Kostenart" })}</span>
                             <span className="w-24 text-right">{tCosts("gesamtkosten")}</span>
@@ -1698,21 +1697,25 @@ export default function ApartmentView({
                             })}
                           </CardContent>
                         </Card>
-                      ) : (
-                        <Card>
-                          <div className="hidden sm:flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground border-b bg-muted/30">
-                            <span className="flex-1" />
-                            <span className="w-24 text-right">{tCosts("gesamtkosten")}</span>
-                            <span className="w-10 text-right">{tCosts("verteiler")}</span>
-                            <span className="w-20">{tCosts("schluessel")}</span>
-                            <span className="w-10 text-right">{tCosts("anteil")}</span>
-                            <span className="w-16" />
-                          </div>
-                          <CardContent className="p-0">
-                            {activeCostLines.map(line => <React.Fragment key={line.id}>{CostRow({ line })}</React.Fragment>)}
-                          </CardContent>
-                        </Card>
-                      )
+                    )}
+
+                    {(savedCostKeys.length > 0 || pendingCostKeys.length > 0) && (
+                      <Card>
+                        <div className="hidden sm:flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground border-b bg-muted/30">
+                          <span className="flex-1" />
+                          <span className="w-24 text-right">{tCosts("gesamtkosten")}</span>
+                          <span className="w-10 text-right">{tCosts("verteiler")}</span>
+                          <span className="w-20">{tCosts("schluessel")}</span>
+                          <span className="w-10 text-right">{tCosts("anteil")}</span>
+                          <span className="w-16" />
+                        </div>
+                        <CardContent className="p-0">
+                          {[...savedCostKeys, ...pendingCostKeys]
+                            .map(k => costLines.find(l => l.key === k))
+                            .filter((l): l is CostLine => !!l)
+                            .map(line => <React.Fragment key={line.id}>{CostRow({ line })}</React.Fragment>)}
+                        </CardContent>
+                      </Card>
                     )}
                     {availableCostLines.length > 0 && (
                       <Popover open={addLineOpen} onOpenChange={setAddLineOpen}>
