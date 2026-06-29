@@ -1063,9 +1063,11 @@ export default function ApartmentView({
         <span className="flex-1 font-medium capitalize">{monthName(month)}</span>
         {entry ? (
           <>
-            <span className="tabular-nums text-right w-28">€{formatEur(Number(entry.value))}</span>
+            <span className={`tabular-nums text-right w-28 ${reconciled && !amountsMatch ? "text-red-600 font-semibold" : ""}`}>
+              €{formatEur(Number(entry.value))}
+            </span>
             {reconciled && (
-              <span title={reconTooltip} className={`shrink-0 cursor-help ${amountsMatch ? "text-green-600" : "text-amber-500"}`}>
+              <span title={reconTooltip} className={`shrink-0 cursor-help ${amountsMatch ? "text-green-600" : "text-red-500"}`}>
                 <Landmark className="h-3.5 w-3.5" />
               </span>
             )}
