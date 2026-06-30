@@ -63,7 +63,8 @@
        (assoc-in [:apartments :new-property-id] nil)
        (assoc-in [:apartments :new-wohnflaeche] nil)
        (assoc-in [:apartments :new-strom-zaehler-nr] "")
-       (assoc-in [:apartments :new-wasser-zaehler-nrn] []))))
+       (assoc-in [:apartments :new-wasser-zaehler-nrn] [])
+       (assoc-in [:apartments :save-error] nil))))
 
 (re-frame/reg-event-db
  ::close-add-dialog
@@ -144,7 +145,9 @@
  [local-storage-interceptor]
  (fn [db [_ error]]
    (js/console.error "Failed to save apartment:" error)
-   (assoc-in db [:apartments :saving?] false)))
+   (-> db
+       (assoc-in [:apartments :saving?] false)
+       (assoc-in [:apartments :save-error] (or (some-> error :error name) "Unbekannter Fehler")))))
 
 (re-frame/reg-event-fx
  ::select-apartment

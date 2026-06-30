@@ -19,6 +19,7 @@ type Props = {
   properties?: Property[];
   apartments?: any[];
   isLoading?: boolean;
+  saveError?: string;
   code?: string;
   wohnflaeche?: string;
   stromZaehlerNr?: string;
@@ -37,6 +38,7 @@ export default function AddApartment({
   properties = [],
   apartments = [],
   isLoading = false,
+  saveError,
   code = "",
   wohnflaeche = "",
   stromZaehlerNr = "",
@@ -258,6 +260,10 @@ export default function AddApartment({
           </div>
         )}
       </div>
+
+      {saveError && (
+        <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">{saveError}</p>
+      )}
 
       <div className="flex justify-end gap-3 pt-1">
         <Button variant="outline" onClick={onChangeAddApartmentDialogClose} disabled={isLoading}>

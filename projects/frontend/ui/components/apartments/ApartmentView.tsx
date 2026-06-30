@@ -398,8 +398,10 @@ export default function ApartmentView({
       const auto       = defaultsForSchluessel(schluessel);
       const verteiler  = auto.verteiler || (inherited?.verteiler != null ? String(inherited.verteiler) : "");
       const anteil     = auto.anteil    || (inherited?.anteil    != null ? String(inherited.anteil)    : "");
+      const inheritedValue = inherited ? String(inherited.value) : "";
+      const calcValue      = inheritedValue ? "" : calculateShare(lineKey, verteiler, anteil);
       toOpen[lineKey] = {
-        value:      inherited ? String(inherited.value) : "",
+        value:      inheritedValue || calcValue,
         verteiler,
         schluessel,
         anteil,
@@ -493,16 +495,20 @@ export default function ApartmentView({
   }, [allCosts, propertyId]);
 
   const getPropertyCostTotal = (lineKey: string): number | null => {
-    const exact = propertyCosts.find((c: any) => c.line === lineKey && Number(c.year) === year);
+    const candidates = propertyCosts.filter((c: any) => c.line === lineKey);
+    if (candidates.length === 0) return null;
+    const exact = candidates.find((c: any) => Number(c.year) === year);
     if (exact) return Number(exact.value);
-    const inherited = [...propertyCosts]
-      .filter((c: any) => c.line === lineKey && Number(c.year) < year)
+    const past = [...candidates]
+      .filter((c: any) => Number(c.year) < year)
       .sort((a: any, b: any) => Number(b.year) - Number(a.year))[0];
-    return inherited ? Number(inherited.value) : null;
+    if (past) return Number(past.value);
+    const future = [...candidates].sort((a: any, b: any) => Number(a.year) - Number(b.year))[0];
+    return future ? Number(future.value) : null;
   };
 
   const defaultsForSchluessel = (schl: string): { verteiler: string; anteil: string } => {
-    if (schl === "Wohnfläche")      return { verteiler: propertyWohnflaecheStr,    anteil: property?.["living-area-m2"] != null ? String(property["living-area-m2"]) : "" };
+    if (schl === "Wohnfläche")      return { verteiler: property?.["living-area-m2"] != null ? String(property["living-area-m2"]) : propertyWohnflaecheStr, anteil: apartment["wohnflaeche"] != null ? String(apartment["wohnflaeche"]) : "" };
     if (schl === "Anzahl Personen") return { verteiler: propertyPersonDaysStr,      anteil: aptPersonDaysStr };
     if (schl === "Wohneinheiten")   return { verteiler: propertyApartmentCountStr,  anteil: "1" };
     return { verteiler: "", anteil: "" };
@@ -534,10 +540,11 @@ export default function ApartmentView({
   const closeCostEdit = (lineId: string) =>
     setCostInput(prev => { const n = { ...prev }; delete n[lineId]; return n; });
 
-  const commitCost = (lineKey: string) => {
+  const commitCost = (lineKey: string, valueOverride?: string) => {
     const fields = costInput[lineKey];
     if (!fields) return;
-    const value = parseFloat(fields.value.replace(",", "."));
+    const effectiveValue = valueOverride ?? fields.value;
+    const value = parseFloat(effectiveValue.replace(",", "."));
     if (isNaN(value) || value <= 0) return;
     const verteilerVal = parseFloat(fields.verteiler.replace(",", "."));
     const anteilVal    = parseFloat(fields.anteil.replace(",", "."));
@@ -622,15 +629,16 @@ export default function ApartmentView({
     keys.forEach(lineKey => {
       const fields = costInput[lineKey];
       if (!fields) return;
-      const value = parseFloat(fields.value.replace(",", "."));
+      const effectiveValueStr = fields.value || calculateShare(lineKey, fields.verteiler, fields.anteil);
+      const value = parseFloat((effectiveValueStr || "").replace(",", "."));
       if (isNaN(value) || value <= 0) return;
-      const verteilerVal = parseFloat(fields.verteiler.replace(",", "."));
-      const anteilVal    = parseFloat(fields.anteil.replace(",", "."));
+      const verteilerVal = fields.fixedValue ? NaN : parseFloat(fields.verteiler.replace(",", "."));
+      const anteilVal    = fields.fixedValue ? NaN : parseFloat(fields.anteil.replace(",", "."));
       const payload = {
         value,
         verteiler:  isNaN(verteilerVal) ? undefined : verteilerVal,
         anteil:     isNaN(anteilVal)    ? undefined : anteilVal,
-        schluessel: fields.schluessel.trim() || undefined,
+        schluessel: fields.fixedValue ? undefined : (fields.schluessel.trim() || undefined),
       };
       const existing = costEntryFor(lineKey);
       if (existing) {
@@ -1687,7 +1695,7 @@ export default function ApartmentView({
                             <span className="w-24">{tCosts("schluessel")}</span>
                             <span className="w-20 text-right">{tCosts("anteil")}</span>
                             <span className="w-24 text-right">{tCosts("betrag", { defaultValue: "Betrag" })}</span>
-                            <span className="w-7" />
+                            <span className="w-14" />
                           </div>
                           <CardContent className="p-0 divide-y">
                             {editingNewCostKeys.map(lineKey => {
@@ -1698,47 +1706,81 @@ export default function ApartmentView({
                               const isSavingLine = savingKeys.has(lineKey);
                               const propTotal    = getPropertyCostTotal(lineKey);
                               const name         = costLineName(line, i18n.language);
-                              const betrag       = fields.value ? parseFloat(fields.value) : null;
+                              const betragRaw    = fields.fixedValue
+                                ? fields.value
+                                : (fields.value || calculateShare(lineKey, fields.verteiler, fields.anteil));
+                              const betrag       = betragRaw ? parseFloat(betragRaw) : null;
+                              const toggleFixed  = (checked: boolean) =>
+                                setCostInput(prev => ({
+                                  ...prev,
+                                  [lineKey]: {
+                                    ...prev[lineKey]!,
+                                    fixedValue: checked,
+                                    ...(!checked ? { value: calculateShare(lineKey, prev[lineKey]!.verteiler, prev[lineKey]!.anteil) || "" } : {}),
+                                  },
+                                }));
                               return (
                                 <div key={lineKey} className={`flex items-center gap-2 px-4 py-2.5 text-sm${isSavingLine ? " opacity-50" : ""}`}>
                                   <span className="flex-1 min-w-0 font-medium truncate">{name}</span>
-                                  <span className="shrink-0 w-24 text-right tabular-nums text-muted-foreground text-xs">
-                                    {propTotal != null ? `€ ${propTotal.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
+                                  <span className={`shrink-0 w-24 text-right tabular-nums text-xs ${fields.fixedValue ? "opacity-30 text-muted-foreground" : "text-muted-foreground"}`}>
+                                    {!fields.fixedValue && propTotal != null ? `€ ${propTotal.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
                                   </span>
-                                  <span className="shrink-0 w-10 text-right tabular-nums text-muted-foreground text-xs">
-                                    {fields.verteiler || "—"}
+                                  <span className={`shrink-0 w-10 text-right tabular-nums text-xs ${fields.fixedValue ? "opacity-30 text-muted-foreground" : "text-muted-foreground"}`}>
+                                    {!fields.fixedValue ? (fields.verteiler || "—") : "—"}
                                   </span>
-                                  <span className="shrink-0 w-24 text-sm text-muted-foreground truncate">
-                                    {fields.schluessel || "—"}
+                                  <span className={`shrink-0 w-24 text-sm truncate ${fields.fixedValue ? "opacity-30 text-muted-foreground" : "text-muted-foreground"}`}>
+                                    {!fields.fixedValue ? (fields.schluessel || "—") : "—"}
                                   </span>
-                                  <Input
-                                    type="text"
-                                    inputMode="decimal"
-                                    value={fields.anteil}
-                                    disabled={isSavingLine}
-                                    className="shrink-0 h-7 text-sm text-right w-20"
-                                    onChange={e => {
-                                      const val = e.target.value;
-                                      const calc = calculateShare(lineKey, fields.verteiler, val);
-                                      setCostInput(prev => ({
-                                        ...prev,
-                                        [lineKey]: { ...prev[lineKey]!, anteil: val, ...(calc ? { value: calc } : {}) },
-                                      }));
-                                    }}
-                                    onKeyDown={e => { if (e.key === "Enter") commitCost(lineKey); }}
-                                  />
+                                  {fields.fixedValue ? (
+                                    <Input
+                                      type="text"
+                                      inputMode="decimal"
+                                      placeholder="0,00"
+                                      value={fields.value}
+                                      disabled={isSavingLine}
+                                      className="shrink-0 h-7 text-sm text-right w-20"
+                                      onChange={e => setCostInput(prev => ({ ...prev, [lineKey]: { ...prev[lineKey]!, value: e.target.value } }))}
+                                      onKeyDown={e => { if (e.key === "Enter") commitCost(lineKey); }}
+                                    />
+                                  ) : (
+                                    <Input
+                                      type="text"
+                                      inputMode="decimal"
+                                      value={fields.anteil}
+                                      disabled={isSavingLine}
+                                      className="shrink-0 h-7 text-sm text-right w-20"
+                                      onChange={e => {
+                                        const val = e.target.value;
+                                        const calc = calculateShare(lineKey, fields.verteiler, val);
+                                        setCostInput(prev => ({
+                                          ...prev,
+                                          [lineKey]: { ...prev[lineKey]!, anteil: val, ...(calc ? { value: calc } : {}) },
+                                        }));
+                                      }}
+                                      onKeyDown={e => { if (e.key === "Enter") commitCost(lineKey, betragRaw || undefined); }}
+                                    />
+                                  )}
                                   <span className="shrink-0 w-24 text-right tabular-nums font-medium">
-                                    {betrag != null ? `€ ${betrag.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
+                                    {betrag != null ? `€ ${betrag.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
                                   </span>
-                                  <Button
-                                    size="sm" variant="ghost"
-                                    className="shrink-0 h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-                                    disabled={isSavingLine || aptCostsSaving || !fields.value}
-                                    title={tCosts("save")}
-                                    onClick={() => commitCost(lineKey)}
-                                  >
-                                    <Check className="h-3.5 w-3.5" />
-                                  </Button>
+                                  <div className="shrink-0 w-14 flex items-center justify-end gap-1">
+                                    <Checkbox
+                                      id={`fixed-batch-${lineKey}`}
+                                      checked={fields.fixedValue}
+                                      disabled={isSavingLine}
+                                      title={tCosts("fixedValue")}
+                                      onCheckedChange={checked => toggleFixed(!!checked)}
+                                    />
+                                    <Button
+                                      size="sm" variant="ghost"
+                                      className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                                      disabled={isSavingLine || aptCostsSaving || betrag == null}
+                                      title={tCosts("save")}
+                                      onClick={() => commitCost(lineKey, betragRaw || undefined)}
+                                    >
+                                      <Check className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
                                 </div>
                               );
                             })}

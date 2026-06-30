@@ -9,6 +9,7 @@ import { Input } from "../ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 
 const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 
@@ -200,12 +201,17 @@ export default function ApartmentDetail({
   }, [allCosts, apartment?.["property-id"]]);
 
   const getPropertyCostTotal = (lineKey: string): number | null => {
-    const exact = propertyCosts.find((c: any) => c.line === lineKey && Number(c.year) === year);
+    const candidates = propertyCosts.filter((c: any) => c.line === lineKey);
+    if (candidates.length === 0) return null;
+    const exact = candidates.find((c: any) => Number(c.year) === year);
     if (exact) return Number(exact.value);
-    const inherited = [...propertyCosts]
-      .filter((c: any) => c.line === lineKey && Number(c.year) < year)
+    const past = [...candidates]
+      .filter((c: any) => Number(c.year) < year)
       .sort((a: any, b: any) => Number(b.year) - Number(a.year))[0];
-    return inherited ? Number(inherited.value) : null;
+    if (past) return Number(past.value);
+    const future = [...candidates]
+      .sort((a: any, b: any) => Number(a.year) - Number(b.year))[0];
+    return future ? Number(future.value) : null;
   };
 
   const calculateShare = (lineKey: string, verteilerStr: string, anteilStr: string): string => {
@@ -281,9 +287,19 @@ export default function ApartmentDetail({
   const propertyApartmentCountForDetail = propertyApartmentCount != null ? String(propertyApartmentCount) : "";
 
   const autoFillForSchluessel = (schl: string): { verteiler?: string; anteil?: string } => {
-    if (schl === "Wohnfläche")    return { anteil: propertyLivingAreaStr };
+    if (schl === "Wohnfläche")    return { verteiler: propertyLivingAreaStr };
     if (schl === "Wohneinheiten") return { verteiler: propertyApartmentCountForDetail, anteil: "1" };
     return {};
+  };
+
+  const shareCalcBlocker = (lineKey: string, verteilerStr: string, anteilStr: string): string | null => {
+    const propTotal = getPropertyCostTotal(lineKey);
+    if (propTotal == null) return "Keine Immobilienkosten für diese Kostenart in diesem Jahr gefunden";
+    const v = parseFloat(verteilerStr.replace(",", "."));
+    if (isNaN(v) || v === 0) return "Kein gültiger Verteiler";
+    const a = parseFloat(anteilStr.replace(",", "."));
+    if (isNaN(a) || a === 0) return "Kein gültiger Anteil";
+    return null;
   };
 
   const handleSelectCostLine = (key: string) => {
@@ -516,7 +532,19 @@ export default function ApartmentDetail({
               <div className="text-xs text-muted-foreground">
                 {t("gesamtkosten")}:{" "}
                 <span className="font-semibold text-foreground">
-                  {fields.value ? `€ ${parseFloat(fields.value).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
+                  {fields.value ? `€ ${parseFloat(fields.value).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : (() => {
+                    const blocker = shareCalcBlocker(line.key, fields.verteiler, fields.anteil);
+                    return blocker ? (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-help text-muted-foreground">—</span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">{blocker}</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : "—";
+                  })()}
                 </span>
               </div>
               <div className="flex gap-2">

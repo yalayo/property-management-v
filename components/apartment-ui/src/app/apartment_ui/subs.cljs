@@ -22,6 +22,11 @@
    (get-in db [:apartments :add-dialog-open?] false)))
 
 (re-frame/reg-sub
+ ::apartment-save-error
+ (fn [db _]
+   (get-in db [:apartments :save-error])))
+
+(re-frame/reg-sub
  ::selected-apartment-id
  (fn [db _]
    (get-in db [:apartments :selected-id])))

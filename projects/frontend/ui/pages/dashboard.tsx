@@ -321,7 +321,7 @@ export default function Dashboard(props) {
                 onBack={() => { setSelectedProperty(null); props.onClearSelectedApartment?.(); }}
                 onViewApartment={(aptId) => props.onSelectApartmentInline?.(aptId, "tenants")}
                 onViewTenant={(tenantId) => handleSelect("tenants", { tenantId })}
-                onAddApartment={(code) => props.onAddApartment?.(selectedProperty.id, code)}
+                onAddApartment={(_pid, data) => props.onAddApartment?.(selectedProperty.id, data)}
                 onAddTenant={(data) => props.onAddTenant?.(data)}
                 aptsSaving={props.aptsSaving}
                 tenantsSaving={props.tenantsSaving}

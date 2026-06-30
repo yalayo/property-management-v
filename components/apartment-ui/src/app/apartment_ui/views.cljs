@@ -43,6 +43,7 @@
           new-wohnflaeche      @(re-frame/subscribe [::subs/new-apartment-wohnflaeche])
           new-strom            @(re-frame/subscribe [::subs/new-apartment-strom-zaehler-nr])
           new-wasser           @(re-frame/subscribe [::subs/new-apartment-wasser-zaehler-nrn])
+          apt-save-error       @(re-frame/subscribe [::subs/apartment-save-error])
           assign-apt-id        @(re-frame/subscribe [::subs/assign-apt-id])
           assign-error         @(re-frame/subscribe [::subs/assign-error])
           garages              @(re-frame/subscribe [::subs/garages])
@@ -212,6 +213,7 @@
               :properties                      (clj->js properties)
               :apartments                      (clj->js apartments)
               :isLoading                       saving?
+              :saveError                       apt-save-error
               :code                            new-code
               :wohnflaeche                     (or new-wohnflaeche "")
               :stromZaehlerNr                  (or new-strom "")
