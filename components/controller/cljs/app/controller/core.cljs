@@ -707,7 +707,7 @@
     (fn [org-id]
       (let [eid (:id data)]
         (js-await [entity ((:pull storage) eid '*)]
-                  (if (not= (:expense-type/organization-id entity) org-id)
+                  (if (not (contains? #{org-id "system"} (:expense-type/organization-id entity)))
                     {:error :not-found}
                     (js-await [{:keys [tx-id]}
                                ((:transact! storage)

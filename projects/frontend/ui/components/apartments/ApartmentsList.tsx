@@ -140,8 +140,14 @@ export default function ApartmentsList({
 
   useEffect(() => { setPage(1); }, [apartments, filterText]);
 
+  const lowerFilter = filterText.toLowerCase();
   const filteredApartments = filterText
-    ? safeApartments.filter((a) => a.code?.toLowerCase().includes(filterText.toLowerCase()))
+    ? safeApartments.filter((a) => {
+        if (a.code?.toLowerCase().includes(lowerFilter)) return true;
+        const aptEntityId = a.id ?? (a as any)['db/id'];
+        const tenant = currentTenantByApt[aptEntityId];
+        return tenant ? tenantName(tenant).toLowerCase().includes(lowerFilter) : false;
+      })
     : safeApartments;
 
   const totalPages = Math.max(1, Math.ceil(filteredApartments.length / PAGE_SIZE));

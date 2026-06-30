@@ -546,23 +546,16 @@ export default function ApartmentView({
     const effectiveValue = valueOverride ?? fields.value;
     const value = parseFloat(effectiveValue.replace(",", "."));
     if (isNaN(value) || value <= 0) return;
-    const verteilerVal = parseFloat(fields.verteiler.replace(",", "."));
-    const anteilVal    = parseFloat(fields.anteil.replace(",", "."));
+    const verteilerVal = fields.fixedValue ? NaN : parseFloat(fields.verteiler.replace(",", "."));
+    const anteilVal    = fields.fixedValue ? NaN : parseFloat(fields.anteil.replace(",", "."));
     const payload = {
       value,
       verteiler:  isNaN(verteilerVal) ? undefined : verteilerVal,
       anteil:     isNaN(anteilVal)    ? undefined : anteilVal,
-      schluessel: fields.schluessel.trim() || undefined,
+      schluessel: fields.fixedValue ? undefined : (fields.schluessel.trim() || undefined),
     };
     const existing = costEntryFor(lineKey);
     if (existing) {
-      const eq = (a: any, b: any) => (a ?? null) === (b ?? null);
-      const unchanged =
-        eq(payload.value,      existing.value) &&
-        eq(payload.verteiler,  existing.verteiler) &&
-        eq(payload.anteil,     existing.anteil) &&
-        eq(payload.schluessel, existing.schluessel);
-      if (unchanged) { closeCostEdit(lineKey); return; }
       onUpdateAptCost?.({ id: existing.id, ...payload });
     } else {
       const line = costLines.find(l => l.key === lineKey);

@@ -22,7 +22,7 @@
   (re-frame/dispatch [::events/load-garages])
   (re-frame/dispatch [::events/close-assign-dialog])
   (fn [{:keys [properties tenants expense-types all-costs on-after-assign on-update-tenant tenants-saving?
-               apt-costs apt-costs-loading? apt-costs-saving?
+               apt-costs apt-costs-loading? apt-costs-saving? apt-cost-save-error?
                on-load-apt-costs on-add-apt-cost on-update-apt-cost on-delete-apt-cost
                rent-payments rent-loading? rent-saving?
                on-load-rent-payments on-add-rent-payment on-update-rent-payment on-delete-rent-payment
@@ -75,6 +75,7 @@
           :aptCosts                (clj->js (or apt-costs []))
           :aptCostsLoading         apt-costs-loading?
           :aptCostsSaving          apt-costs-saving?
+          :aptCostSaveError        apt-cost-save-error?
           :onLoadAptCosts          on-load-apt-costs
           :onAddAptCost            on-add-apt-cost
           :onUpdateAptCost         on-update-apt-cost

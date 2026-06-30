@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, ChevronRight, CalendarClock, Copy, Pencil, Plus, Trash2, Building2, User, Warehouse } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarClock, Copy, Pencil, Plus, Trash2, Building2, User, Warehouse, Search } from "lucide-react";
 import { useToast } from "../../hooks/use-toast";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
@@ -66,10 +66,29 @@ function ApartmentsTab({ apartments, tenants, t, tApts, propertyId, onViewApartm
   isReadOnly?: boolean;
 }) {
   const [addOpen, setAddOpen] = useState(false);
+  const [filterText, setFilterText] = useState("");
   const [newCode, setNewCode] = useState("");
   const [newWohnflaeche, setNewWohnflaeche] = useState("");
   const [newStrom, setNewStrom] = useState("");
   const [newWasser, setNewWasser] = useState<string[]>([]);
+
+  const lowerFilter = filterText.toLowerCase();
+  const filteredApartments = filterText
+    ? apartments.filter((apt: any) => {
+        const code = (apt["apartment/code"] ?? apt.code ?? "").toLowerCase();
+        if (code.includes(lowerFilter)) return true;
+        const aptId = apt.id ?? apt["db/id"];
+        const aptTenants = tenants.filter((tn: any) => {
+          const raw = tn["apartment-id"];
+          const tid = raw != null && typeof raw === "object" ? (raw.id ?? raw["db/id"]) : raw;
+          return String(tid) === String(aptId);
+        });
+        const activeTenant = aptTenants.find((tn: any) => !tn["end-date"] || new Date(tn["end-date"]) >= new Date());
+        if (!activeTenant) return false;
+        const name = [activeTenant["first-name"], activeTenant["last-name"]].filter(Boolean).join(" ") || activeTenant.name || "";
+        return name.toLowerCase().includes(lowerFilter);
+      })
+    : apartments;
 
   const resetForm = () => {
     setNewCode("");
@@ -92,7 +111,16 @@ function ApartmentsTab({ apartments, tenants, t, tApts, propertyId, onViewApartm
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder={tApts("searchPlaceholder", { defaultValue: "Code oder Mieter…" })}
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+            className="pl-8 h-9"
+          />
+        </div>
         {!isReadOnly && onAddApartment && (
           <Button size="sm" onClick={() => setAddOpen(true)}>
             <Plus className="h-3.5 w-3.5 mr-1.5" />
@@ -125,9 +153,13 @@ function ApartmentsTab({ apartments, tenants, t, tApts, propertyId, onViewApartm
         <div className="text-center py-10 text-sm text-muted-foreground">
           {t("noApartmentsInProperty")}
         </div>
+      ) : filteredApartments.length === 0 ? (
+        <div className="text-center py-10 text-sm text-muted-foreground">
+          {t("noResults", { defaultValue: "Keine Treffer" })}
+        </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {apartments.map((apt: any, index: number) => {
+          {filteredApartments.map((apt: any, index: number) => {
             const aptId = apt.id ?? apt["db/id"];
             const code = apt["apartment/code"] ?? apt.code ?? "—";
             const occupied: boolean = !!(apt["apartment/occupied"] ?? apt.occupied);
