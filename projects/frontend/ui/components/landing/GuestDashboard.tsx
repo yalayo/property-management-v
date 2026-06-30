@@ -312,6 +312,9 @@ export default function GuestDashboard({ guestUser, onGuestUserChange, onSignUp 
   const selectedApt             = selectedAptId ? guestUser.apartments.find(a => a.id === selectedAptId) ?? null : null;
   const aptCostsForSelected     = (guestUser.aptCosts ?? []).filter(c => c["apartment-id"] === selectedAptId);
   const rentPaymentsForSelected = (guestUser.rentPayments ?? []).filter(r => r["apartment-id"] === selectedAptId);
+  const propertyApartmentCount  = selectedApt
+    ? guestUser.apartments.filter(a => a.propertyId === selectedApt.propertyId).length
+    : undefined;
 
   const handleAddAptCost = (data: any) => {
     const apt = guestUser.apartments.find(a => a.id === data.apartmentId);
@@ -451,6 +454,7 @@ export default function GuestDashboard({ guestUser, onGuestUserChange, onSignUp 
         onAddRentPayment={handleAddRentPayment}
         onUpdateRentPayment={handleUpdateRentPayment}
         onDeleteRentPayment={handleDeleteRentPayment}
+        propertyApartmentCount={propertyApartmentCount}
         onBack={() => setSelectedAptId(null)}
       />
     );

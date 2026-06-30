@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 
 const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 
-const SCHLUESSEL_OPTIONS = ["Wohnfläche", "Verbraucht", "Anzahl Personen", "MEA"];
+const SCHLUESSEL_OPTIONS = ["Wohnfläche", "Verbraucht", "Anzahl Personen", "MEA", "Wohneinheiten"];
 
 type Tenant = {
   id: string;
@@ -56,6 +56,7 @@ type Props = {
   onAddRentPayment?: (data: { apartmentId: string; year: number; month: number; value: number; kaltmiete?: number; nebenkostenWarm?: number }) => void;
   onUpdateRentPayment?: (data: { id: string; value: number; kaltmiete?: number; nebenkostenWarm?: number }) => void;
   onDeleteRentPayment?: (id: string) => void;
+  propertyApartmentCount?: number;
   onBack: () => void;
 };
 
@@ -131,6 +132,7 @@ export default function ApartmentDetail({
   onAddRentPayment,
   onUpdateRentPayment,
   onDeleteRentPayment,
+  propertyApartmentCount,
   onBack,
 }: Props) {
   const { t, i18n } = useTranslation("costs");
@@ -275,19 +277,30 @@ export default function ApartmentDetail({
 
   const availableCostLines = costLines.filter(l => !savedKeys.includes(l.key) && costInput[l.key] == null && !savingKeys.has(l.key));
 
+  const propertyLivingAreaStr = property?.["living-area-m2"] != null ? String(property["living-area-m2"]) : "";
+  const propertyApartmentCountForDetail = propertyApartmentCount != null ? String(propertyApartmentCount) : "";
+
+  const autoFillForSchluessel = (schl: string): { verteiler?: string; anteil?: string } => {
+    if (schl === "Wohnfläche")    return { anteil: propertyLivingAreaStr };
+    if (schl === "Wohneinheiten") return { verteiler: propertyApartmentCountForDetail, anteil: "1" };
+    return {};
+  };
+
   const handleSelectCostLine = (key: string) => {
     const line = costLines.find(l => l.key === key);
     if (!line) return;
     const inherited      = inheritedCostFor(line.key);
-    const defaultVert    = inherited?.verteiler != null ? String(inherited.verteiler) : "100";
-    const defaultAnteil  = inherited?.anteil    != null ? String(inherited.anteil)    : "";
+    const schluessel     = String(inherited?.schluessel ?? "Wohnfläche");
+    const auto           = autoFillForSchluessel(schluessel);
+    const defaultVert    = auto.verteiler ?? (inherited?.verteiler != null ? String(inherited.verteiler) : "100");
+    const defaultAnteil  = auto.anteil    ?? (inherited?.anteil    != null ? String(inherited.anteil)    : "");
     const defaultValue   = inherited
       ? String(inherited.value)
       : calculateShare(key, defaultVert, defaultAnteil);
     openCostEdit(line.key, {
       value:      defaultValue,
       verteiler:  defaultVert,
-      schluessel: String(inherited?.schluessel ?? "Wohnfläche"),
+      schluessel,
       anteil:     defaultAnteil,
       fixedValue: false,
     });
@@ -424,13 +437,26 @@ export default function ApartmentDetail({
                 type="text"
                 list={`schluessel-opts-${line.key}`}
                 value={fields.schluessel}
-                onChange={e => setCostInput(prev => ({ ...prev, [line.key]: { ...prev[line.key]!, schluessel: e.target.value } }))}
+                onChange={e => {
+                  const schl = e.target.value;
+                  const auto = autoFillForSchluessel(schl);
+                  setCostInput(prev => ({
+                    ...prev,
+                    [line.key]: {
+                      ...prev[line.key]!,
+                      schluessel: schl,
+                      ...(auto.verteiler !== undefined ? { verteiler: auto.verteiler } : {}),
+                      ...(auto.anteil    !== undefined ? { anteil: auto.anteil }       : {}),
+                    },
+                  }));
+                }}
                 onKeyDown={e => { if (e.key === "Enter") commitCost(line.key); if (e.key === "Escape") closeCostEdit(line.key); }}
                 className="h-7 text-sm"
               />
               <datalist id={`schluessel-opts-${line.key}`}>
                 {SCHLUESSEL_OPTIONS.map(o => <option key={o} value={o} />)}
               </datalist>
+
             </div>
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">{t("anteil")}</label>

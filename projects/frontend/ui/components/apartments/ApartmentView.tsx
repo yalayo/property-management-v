@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import ApartmentBillingPanel from "../billing/ApartmentBillingPanel";
 
 const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
-const SCHLUESSEL_OPTIONS = ["Wohnfläche", "Verbraucht", "Anzahl Personen", "MEA"];
+const SCHLUESSEL_OPTIONS = ["Wohnfläche", "Verbraucht", "Anzahl Personen", "MEA", "Wohneinheiten"];
 
 type Apartment = {
   id: number;
@@ -463,6 +463,10 @@ export default function ApartmentView({
     .reduce((sum, a) => sum + aptPersonDaysForApt(a.id), 0);
   const propertyPersonDaysStr = propertyPersonDays > 0 ? String(propertyPersonDays) : "";
 
+  const propertyApartmentCount = apartments
+    .filter((a) => (a["property-id"] ?? (a as any).property_id) === propertyId).length;
+  const propertyApartmentCountStr = propertyApartmentCount > 0 ? String(propertyApartmentCount) : "";
+
   const aptTenants   = tenants.filter(tn => String(tn["apartment-id"]) === String(apartment.id));
 
   // Year-filtered tenants (with optimistic local assignment for mgmt tab)
@@ -498,8 +502,9 @@ export default function ApartmentView({
   };
 
   const defaultsForSchluessel = (schl: string): { verteiler: string; anteil: string } => {
-    if (schl === "Wohnfläche")      return { verteiler: propertyWohnflaecheStr, anteil: apartment.wohnflaeche != null ? String(apartment.wohnflaeche) : "" };
-    if (schl === "Anzahl Personen") return { verteiler: propertyPersonDaysStr,   anteil: aptPersonDaysStr };
+    if (schl === "Wohnfläche")      return { verteiler: propertyWohnflaecheStr,    anteil: property?.["living-area-m2"] != null ? String(property["living-area-m2"]) : "" };
+    if (schl === "Anzahl Personen") return { verteiler: propertyPersonDaysStr,      anteil: aptPersonDaysStr };
+    if (schl === "Wohneinheiten")   return { verteiler: propertyApartmentCountStr,  anteil: "1" };
     return { verteiler: "", anteil: "" };
   };
 

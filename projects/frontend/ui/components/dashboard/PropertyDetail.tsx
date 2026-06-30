@@ -657,7 +657,7 @@ export default function PropertyDetail({
   const num = (v: any) => (v === null || v === undefined || v === "" ? null : parseFloat(String(v).replace(",", ".")));
   const money = (v: any) => { const n = num(v); return n == null || isNaN(n) ? null : `€ ${formatEur(n)}`; };
   const area  = (v: any) => { const n = num(v); return n == null || isNaN(n) ? null : `${n.toLocaleString("de-DE")} m²`; };
-  const pct   = (v: any) => { const n = num(v); return n == null || isNaN(n) ? null : `${n.toLocaleString("de-DE")} %`; };
+  const pct   = (v: any) => { const n = num(v); return n == null || isNaN(n) ? null : `${(n * 100).toLocaleString("de-DE")} %`; };
   const usageKey: Record<string, string> = {
     "full-rental": "fullRental", "partial-rental": "partialRental",
     "owner-occupied": "ownerOccupied", "mixed": "mixed",
