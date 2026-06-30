@@ -30,6 +30,33 @@
   (-> (js/Promise.all (into-array (map #((:pull storage) % pattern) eids)))
       (.then (fn [results] (vec (array-seq results))))))
 
+(defn- impersonation-meta [user]
+  (when-let [admin (:impersonated-by user)]
+    (str "{\"impersonated-by\":\"" admin "\"}")))
+
+(defn- with-impersonation-meta [storage user]
+  (if-let [meta (impersonation-meta user)]
+    (-> storage
+        (update :transact! (fn [t!] (fn [entities _] (t! entities meta))))
+        (update :excise!   (fn [e!] (fn [eid _]       (e! eid meta)))))
+    storage))
+
+(defn- trial-access? [user]
+  (or (:superadmin user)
+      (:impersonated-by user)
+      (some? (:plan user))
+      (and (some? (:trialExpiresAt user))
+           (> (:trialExpiresAt user) (.now js/Date)))))
+
+(def ^:private trial-gated-commands
+  #{:create-property      :create-apartment         :start-onboarding
+    :create-tenant        :assign-tenant-to-apartment
+    :create-rent-payment  :create-apartment-cost    :create-cost
+    :create-expense-type  :upsert-tenant-miete
+    :create-garage        :assign-tenant-to-garage
+    :upsert-property-tax-config
+    :create-property-loan :create-property-maintenance})
+
 (defn- fetch-account [storage email]
   (js-await [eids ((:find-by-attr storage) :account/email email)]
             (when-let [eid (first eids)]
@@ -141,7 +168,10 @@
                                                                                   :role    role
                                                                                   :exp     (+ (js/Math.floor (/ (.now js/Date) 1000)) 86400)}
                                                                        sections    (doto (aset "sections" sections))
-                                                                       superadmin? (doto (aset "superadmin" true)))
+                                                                       superadmin? (doto (aset "superadmin" true))
+                                                                       plan        (doto (aset "plan" plan))
+                                                                       (and (some? trial) (not= "expired" (:status trial)))
+                                                                       (doto (aset "trialExpiresAt" (+ (.now js/Date) (* (:days-remaining trial) 86400000.0)))))
                                                         token       (jwt/sign claims (aget env "JWT_SECRET"))]
                                                     {:token token
                                                      :user  (cond-> (assoc (:user result)
@@ -1269,22 +1299,26 @@
                                target-membership (fetch-membership storage target-eid)]
                               (if (nil? target-membership)
                                 {:error :not-found}
-                                (let [org-id  (:membership/organization-id target-membership)
-                                      role    (:membership/role target-membership)
-                                      claims  #js {:email          email
-                                                   :user-id        target-eid
-                                                   :org-id         org-id
-                                                   :role           role
-                                                   :impersonated-by (:email user)
-                                                   :exp            (+ (js/Math.floor (/ (.now js/Date) 1000)) 3600)}
-                                      token   (jwt/sign claims (aget env "JWT_SECRET"))]
-                                  {:token token
-                                   :user  {:email          email
-                                           :name           (:account/name target-account)
-                                           :org-id         org-id
-                                           :role           role
-                                           :plan           (:account/plan target-account)
-                                           :impersonated-by (:email user)}})))
+                                (let [org-id (:membership/organization-id target-membership)
+                                      role   (:membership/role target-membership)]
+                                  (js-await [target-org ((:pull storage) org-id '[*])]
+                                            (let [plan   (:organization/plan target-org)
+                                                  trial  (when (nil? plan) (compute-trial target-org))
+                                                  claims #js {:email           email
+                                                              :user-id         target-eid
+                                                              :org-id          org-id
+                                                              :role            role
+                                                              :impersonated-by (:email user)
+                                                              :exp             (+ (js/Math.floor (/ (.now js/Date) 1000)) 3600)}
+                                                  token  (jwt/sign claims (aget env "JWT_SECRET"))]
+                                              {:token token
+                                               :user  (cond-> {:email           email
+                                                               :name            (:account/name target-account)
+                                                               :org-id          org-id
+                                                               :role            role
+                                                               :plan            plan
+                                                               :impersonated-by (:email user)}
+                                                        trial (assoc :trial trial))})))))
                     {:error :not-found}))))))
 
 ;; ---------------------------------------------------------------------------
@@ -1315,6 +1349,9 @@
 ;; ---------------------------------------------------------------------------
 
 (defn dispatch [{:keys [core storage command data env user]}]
+  (if (and (trial-gated-commands command) (not (trial-access? user)))
+    {:error :trial-expired}
+    (let [storage (with-impersonation-meta storage user)]
   (case command
     :user-sign-up                    (handle-sign-up! core storage data env)
     :user-sign-in                    (handle-sign-in! core storage data env)
@@ -1393,4 +1430,4 @@
     :create-property-maintenance     (handle-create-property-maintenance! storage data user)
     :update-property-maintenance     (handle-update-property-maintenance! storage data user)
     :delete-property-maintenance     (handle-delete-property-maintenance! storage data user)
-    {:error :unknown-command}))
+    {:error :unknown-command}))))

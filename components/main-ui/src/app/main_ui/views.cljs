@@ -93,14 +93,14 @@
         all-rent-payments    @(re-frame/subscribe [::cost-subs/all-rent-payments])
         has-active-plan?     @(re-frame/subscribe [::subs/has-active-plan?])
         is-super-admin?      @(re-frame/subscribe [::subs/is-super-admin?])
-        can-create?          (or has-active-plan? is-super-admin?)
+        is-impersonating?    @(re-frame/subscribe [::subs/is-impersonating?])
+        can-create?          (or has-active-plan? is-super-admin? is-impersonating?)
         admin-users          @(re-frame/subscribe [::subs/admin-users])
         admin-loading?       @(re-frame/subscribe [::subs/admin-loading?])
         admin-exporting?     @(re-frame/subscribe [::subs/admin-exporting?])
         admin-importing?     @(re-frame/subscribe [::subs/admin-importing?])
         survey-questions     @(re-frame/subscribe [::subs/survey-questions])
         survey-q-loading?    @(re-frame/subscribe [::subs/survey-questions-loading?])
-        is-impersonating?    @(re-frame/subscribe [::subs/is-impersonating?])
         impersonated-email   @(re-frame/subscribe [::subs/impersonated-user-email])
         tax-configs          @(re-frame/subscribe [::tax-subs/tax-configs])
         tax-loans            @(re-frame/subscribe [::tax-subs/loans])
@@ -541,9 +541,9 @@
            :isImpersonating     is-impersonating?
            :impersonatedEmail   impersonated-email
            :onExitImpersonation #(re-frame/dispatch [::events/exit-impersonation])
-           :trialInfo           (clj->js trial-info)
-           :onPauseTrial        #(re-frame/dispatch [::events/pause-trial])
-           :onResumeTrial       #(re-frame/dispatch [::events/resume-trial])
+           :trialInfo           (when-not is-super-admin? (clj->js trial-info))
+           :onPauseTrial        (when-not is-super-admin? #(re-frame/dispatch [::events/pause-trial]))
+           :onResumeTrial       (when-not is-super-admin? #(re-frame/dispatch [::events/resume-trial]))
            :adminPanel          (when (and is-super-admin? (not is-impersonating?))
                                  (r/as-element
                                   [admin-panel
