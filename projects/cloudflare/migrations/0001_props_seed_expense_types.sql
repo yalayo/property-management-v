@@ -94,7 +94,7 @@ UNION ALL
 SELECT 'sys-et-drinking-water', 'expense-type/name-de', '"Trinkwasser"', (SELECT MAX(tx_id) FROM props_transactions WHERE tx_meta = '{"seed":"expense-types-v2"}'), 1
   WHERE NOT EXISTS (SELECT 1 FROM props_facts WHERE entity_id = 'sys-et-drinking-water' AND attribute = 'expense-type/name-de' AND excised_at IS NULL)
 UNION ALL
-SELECT 'sys-et-drinking-water', 'expense-type/distribution-method', '"living-area"', (SELECT MAX(tx_id) FROM props_transactions WHERE tx_meta = '{"seed":"expense-types-v2"}'), 1
+SELECT 'sys-et-drinking-water', 'expense-type/distribution-method', '"person"', (SELECT MAX(tx_id) FROM props_transactions WHERE tx_meta = '{"seed":"expense-types-v2"}'), 1
   WHERE NOT EXISTS (SELECT 1 FROM props_facts WHERE entity_id = 'sys-et-drinking-water' AND attribute = 'expense-type/distribution-method' AND excised_at IS NULL);
 
 -- waste-water
@@ -111,7 +111,7 @@ UNION ALL
 SELECT 'sys-et-waste-water', 'expense-type/name-de', '"Schmutzwasser"', (SELECT MAX(tx_id) FROM props_transactions WHERE tx_meta = '{"seed":"expense-types-v2"}'), 1
   WHERE NOT EXISTS (SELECT 1 FROM props_facts WHERE entity_id = 'sys-et-waste-water' AND attribute = 'expense-type/name-de' AND excised_at IS NULL)
 UNION ALL
-SELECT 'sys-et-waste-water', 'expense-type/distribution-method', '"living-area"', (SELECT MAX(tx_id) FROM props_transactions WHERE tx_meta = '{"seed":"expense-types-v2"}'), 1
+SELECT 'sys-et-waste-water', 'expense-type/distribution-method', '"person"', (SELECT MAX(tx_id) FROM props_transactions WHERE tx_meta = '{"seed":"expense-types-v2"}'), 1
   WHERE NOT EXISTS (SELECT 1 FROM props_facts WHERE entity_id = 'sys-et-waste-water' AND attribute = 'expense-type/distribution-method' AND excised_at IS NULL);
 
 -- rain-water
@@ -230,7 +230,7 @@ UNION ALL
 SELECT 'sys-et-waste-collection', 'expense-type/name-de', '"Müllabfuhr"', (SELECT MAX(tx_id) FROM props_transactions WHERE tx_meta = '{"seed":"expense-types-v2"}'), 1
   WHERE NOT EXISTS (SELECT 1 FROM props_facts WHERE entity_id = 'sys-et-waste-collection' AND attribute = 'expense-type/name-de' AND excised_at IS NULL)
 UNION ALL
-SELECT 'sys-et-waste-collection', 'expense-type/distribution-method', '"living-area"', (SELECT MAX(tx_id) FROM props_transactions WHERE tx_meta = '{"seed":"expense-types-v2"}'), 1
+SELECT 'sys-et-waste-collection', 'expense-type/distribution-method', '"person"', (SELECT MAX(tx_id) FROM props_transactions WHERE tx_meta = '{"seed":"expense-types-v2"}'), 1
   WHERE NOT EXISTS (SELECT 1 FROM props_facts WHERE entity_id = 'sys-et-waste-collection' AND attribute = 'expense-type/distribution-method' AND excised_at IS NULL);
 
 -- building-cleaning
