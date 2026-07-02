@@ -114,12 +114,14 @@
                                      (let [d (js->clj data :keywordize-keys true)]
                                        (re-frame/dispatch [::events/assign-tenant
                                                            apt-id
-                                                           {:first-name (:firstName d)
-                                                            :last-name  (:lastName d)
-                                                            :email      (:email d)
-                                                            :phone      (:phone d)
-                                                            :start-date (:startDate d)
-                                                            :end-date   (:endDate d)}
+                                                           {:first-name       (:firstName d)
+                                                            :last-name        (:lastName d)
+                                                            :email            (:email d)
+                                                            :phone            (:phone d)
+                                                            :start-date       (:startDate d)
+                                                            :end-date         (:endDate d)
+                                                            :kaltmiete        (:kaltmiete d)
+                                                            :nebenkosten-warm (:nebenkostenWarm d)}
                                                            on-after-assign])))}]
 
         selected-garage-id

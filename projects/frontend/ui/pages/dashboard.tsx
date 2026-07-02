@@ -87,6 +87,21 @@ export default function Dashboard(props) {
   const [selectedProperty, setSelectedProperty] = useState<any | null>(null);
   const [pendingMigration, setPendingMigration] = useState<any | null>(null);
   const [navContext, setNavContext] = useState<{ propertyId?: string; aptId?: string; nonce: number } | null>(null);
+  const [returnToProperty, setReturnToProperty] = useState<any | null>(null);
+
+  // When a tenant/garage detail is dismissed (ID goes null) while we have a return target, snap back.
+  useEffect(() => {
+    if (!returnToProperty) return;
+    const tenantGone  = props.selectedTenantId  == null;
+    const garageGone  = props.selectedGarageId  == null;
+    const aptGone     = props.selectedApartmentId == null;
+    if (tenantGone && garageGone && aptGone) {
+      setSelectedProperty(returnToProperty);
+      setActiveTab("properties");
+      props.onChangeTab?.("properties");
+      setReturnToProperty(null);
+    }
+  }, [props.selectedTenantId, props.selectedGarageId, props.selectedApartmentId]);
 
   useEffect(() => {
     if (props.onLoadData) props.onLoadData();
@@ -302,7 +317,7 @@ export default function Dashboard(props) {
           )}
 
           {activeTab === "properties" && (
-            selectedProperty && props.selectedApartmentId != null ? (
+            selectedProperty && (props.selectedApartmentId != null || props.selectedGarageId != null) ? (
               props.apartmentsView
             ) : selectedProperty ? (
               <PropertyDetail
@@ -319,8 +334,8 @@ export default function Dashboard(props) {
                 onUpdateCost={props.onUpdateCost}
                 onDeleteCost={props.onDeleteCost}
                 onBack={() => { setSelectedProperty(null); props.onClearSelectedApartment?.(); }}
-                onViewApartment={(aptId) => props.onSelectApartmentInline?.(aptId, "tenants")}
-                onViewTenant={(tenantId) => handleSelect("tenants", { tenantId })}
+                onViewApartment={(aptId) => { setReturnToProperty(selectedProperty); props.onSelectApartmentInline?.(aptId, "tenants"); }}
+                onViewTenant={(tenantId) => { setReturnToProperty(selectedProperty); handleSelect("tenants", { tenantId }); }}
                 onAddApartment={(_pid, data) => props.onAddApartment?.(selectedProperty.id, data)}
                 onAddTenant={(data) => props.onAddTenant?.(data)}
                 aptsSaving={props.aptsSaving}
@@ -328,11 +343,7 @@ export default function Dashboard(props) {
                 garages={props.garages ?? []}
                 garagesSaving={props.aptsSaving}
                 onAddGarage={props.onAddGarage}
-                onViewGarage={(garageId) => {
-                  props.onSelectGarageInline?.(garageId);
-                  setActiveTab("apartments");
-                  props.onChangeTab?.("apartments");
-                }}
+                onViewGarage={(garageId) => { setReturnToProperty(selectedProperty); props.onSelectGarageInline?.(garageId); }}
               />
             ) : (
               <PropertyList

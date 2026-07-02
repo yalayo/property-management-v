@@ -560,57 +560,6 @@ function NebenkostenTab({
         <p className="text-sm text-muted-foreground">{t("loading")}</p>
       ) : (
         <div className="space-y-2">
-          {activeLines.length > 0 && (
-            <Card>
-              <CardContent className="p-0">
-                {activeLines.map((line) => {
-                  const entry     = entryFor(line.key);
-                  const isSaving  = savingKeys.has(line.key);
-                  const isEditing = inputState[line.key] != null && !isSaving;
-
-                  if (isSaving) {
-                    return (
-                      <div key={line.id} className="flex items-center gap-3 px-4 py-3 text-sm border-b last:border-b-0 opacity-60">
-                        <span className="flex-1 font-medium">{costLineName(line, i18nLanguage)}</span>
-                        <span className="text-xs text-muted-foreground italic">{t("save")}…</span>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div key={line.id} className="flex items-center gap-3 px-4 py-3 text-sm border-b last:border-b-0">
-                      <span className="flex-1 font-medium">{costLineName(line, i18nLanguage)}</span>
-                      {isEditing ? (
-                        <>
-                          <Input
-                            autoFocus type="text" inputMode="decimal"
-                            value={inputState[line.key]!}
-                            onChange={e => setInputState(prev => ({ ...prev, [line.key]: e.target.value }))}
-                            onKeyDown={e => { if (e.key === "Enter") commit(line); if (e.key === "Escape") closeEdit(line.key); }}
-                            className="w-36 h-7 text-sm text-right"
-                          />
-                          <Button size="sm" className="h-7 px-3" disabled={costsSaving || isReadOnly} onClick={() => commit(line)}>{t("save")}</Button>
-                          <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => closeEdit(line.key)}>{t("cancel")}</Button>
-                        </>
-                      ) : entry ? (
-                        <>
-                          <span className="tabular-nums text-right w-28">€{formatEur(Number(entry.value))}</span>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                            disabled={costsSaving || isReadOnly} onClick={() => openEdit(line.key, String(entry.value))}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                            disabled={costsSaving || isReadOnly} onClick={() => { onDeleteCost?.(entry.id); toast({ title: tCommon("deleted") }); }}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          )}
           {availableLines.length > 0 && (
             <Popover open={addLineOpen} onOpenChange={setAddLineOpen}>
               <PopoverTrigger asChild>
@@ -640,6 +589,68 @@ function NebenkostenTab({
               </PopoverContent>
             </Popover>
           )}
+          {activeLines.length > 0 && (() => {
+            const savedTotal = activeLines.reduce((sum, line) => {
+              const entry = entryFor(line.key);
+              return sum + (entry ? Number(entry.value) : 0);
+            }, 0);
+            return (
+              <Card>
+                <CardContent className="p-0">
+                  {activeLines.map((line) => {
+                    const entry     = entryFor(line.key);
+                    const isSaving  = savingKeys.has(line.key);
+                    const isEditing = inputState[line.key] != null && !isSaving;
+
+                    if (isSaving) {
+                      return (
+                        <div key={line.id} className="flex items-center gap-3 px-4 py-3 text-sm border-b last:border-b-0 opacity-60">
+                          <span className="flex-1 font-medium">{costLineName(line, i18nLanguage)}</span>
+                          <span className="text-xs text-muted-foreground italic">{t("save")}…</span>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={line.id} className="flex items-center gap-3 px-4 py-3 text-sm border-b last:border-b-0">
+                        <span className="flex-1 font-medium">{costLineName(line, i18nLanguage)}</span>
+                        {isEditing ? (
+                          <>
+                            <Input
+                              autoFocus type="text" inputMode="decimal"
+                              value={inputState[line.key]!}
+                              onChange={e => setInputState(prev => ({ ...prev, [line.key]: e.target.value }))}
+                              onKeyDown={e => { if (e.key === "Enter") commit(line); if (e.key === "Escape") closeEdit(line.key); }}
+                              className="w-36 h-7 text-sm text-right"
+                            />
+                            <Button size="sm" className="h-7 px-3" disabled={costsSaving || isReadOnly} onClick={() => commit(line)}>{t("save")}</Button>
+                            <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => closeEdit(line.key)}>{t("cancel")}</Button>
+                          </>
+                        ) : entry ? (
+                          <>
+                            <span className="tabular-nums text-right w-28">€{formatEur(Number(entry.value))}</span>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              disabled={costsSaving || isReadOnly} onClick={() => openEdit(line.key, String(entry.value))}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                              disabled={costsSaving || isReadOnly} onClick={() => { onDeleteCost?.(entry.id); toast({ title: tCommon("deleted") }); }}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                  <div className="flex items-center gap-3 px-4 py-3 text-sm border-t bg-muted/40">
+                    <span className="flex-1 font-semibold">{tCommon("total", { defaultValue: "Total" })}</span>
+                    <span className="tabular-nums text-right w-28 font-semibold">€{formatEur(savedTotal)}</span>
+                    <span className="w-[3.5rem]" />
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
         </div>
       )}
     </div>

@@ -434,7 +434,11 @@
       (let [result ((:process core) {:command :create-tenant :data data})]
         (if (:error result)
           result
-          (let [{:keys [apartment-id first-name last-name email phone start-date end-date birthday household-members]} (:entity result)]
+          (let [{:keys [apartment-id first-name last-name email phone start-date end-date birthday household-members]} (:entity result)
+                {:keys [kaltmiete nebenkosten-warm]} data
+                miete-year (if (seq start-date)
+                             (js/parseInt (.substring start-date 0 4))
+                             (.getFullYear (js/Date.)))]
             (js-await [dups ((:q storage) {:where [['?e :tenant/organization-id org-id]
                                                     ['?e :tenant/first-name first-name]
                                                     ['?e :tenant/last-name last-name]]})]
@@ -454,8 +458,20 @@
                                                       :tenant/end-date          end-date
                                                       :tenant/birthday          birthday
                                                       :tenant/household-members household-members}
-                                               apartment-id (assoc :tenant/apartment-id apartment-id))] nil)]
-                                          {:tx-id tx-id :tenant-id (first entity-ids)}))]
+                                               apartment-id        (assoc :tenant/apartment-id apartment-id)
+                                               (some? kaltmiete)   (assoc :tenant/kaltmiete kaltmiete)
+                                               (some? nebenkosten-warm) (assoc :tenant/nebenkosten-warm nebenkosten-warm))] nil)]
+                                          (let [tenant-id (first entity-ids)]
+                                            (if (or (some? kaltmiete) (some? nebenkosten-warm))
+                                              (js-await [_ ((:transact! storage)
+                                                            [(cond-> {:db/type                      "tenant-miete"
+                                                                      :tenant-miete/organization-id org-id
+                                                                      :tenant-miete/tenant-id       tenant-id
+                                                                      :tenant-miete/year            miete-year}
+                                                               (some? kaltmiete)        (assoc :tenant-miete/kaltmiete kaltmiete)
+                                                               (some? nebenkosten-warm) (assoc :tenant-miete/nebenkosten-warm nebenkosten-warm))] nil)]
+                                                       {:tx-id tx-id :tenant-id tenant-id})
+                                              {:tx-id tx-id :tenant-id tenant-id}))))]
                           (if (and apartment-id (seq start-date))
                             (js-await [apt-eids ((:q storage) {:where [['?e :tenant/apartment-id apartment-id]
                                                                          ['?e :tenant/organization-id org-id]]})

@@ -151,8 +151,9 @@
 (defn find-by-attr+ [^js db prefix attr value]
   (let [attr-sql (core/attr->sql attr)
         val-sql  (core/encode-value value)]
-    (-> (.prepare db (str "SELECT DISTINCT f.entity_id
+    (-> (.prepare db (str "SELECT f.entity_id
                       FROM " (tbl prefix "facts") " f
+                      JOIN " (tbl prefix "entities") " e ON e.entity_id = f.entity_id
                       WHERE f.attribute  = ?
                         AND f.value      = json(?)
                         AND f.excised_at IS NULL
@@ -162,7 +163,8 @@
                           WHERE f2.entity_id = f.entity_id
                             AND f2.attribute = f.attribute
                             AND f2.excised_at IS NULL
-                        )"))
+                        )
+                      ORDER BY e.created_tx ASC"))
         (.bind attr-sql val-sql)
         .all
         (.then (fn [^js r]

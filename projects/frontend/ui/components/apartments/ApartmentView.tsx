@@ -119,7 +119,7 @@ type Props = {
   onAssignExistingTenant?: (apartmentId: number, tenantId: string) => void;
   onAfterAssign?: () => void;
   onUpdateTenant?: (tenantId: string, data: TenantUpdateData) => void;
-  onCreateTenant?: (apartmentId: number, data: { firstName: string; lastName?: string; email?: string; phone?: string; startDate: string; endDate?: string }) => void;
+  onCreateTenant?: (apartmentId: number, data: { firstName: string; lastName?: string; email?: string; phone?: string; startDate: string; endDate?: string; kaltmiete?: number; nebenkostenWarm?: number }) => void;
   createTenantError?: string;
   initialTab?: "tenants" | "rent" | "costs" | "nebenkosten" | "settings";
   currentYear?: number;
@@ -314,6 +314,7 @@ export default function ApartmentView({
   const [addForm, setAddForm] = useState({
     firstName: "", lastName: "", email: "", phone: "",
     startDate: `${new Date().getFullYear()}-01-01`, endDate: "",
+    kaltmiete: "", nebenkostenWarm: "",
   });
 
   // ── Rent/Costs-tabs shared tenant selection ─────────────────────────────
@@ -350,7 +351,7 @@ export default function ApartmentView({
     setMgmtTenantTab(null);
     setEditingTenantId(null);
     setEditForm({});
-    setAddForm(f => ({ ...f, startDate: `${year}-01-01`, endDate: "" }));
+    setAddForm(f => ({ ...f, startDate: `${year}-01-01`, endDate: "", kaltmiete: "", nebenkostenWarm: "" }));
     setEditingMieteTenantId(null);
     setMieteForm({ kaltmiete: "", nebenkostenWarm: "" });
     autoPopulatedKey.current = "";
@@ -745,15 +746,19 @@ export default function ApartmentView({
 
   const handleCreateTenant = () => {
     if (!addForm.firstName.trim()) return;
+    const kaltVal = parseFloat(addForm.kaltmiete.replace(",", "."));
+    const nkVal   = parseFloat(addForm.nebenkostenWarm.replace(",", "."));
     onCreateTenant?.(apartment.id, {
-      firstName: addForm.firstName.trim(),
-      lastName:  addForm.lastName || undefined,
-      email:     addForm.email || undefined,
-      phone:     addForm.phone || undefined,
-      startDate: addForm.startDate || `${year}-01-01`,
-      endDate:   addForm.endDate || undefined,
+      firstName:       addForm.firstName.trim(),
+      lastName:        addForm.lastName || undefined,
+      email:           addForm.email || undefined,
+      phone:           addForm.phone || undefined,
+      startDate:       addForm.startDate || `${year}-01-01`,
+      endDate:         addForm.endDate || undefined,
+      kaltmiete:       isNaN(kaltVal) ? undefined : kaltVal,
+      nebenkostenWarm: isNaN(nkVal)   ? undefined : nkVal,
     });
-    setAddForm({ firstName: "", lastName: "", email: "", phone: "", startDate: `${year}-01-01`, endDate: "" });
+    setAddForm({ firstName: "", lastName: "", email: "", phone: "", startDate: `${year}-01-01`, endDate: "", kaltmiete: "", nebenkostenWarm: "" });
     toast({ title: tCommon("saved"), duration: 2000 });
   };
 
@@ -1519,6 +1524,20 @@ export default function ApartmentView({
                       <span className="ml-1 text-muted-foreground font-normal">({tCommon("optional")})</span>
                     </Label>
                     <Input type="date" value={addForm.endDate} onChange={e => setAddForm(f => ({ ...f, endDate: e.target.value }))} disabled={isSaving} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">
+                      Kaltmiete (€)
+                      <span className="ml-1 text-muted-foreground font-normal">({tCommon("optional")})</span>
+                    </Label>
+                    <Input type="number" inputMode="decimal" min="0" step="0.01" value={addForm.kaltmiete} onChange={e => setAddForm(f => ({ ...f, kaltmiete: e.target.value }))} disabled={isSaving} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">
+                      Nebenkosten warm (€)
+                      <span className="ml-1 text-muted-foreground font-normal">({tCommon("optional")})</span>
+                    </Label>
+                    <Input type="number" inputMode="decimal" min="0" step="0.01" value={addForm.nebenkostenWarm} onChange={e => setAddForm(f => ({ ...f, nebenkostenWarm: e.target.value }))} disabled={isSaving} />
                   </div>
                 </div>
                 {createTenantErrorMsg && (

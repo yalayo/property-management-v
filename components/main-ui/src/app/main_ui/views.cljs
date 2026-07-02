@@ -67,6 +67,8 @@
         apts-loading?        @(re-frame/subscribe [::apartment-subs/loading?])
         apts-saving?         @(re-frame/subscribe [::apartment-subs/saving?])
         selected-apt-id      @(re-frame/subscribe [::apartment-subs/selected-apartment-id])
+        selected-garage-id   @(re-frame/subscribe [::apartment-subs/selected-garage-id])
+        selected-tenant-id   @(re-frame/subscribe [::tenant-subs/selected-tenant-id])
         tenants              @(re-frame/subscribe [::tenant-subs/tenants])
         tenants-loading?     @(re-frame/subscribe [::tenant-subs/loading?])
         tenants-saving?      @(re-frame/subscribe [::tenant-subs/saving?])
@@ -175,7 +177,9 @@
                                                :tenants            tenants
                                                :expense-types      expense-types
                                                :all-costs          all-costs
-                                               :on-after-assign    (fn [] (tenant-ui/load-tenants))
+                                               :on-after-assign    (fn []
+                                                     (tenant-ui/load-tenants)
+                                                     (re-frame/dispatch [::rent-events/load-all-tenant-mieten]))
                                                :on-update-tenant   (fn [id data]
                                                                      (let [d (js->clj data :keywordize-keys true)]
                                                                        (re-frame/dispatch
@@ -431,6 +435,8 @@
            :aptsSaving              apts-saving?
            :tenantsSaving           tenants-saving?
            :selectedApartmentId     selected-apt-id
+           :selectedGarageId        selected-garage-id
+           :selectedTenantId        selected-tenant-id
            :onSelectApartmentInline (fn [apt-id initial-tab]
                                       (re-frame/dispatch [::apartment-events/select-apartment apt-id initial-tab]))
            :onClearSelectedApartment #(re-frame/dispatch [::apartment-events/clear-selected-apartment])
