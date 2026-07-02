@@ -121,7 +121,8 @@
                                                             :start-date       (:startDate d)
                                                             :end-date         (:endDate d)
                                                             :kaltmiete        (:kaltmiete d)
-                                                            :nebenkosten-warm (:nebenkostenWarm d)}
+                                                            :nebenkosten-warm (:nebenkostenWarm d)
+                                                            :residents-count  (:residentsCount d)}
                                                            on-after-assign])))}]
 
         selected-garage-id

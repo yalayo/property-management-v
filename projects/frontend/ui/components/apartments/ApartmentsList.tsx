@@ -253,11 +253,17 @@ export default function ApartmentsList({
                             )}
                           </div>
                         )}
-                        {curTenant["start-date"] && (
-                          <p className="text-xs text-muted-foreground">
-                            {curTenant["start-date"]} → {curTenant["end-date"] || t("openEnded", { defaultValue: "unbefristet" })}
-                          </p>
-                        )}
+                        {curTenant["start-date"] && (() => {
+                          const s = new Date(curTenant["start-date"] + "T00:00:00");
+                          const e = curTenant["end-date"] ? new Date(curTenant["end-date"] + "T00:00:00") : new Date();
+                          const days = Math.round((e.getTime() - s.getTime()) / 86400000) + 1;
+                          return (
+                            <p className="text-xs text-muted-foreground">
+                              {curTenant["start-date"]} → {curTenant["end-date"] || t("openEnded", { defaultValue: "unbefristet" })}
+                              <span className="ml-1 tabular-nums">({days} Tage)</span>
+                            </p>
+                          );
+                        })()}
                       </div>
                     )}
 

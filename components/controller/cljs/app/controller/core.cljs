@@ -435,7 +435,7 @@
         (if (:error result)
           result
           (let [{:keys [apartment-id first-name last-name email phone start-date end-date birthday household-members]} (:entity result)
-                {:keys [kaltmiete nebenkosten-warm]} data
+                {:keys [kaltmiete nebenkosten-warm residents-count]} data
                 miete-year (if (seq start-date)
                              (js/parseInt (.substring start-date 0 4))
                              (.getFullYear (js/Date.)))]
@@ -458,9 +458,10 @@
                                                       :tenant/end-date          end-date
                                                       :tenant/birthday          birthday
                                                       :tenant/household-members household-members}
-                                               apartment-id        (assoc :tenant/apartment-id apartment-id)
-                                               (some? kaltmiete)   (assoc :tenant/kaltmiete kaltmiete)
-                                               (some? nebenkosten-warm) (assoc :tenant/nebenkosten-warm nebenkosten-warm))] nil)]
+                                               apartment-id             (assoc :tenant/apartment-id apartment-id)
+                                               (some? kaltmiete)        (assoc :tenant/kaltmiete kaltmiete)
+                                               (some? nebenkosten-warm) (assoc :tenant/nebenkosten-warm nebenkosten-warm)
+                                               (some? residents-count)  (assoc :tenant/residents-count residents-count))] nil)]
                                           (let [tenant-id (first entity-ids)]
                                             (if (or (some? kaltmiete) (some? nebenkosten-warm))
                                               (js-await [_ ((:transact! storage)

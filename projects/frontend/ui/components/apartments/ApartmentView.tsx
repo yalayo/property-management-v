@@ -66,7 +66,7 @@ type TenantUpdateData = {
   endDate?: string;
 };
 
-type CostLine = { id: string; key: string; name?: string; "name-en"?: string; "name-de"?: string };
+type CostLine = { id: string; key: string; name?: string; "name-en"?: string; "name-de"?: string; "distribution-method"?: string };
 
 type TenantMiete = {
   id: string;
@@ -119,7 +119,7 @@ type Props = {
   onAssignExistingTenant?: (apartmentId: number, tenantId: string) => void;
   onAfterAssign?: () => void;
   onUpdateTenant?: (tenantId: string, data: TenantUpdateData) => void;
-  onCreateTenant?: (apartmentId: number, data: { firstName: string; lastName?: string; email?: string; phone?: string; startDate: string; endDate?: string; kaltmiete?: number; nebenkostenWarm?: number }) => void;
+  onCreateTenant?: (apartmentId: number, data: { firstName: string; lastName?: string; email?: string; phone?: string; startDate: string; endDate?: string; kaltmiete?: number; nebenkostenWarm?: number; residentsCount?: number }) => void;
   createTenantError?: string;
   initialTab?: "tenants" | "rent" | "costs" | "nebenkosten" | "settings";
   currentYear?: number;
@@ -314,7 +314,7 @@ export default function ApartmentView({
   const [addForm, setAddForm] = useState({
     firstName: "", lastName: "", email: "", phone: "",
     startDate: `${new Date().getFullYear()}-01-01`, endDate: "",
-    kaltmiete: "", nebenkostenWarm: "",
+    kaltmiete: "", nebenkostenWarm: "", residentsCount: "",
   });
 
   // ── Rent/Costs-tabs shared tenant selection ─────────────────────────────
@@ -351,7 +351,7 @@ export default function ApartmentView({
     setMgmtTenantTab(null);
     setEditingTenantId(null);
     setEditForm({});
-    setAddForm(f => ({ ...f, startDate: `${year}-01-01`, endDate: "", kaltmiete: "", nebenkostenWarm: "" }));
+    setAddForm(f => ({ ...f, startDate: `${year}-01-01`, endDate: "", kaltmiete: "", nebenkostenWarm: "", residentsCount: "" }));
     setEditingMieteTenantId(null);
     setMieteForm({ kaltmiete: "", nebenkostenWarm: "" });
     autoPopulatedKey.current = "";
@@ -391,11 +391,12 @@ export default function ApartmentView({
     const toOpen: Record<string, CostEditFields> = {};
     propLineKeys.forEach(lineKey => {
       if (savedThisYear.has(lineKey)) return;
-      if (!expenseTypes.find((l: any) => l.key === lineKey)) return;
+      const expType = expenseTypes.find((l: any) => l.key === lineKey);
+      if (!expType) return;
       const inherited  = [...aptCosts]
         .filter((c: any) => c.line === lineKey && Number(c.year) < year)
         .sort((a: any, b: any) => Number(b.year) - Number(a.year))[0] ?? null;
-      const schluessel = String(inherited?.schluessel ?? "Wohnfläche");
+      const schluessel = String(inherited?.schluessel ?? schluesselForMethod(expType["distribution-method"]));
       const auto       = defaultsForSchluessel(schluessel);
       const verteiler  = auto.verteiler || (inherited?.verteiler != null ? String(inherited.verteiler) : "");
       const anteil     = auto.anteil    || (inherited?.anteil    != null ? String(inherited.anteil)    : "");
@@ -508,6 +509,12 @@ export default function ApartmentView({
     return future ? Number(future.value) : null;
   };
 
+  const schluesselForMethod = (method?: string): string => {
+    if (method === "person") return "Anzahl Personen";
+    if (method === "consumed") return "Verbraucht";
+    return "Wohnfläche";
+  };
+
   const defaultsForSchluessel = (schl: string): { verteiler: string; anteil: string } => {
     if (schl === "Wohnfläche")      return { verteiler: property?.["living-area-m2"] != null ? String(property["living-area-m2"]) : propertyWohnflaecheStr, anteil: apartment["wohnflaeche"] != null ? String(apartment["wohnflaeche"]) : "" };
     if (schl === "Anzahl Personen") return { verteiler: propertyPersonDaysStr,      anteil: aptPersonDaysStr };
@@ -586,7 +593,7 @@ export default function ApartmentView({
     const line = costLines.find(l => l.key === key);
     if (!line) return;
     const inherited     = inheritedCostFor(line.key);
-    const schluessel    = String(inherited?.schluessel ?? "Wohnfläche");
+    const schluessel    = String(inherited?.schluessel ?? schluesselForMethod(line["distribution-method"]));
     const auto          = defaultsForSchluessel(schluessel);
     const defaultVert   = auto.verteiler || (inherited?.verteiler != null ? String(inherited.verteiler) : "");
     const defaultAnteil = auto.anteil    || (inherited?.anteil    != null ? String(inherited.anteil)    : "");
@@ -746,8 +753,9 @@ export default function ApartmentView({
 
   const handleCreateTenant = () => {
     if (!addForm.firstName.trim()) return;
-    const kaltVal = parseFloat(addForm.kaltmiete.replace(",", "."));
-    const nkVal   = parseFloat(addForm.nebenkostenWarm.replace(",", "."));
+    const kaltVal     = parseFloat(addForm.kaltmiete.replace(",", "."));
+    const nkVal       = parseFloat(addForm.nebenkostenWarm.replace(",", "."));
+    const residentsVal = parseInt(addForm.residentsCount, 10);
     onCreateTenant?.(apartment.id, {
       firstName:       addForm.firstName.trim(),
       lastName:        addForm.lastName || undefined,
@@ -757,8 +765,9 @@ export default function ApartmentView({
       endDate:         addForm.endDate || undefined,
       kaltmiete:       isNaN(kaltVal) ? undefined : kaltVal,
       nebenkostenWarm: isNaN(nkVal)   ? undefined : nkVal,
+      residentsCount:  isNaN(residentsVal) || residentsVal <= 0 ? undefined : residentsVal,
     });
-    setAddForm({ firstName: "", lastName: "", email: "", phone: "", startDate: `${year}-01-01`, endDate: "", kaltmiete: "", nebenkostenWarm: "" });
+    setAddForm({ firstName: "", lastName: "", email: "", phone: "", startDate: `${year}-01-01`, endDate: "", kaltmiete: "", nebenkostenWarm: "", residentsCount: "" });
     toast({ title: tCommon("saved"), duration: 2000 });
   };
 
@@ -1236,6 +1245,10 @@ export default function ApartmentView({
                         {tn["start-date"] ?? ""}
                         {" – "}
                         {tn["end-date"] || t("openEnded")}
+                        {tn["start-date"] && (() => {
+                          const days = tenantDaysInYear(tn, year);
+                          return days > 0 ? <span className="ml-1 tabular-nums">({days} Tage)</span> : null;
+                        })()}
                       </span>
                     </button>
                   ))}
@@ -1252,13 +1265,17 @@ export default function ApartmentView({
                       {mgmtTenant.email && <p className="text-sm text-muted-foreground">{mgmtTenant.email}</p>}
                       {mgmtTenant.phone && <p className="text-sm text-muted-foreground">{mgmtTenant.phone}</p>}
                     </div>
-                    {mgmtTenant["start-date"] && (
-                      <div className="space-y-0.5">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{t("leasePeriod")}</p>
-                        <p className="text-sm">{mgmtTenant["start-date"]}</p>
-                        <p className="text-sm text-muted-foreground">→ {mgmtTenant["end-date"] || t("openEnded")}</p>
-                      </div>
-                    )}
+                    {mgmtTenant["start-date"] && (() => {
+                      const days = tenantDaysInYear(mgmtTenant, year);
+                      return (
+                        <div className="space-y-0.5">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{t("leasePeriod")}</p>
+                          <p className="text-sm">{mgmtTenant["start-date"]}</p>
+                          <p className="text-sm text-muted-foreground">→ {mgmtTenant["end-date"] || t("openEnded")}</p>
+                          {days > 0 && <p className="text-xs text-muted-foreground tabular-nums">({days} Tage in {year})</p>}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
@@ -1538,6 +1555,13 @@ export default function ApartmentView({
                       <span className="ml-1 text-muted-foreground font-normal">({tCommon("optional")})</span>
                     </Label>
                     <Input type="number" inputMode="decimal" min="0" step="0.01" value={addForm.nebenkostenWarm} onChange={e => setAddForm(f => ({ ...f, nebenkostenWarm: e.target.value }))} disabled={isSaving} />
+                  </div>
+                  <div className="space-y-1 sm:col-span-2">
+                    <Label className="text-xs">
+                      Personen im Haushalt gesamt
+                      <span className="ml-1 text-muted-foreground font-normal">({tCommon("optional")})</span>
+                    </Label>
+                    <Input type="number" inputMode="numeric" min="1" step="1" value={addForm.residentsCount} onChange={e => setAddForm(f => ({ ...f, residentsCount: e.target.value }))} disabled={isSaving} className="sm:max-w-[50%]" />
                   </div>
                 </div>
                 {createTenantErrorMsg && (

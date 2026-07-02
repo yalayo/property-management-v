@@ -633,6 +633,7 @@ export default function NebenkostenAbrechnung({
                   const tEnd     = tenant["end-date"]   ? new Date(tenant["end-date"]   + "T00:00:00") : new Date(9999, 11, 31);
                   const effStart = tStart < yearStart ? yearStart : tStart;
                   const effEnd   = tEnd   > yearEnd   ? yearEnd   : tEnd;
+                  const listDays = Math.round((effEnd.getTime() - effStart.getTime()) / 86400000) + 1;
                   return (
                     <div
                       key={`${apt.id}-${tenant.id}`}
@@ -645,6 +646,7 @@ export default function NebenkostenAbrechnung({
                         </p>
                         <p className="text-xs text-muted-foreground tabular-nums">
                           {fmtGermanDate(effStart)} – {fmtGermanDate(effEnd)}
+                          <span className="ml-1.5">({listDays} Tage)</span>
                         </p>
                       </div>
                       <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />

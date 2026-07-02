@@ -268,7 +268,7 @@
 
 (re-frame/reg-event-fx
  ::assign-tenant
- (fn [{:keys [db]} [_ apt-id {:keys [first-name last-name email phone start-date end-date kaltmiete nebenkosten-warm]} on-after]]
+ (fn [{:keys [db]} [_ apt-id {:keys [first-name last-name email phone start-date end-date kaltmiete nebenkosten-warm residents-count]} on-after]]
    {:db       (assoc-in db [:apartments :saving?] true)
     :dispatch [:app.core-ui.events/command
                :create-tenant
@@ -280,7 +280,8 @@
                 :start-date       start-date
                 :end-date         end-date
                 :kaltmiete        kaltmiete
-                :nebenkosten-warm nebenkosten-warm}
+                :nebenkosten-warm nebenkosten-warm
+                :residents-count  residents-count}
                [::tenant-assigned apt-id on-after]
                [::assign-tenant-error]]}))
 

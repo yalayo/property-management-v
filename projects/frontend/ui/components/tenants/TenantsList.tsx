@@ -127,17 +127,20 @@ export default function TenantsList({
               const total = kalt + nk;
               const fmt = (n: number) => n.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-              const rentDuration = (() => {
-                if (!tenant["start-date"]) return null;
+              const { rentDuration, rentDays } = (() => {
+                if (!tenant["start-date"]) return { rentDuration: null, rentDays: null };
                 const start = new Date(tenant["start-date"] + "T00:00:00");
                 const end   = tenant["end-date"] ? new Date(tenant["end-date"] + "T00:00:00") : new Date();
+                const days  = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
                 let years  = end.getFullYear() - start.getFullYear();
                 let months = end.getMonth() - start.getMonth();
                 if (months < 0) { years--; months += 12; }
-                if (years === 0 && months === 0) return t("durationLessThanMonth");
-                if (years > 0 && months > 0) return t("durationYearsMonths", { years, months });
-                if (years > 0) return t("durationYears", { count: years });
-                return t("durationMonths", { count: months });
+                let duration: string | null = null;
+                if (years === 0 && months === 0) duration = t("durationLessThanMonth");
+                else if (years > 0 && months > 0) duration = t("durationYearsMonths", { years, months });
+                else if (years > 0) duration = t("durationYears", { count: years });
+                else duration = t("durationMonths", { count: months });
+                return { rentDuration: duration, rentDays: days };
               })();
 
               return (
@@ -163,6 +166,9 @@ export default function TenantsList({
                           {tenant["end-date"]
                             ? t("fromTo", { from: tenant["start-date"], to: tenant["end-date"] })
                             : t("from", { from: tenant["start-date"] })}
+                          {rentDays != null && (
+                            <span className="ml-1 tabular-nums">({rentDays} Tage)</span>
+                          )}
                         </p>
                         {rentDuration && (
                           <p className="text-xs font-medium text-primary">{rentDuration}</p>
