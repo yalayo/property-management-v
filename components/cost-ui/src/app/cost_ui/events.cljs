@@ -285,3 +285,67 @@
    (-> db
        (assoc-in [:expense-types :saving?] false)
        (assoc-in [:expense-types :save-error] true))))
+
+;; ── Bank accounts ─────────────────────────────────────────────────────────
+
+(re-frame/reg-event-fx
+ ::load-bank-accounts
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:bank-accounts :loading?] true)
+    :dispatch [:app.core-ui.events/query
+               {:entity :bank-account}
+               [::bank-accounts-loaded]
+               [::bank-accounts-error]]}))
+
+(re-frame/reg-event-db
+ ::bank-accounts-loaded
+ (fn [db [_ {:keys [bank-accounts]}]]
+   (-> db
+       (assoc-in [:bank-accounts :list] bank-accounts)
+       (assoc-in [:bank-accounts :loading?] false))))
+
+(re-frame/reg-event-db
+ ::bank-accounts-error
+ (fn [db _]
+   (assoc-in db [:bank-accounts :loading?] false)))
+
+(re-frame/reg-event-fx
+ ::create-bank-account
+ (fn [{:keys [db]} [_ data]]
+   {:db       (assoc-in db [:bank-accounts :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :create-bank-account
+               data
+               [::bank-account-mutated]
+               [::bank-account-error]]}))
+
+(re-frame/reg-event-fx
+ ::update-bank-account
+ (fn [{:keys [db]} [_ data]]
+   {:db       (assoc-in db [:bank-accounts :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :update-bank-account
+               data
+               [::bank-account-mutated]
+               [::bank-account-error]]}))
+
+(re-frame/reg-event-fx
+ ::delete-bank-account
+ (fn [{:keys [db]} [_ id]]
+   {:db       (assoc-in db [:bank-accounts :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :delete-bank-account
+               {:id id}
+               [::bank-account-mutated]
+               [::bank-account-error]]}))
+
+(re-frame/reg-event-fx
+ ::bank-account-mutated
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:bank-accounts :saving?] false)
+    :dispatch [::load-bank-accounts]}))
+
+(re-frame/reg-event-db
+ ::bank-account-error
+ (fn [db _]
+   (assoc-in db [:bank-accounts :saving?] false)))

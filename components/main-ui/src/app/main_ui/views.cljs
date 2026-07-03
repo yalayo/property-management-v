@@ -111,7 +111,10 @@
         org-users            @(re-frame/subscribe [::subs/org-users])
         org-users-loading?   @(re-frame/subscribe [::subs/org-users-loading?])
         org-users-saving?    @(re-frame/subscribe [::subs/org-users-saving?])
-        trial-info           @(re-frame/subscribe [::subs/trial-info])]
+        trial-info           @(re-frame/subscribe [::subs/trial-info])
+        bank-accounts        @(re-frame/subscribe [::cost-subs/bank-accounts])
+        bank-accounts-loading? @(re-frame/subscribe [::cost-subs/bank-accounts-loading?])
+        bank-accounts-saving?  @(re-frame/subscribe [::cost-subs/bank-accounts-saving?])]
     [:<>
      [main
       {:activeComponent
@@ -119,6 +122,31 @@
        (case active         
          "onboarding"         [onboarding {}]
          "bank-accounts"      [bank-accounts {:user                  current-user
+                                              :bankAccounts          (clj->js bank-accounts)
+                                              :bankAccountsLoading   bank-accounts-loading?
+                                              :bankAccountsSaving    bank-accounts-saving?
+                                              :onCreateBankAccount   (when can-create?
+                                                                       (fn [data]
+                                                                         (let [d (js->clj data :keywordize-keys true)]
+                                                                           (re-frame/dispatch
+                                                                            [::cost-events/create-bank-account
+                                                                             {:iban        (:iban d)
+                                                                              :owner       (:owner d)
+                                                                              :bank-name   (:bankName d)
+                                                                              :description (:description d)}]))))
+                                              :onUpdateBankAccount   (when can-create?
+                                                                       (fn [data]
+                                                                         (let [d (js->clj data :keywordize-keys true)]
+                                                                           (re-frame/dispatch
+                                                                            [::cost-events/update-bank-account
+                                                                             {:id          (:id d)
+                                                                              :iban        (:iban d)
+                                                                              :owner       (:owner d)
+                                                                              :bank-name   (:bankName d)
+                                                                              :description (:description d)}]))))
+                                              :onDeleteBankAccount   (when can-create?
+                                                                       (fn [id]
+                                                                         (re-frame/dispatch [::cost-events/delete-bank-account id])))
                                               :onNavigateToDashboard #(re-frame/dispatch [::events/change-active-section "home"])}]
          "change-password"    [change-password {:user current-user}]
          "subscription-tiers" [subscription-tiers {}]
@@ -157,6 +185,7 @@
                                  (re-frame/dispatch [::rent-events/load-all-tenant-mieten])
                                  (re-frame/dispatch [::apartment-events/load-garages])
                                  (re-frame/dispatch [::tax-events/load-tax-data])
+                                 (re-frame/dispatch [::cost-events/load-bank-accounts])
                                  (when-let [tier (js/localStorage.getItem "pm-pending-plan")]
                                    (js/localStorage.removeItem "pm-pending-plan")
                                    (re-frame/dispatch [::events/change-active-section "payment"])
@@ -292,32 +321,44 @@
                                                                                      :landlord-postal-city (:landlordPostalCity d)}]))))
                                                :prop-saving?                prop-saving?}])
            :rentSaving         rent-saving?
+           :bankAccounts       (clj->js bank-accounts)
+           :onSaveBankAccount  (when can-create?
+                                 (fn [data]
+                                   (let [d (js->clj data :keywordize-keys true)]
+                                     (re-frame/dispatch
+                                      [::cost-events/create-bank-account
+                                       {:iban        (:iban d)
+                                        :owner       (:owner d)
+                                        :bank-name   (:bankName d)
+                                        :description (:description d)}]))))
            :onAssignPayment    (when can-create?
                                  (fn [data]
                                    (let [d (js->clj data :keywordize-keys true)]
                                      (re-frame/dispatch
                                       [::rent-events/create-rent-payment
-                                       {:apartment-id  (:apartmentId d)
-                                        :year          (:year d)
-                                        :month         (:month d)
-                                        :value         (:value d)
-                                        :date          (:date d)
-                                        :description   (:description d)
-                                        :payment-type  (:type d)
-                                        :source-file   (:sourceFile d)
-                                        :recorded-at   (:recordedAt d)}]))))
+                                       (cond-> {:apartment-id  (:apartmentId d)
+                                                :year          (:year d)
+                                                :month         (:month d)
+                                                :value         (:value d)
+                                                :date          (:date d)
+                                                :description   (:description d)
+                                                :payment-type  (:type d)
+                                                :source-file   (:sourceFile d)
+                                                :recorded-at   (:recordedAt d)}
+                                         (:bankAccountId d) (assoc :bank-account-id (:bankAccountId d)))]))))
            :onRecordExpense    (when can-create?
                                  (fn [data]
                                    (let [d (js->clj data :keywordize-keys true)]
                                      (re-frame/dispatch
                                       [::cost-events/create-cost
-                                       {:property-id (:propertyId d)
-                                        :line        (or (not-empty (:expenseLine d)) "sonstige")
-                                        :name        (:description d)
-                                        :year        (:year d)
-                                        :value       (:value d)
-                                        :source-file (:sourceFile d)
-                                        :recorded-at (:recordedAt d)}]))))
+                                       (cond-> {:property-id (:propertyId d)
+                                                :line        (or (not-empty (:expenseLine d)) "sonstige")
+                                                :name        (:description d)
+                                                :year        (:year d)
+                                                :value       (:value d)
+                                                :source-file (:sourceFile d)
+                                                :recorded-at (:recordedAt d)}
+                                         (:bankAccountId d) (assoc :bank-account-id (:bankAccountId d)))]))))
            :tenantsView        (r/as-element [tenant-ui/component {:apartments    available-apartments
                                                                                :is-read-only? (not can-create?)}])
            :taxView            (r/as-element [tax-ui/component

@@ -70,3 +70,18 @@
  ::expense-types-save-error?
  (fn [db _]
    (get-in db [:expense-types :save-error] false)))
+
+(re-frame/reg-sub
+ ::bank-accounts
+ (fn [db _]
+   (get-in db [:bank-accounts :list] [])))
+
+(re-frame/reg-sub
+ ::bank-accounts-loading?
+ (fn [db _]
+   (get-in db [:bank-accounts :loading?] false)))
+
+(re-frame/reg-sub
+ ::bank-accounts-saving?
+ (fn [db _]
+   (get-in db [:bank-accounts :saving?] false)))

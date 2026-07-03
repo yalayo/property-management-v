@@ -1,12 +1,14 @@
 import React, { useState, useCallback, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Upload, Landmark, Check, ChevronsUpDown, AlertTriangle, History, ChevronDown, ChevronUp } from "lucide-react";
+import { Upload, Landmark, Check, ChevronsUpDown, AlertTriangle, History, ChevronDown, ChevronUp, PlusCircle } from "lucide-react";
 import { useToast } from "../../hooks/use-toast";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
 import { cn } from "../../lib/utils";
 
 // ── PDF.js CDN ────────────────────────────────────────────────────────────────
@@ -112,11 +114,24 @@ function mergeItems(parts: string[]): string[] {
   return result;
 }
 
-interface Transaction {
-  date: string; description: string; amount: number; year: number; month: number;
+// ── IBAN extraction ───────────────────────────────────────────────────────────
+
+interface PdfMeta { iban: string; bankName: string; }
+
+function extractIbanFromParts(parts: string[]): PdfMeta | null {
+  // Normalise non-breaking spaces and join
+  const fullText = parts.join(" ").replace(/ /g, " ");
+  const ibanMatch = fullText.match(/\b([A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]{4}){4,7}[A-Z0-9]{0,3})\b/);
+  if (!ibanMatch) return null;
+  const iban = ibanMatch[1].replace(/\s/g, "");
+  if (iban.length < 15) return null;
+  const idx  = fullText.indexOf(ibanMatch[1]);
+  const near = fullText.slice(Math.max(0, idx - 300), idx + 300);
+  const bankMatch = near.match(/(?:Sparkasse|Volksbank|Raiffeisen|Commerzbank|Deutsche Bank|DKB|N26|ING|Comdirect|Postbank|HypoVereinsbank|UniCredit|[A-ZÄÖÜ][a-zäöüß]+(?: [A-ZÄÖÜ][a-zäöüß]+)* Bank)/);
+  return { iban, bankName: bankMatch ? bankMatch[0].trim().slice(0, 80) : "" };
 }
 
-async function extractTransactions(file: File): Promise<Transaction[]> {
+async function extractPdf(file: File): Promise<{ transactions: Transaction[]; meta: PdfMeta | null }> {
   const pdfjsLib = await loadPdfJs();
   const buffer   = await file.arrayBuffer();
   const pdf      = await pdfjsLib.getDocument({ data: buffer }).promise;
@@ -128,10 +143,16 @@ async function extractTransactions(file: File): Promise<Transaction[]> {
       if ("str" in item) parts.push((item as any).str);
     }
   }
-  return mergeItems(parts).map(parseLine).filter((t): t is Transaction => t !== null);
+  const transactions = mergeItems(parts).map(parseLine).filter((t): t is Transaction => t !== null);
+  const meta = extractIbanFromParts(parts);
+  return { transactions, meta };
 }
 
 // ── Domain types ──────────────────────────────────────────────────────────────
+
+interface Transaction {
+  date: string; description: string; amount: number; year: number; month: number;
+}
 
 type TxCategory  = "miete" | "nebenkosten" | "expense" | "skip";
 interface RowState {
@@ -147,6 +168,14 @@ type Tenant      = {
   "first-name"?: string; "last-name"?: string; name?: string;
   "apartment-id"?: any; "start-date"?: string; "end-date"?: string;
 };
+type BankAccount = {
+  id?: number | string;
+  "db/id"?: number | string;
+  iban?: string;
+  "bank-account/iban"?: string;
+  "bank-account/bank-name"?: string;
+  "bank-account/owner"?: string;
+};
 
 type Props = {
   apartments?:      Apartment[];
@@ -155,16 +184,22 @@ type Props = {
   expenseTypes?:    ExpenseType[];
   allRentPayments?: any[];
   allCosts?:        any[];
+  bankAccounts?:    BankAccount[];
   isSaving?:        boolean;
   onAssignPayment?: (data: {
     type: "miete" | "nebenkosten";
     apartmentId: string; year: number; month: number; value: number;
     date: string; description: string; sourceFile: string; recordedAt: string;
+    bankAccountId?: string;
   }) => void;
   onRecordExpense?: (data: {
     type: "expense";
     propertyId: string; year: number; value: number;
     date: string; description: string; expenseLine: string; sourceFile: string; recordedAt: string;
+    bankAccountId?: string;
+  }) => void;
+  onSaveBankAccount?: (data: {
+    iban: string; owner: string; bankName: string; description: string;
   }) => void;
 };
 
@@ -183,17 +218,12 @@ function tenantDisplayName(t: Tenant): string {
   return t.name ?? "";
 }
 
-function resolveAptId(raw: any): number | null {
-  if (raw == null) return null;
-  if (typeof raw === "object") return Number(raw.id ?? raw["db/id"] ?? NaN);
-  return Number(raw);
+function baIban(ba: BankAccount): string {
+  return ((ba["bank-account/iban"] ?? ba.iban) ?? "").replace(/\s/g, "");
 }
 
-function isCurrentTenant(tn: Tenant): boolean {
-  const today = new Date().toISOString().slice(0, 10);
-  const start = tn["start-date"] ?? "";
-  const end   = tn["end-date"]   ?? "";
-  return (!start || start <= today) && (!end || end >= today);
+function baId(ba: BankAccount): string {
+  return String(ba.id ?? ba["db/id"] ?? "");
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -205,9 +235,11 @@ export default function BankStatement({
   expenseTypes    = [],
   allRentPayments = [],
   allCosts        = [],
+  bankAccounts    = [],
   isSaving,
   onAssignPayment,
   onRecordExpense,
+  onSaveBankAccount,
 }: Props) {
   const { t }       = useTranslation("bank");
   const { t: tCom } = useTranslation("common");
@@ -223,6 +255,22 @@ export default function BankStatement({
   const [aptPickerOpen, setAptPickerOpen] = useState<Record<number, boolean>>({});
   const [historyOpen, setHistoryOpen]   = useState(false);
 
+  // Detected bank account from PDF
+  const [detectedMeta, setDetectedMeta]     = useState<PdfMeta | null>(null);
+  const [newAccOwner, setNewAccOwner]       = useState("");
+  const [newAccBankName, setNewAccBankName] = useState("");
+  const [newAccDesc, setNewAccDesc]         = useState("");
+  const [accBannerOpen, setAccBannerOpen]   = useState(false);
+  const [accSaved, setAccSaved]             = useState(false);
+
+  // ── Matched bank account ──────────────────────────────────────────────────
+
+  const matchedBankAccount = useMemo<BankAccount | null>(() => {
+    if (!detectedMeta) return null;
+    const norm = detectedMeta.iban.replace(/\s/g, "");
+    return bankAccounts.find(ba => baIban(ba) === norm) ?? null;
+  }, [detectedMeta, bankAccounts]);
+
   // ── Current tenant per apartment ─────────────────────────────────────────
 
   const currentTenantForApt = useMemo<Record<string, string>>(() => {
@@ -234,8 +282,6 @@ export default function BankStatement({
       if (end   && end   < today) continue;
       const raw = tn["apartment-id"];
       if (raw == null) continue;
-      // Mirror ApartmentView's comparison: String(tn["apartment-id"])
-      // But also handle entity-ref objects {id: N} from DataScript refs
       const aptIdStr = typeof raw === "object"
         ? String((raw as any).id ?? (raw as any)["db/id"] ?? "")
         : String(raw);
@@ -254,7 +300,6 @@ export default function BankStatement({
         const rawId   = (apt as any).id ?? (apt as any)["db/id"];
         const aptId   = String(rawId ?? "");
         const tnName  = currentTenantForApt[aptId] ?? null;
-        // Fallback: check occupied flag OR whether any tenant's apartment-id matches
         const occupied = !!(apt as any).occupied
           || tenants.some(tn => {
             const raw = tn["apartment-id"];
@@ -291,7 +336,6 @@ export default function BankStatement({
         && Math.abs(Number(rp.value) - Math.abs(tx.amount)) < 0.01;
     });
     if (rentMatch) return true;
-    // costs have no date field — match on year + amount
     return allCosts.some(c => {
       const sf = c["source-file"] ?? c.sourceFile;
       return sf === fileName && Number(c.year) === tx.year
@@ -335,10 +379,16 @@ export default function BankStatement({
     if (file.type !== "application/pdf") { setError(t("invalidFile")); return; }
     setError(null); setParsing(true);
     setTransactions([]); setRowStates({}); setSavedRows({}); setAptPickerOpen({});
+    setDetectedMeta(null); setAccSaved(false); setAccBannerOpen(false);
     setFileName(file.name);
     try {
-      const txs = await extractTransactions(file);
+      const { transactions: txs, meta } = await extractPdf(file);
       setTransactions(txs);
+      if (meta) {
+        setDetectedMeta(meta);
+        setNewAccBankName(meta.bankName);
+        setAccBannerOpen(true);
+      }
       if (txs.length === 0) setError(t("noTransactions"));
     } catch {
       setError(t("parseError"));
@@ -353,7 +403,24 @@ export default function BankStatement({
     if (file) handleFile(file);
   }, [handleFile]);
 
+  // ── Bank account save ─────────────────────────────────────────────────────
+
+  const handleSaveBankAccount = () => {
+    if (!detectedMeta) return;
+    onSaveBankAccount?.({
+      iban:        detectedMeta.iban,
+      owner:       newAccOwner,
+      bankName:    newAccBankName,
+      description: newAccDesc,
+    });
+    setAccSaved(true);
+    setAccBannerOpen(false);
+    toast({ title: t("bankAccountSaved", { defaultValue: "Bankkonto gespeichert" }) });
+  };
+
   // ── Save ──────────────────────────────────────────────────────────────────
+
+  const bankAccountId = matchedBankAccount ? baId(matchedBankAccount) : undefined;
 
   const handleSave = (idx: number, tx: Transaction) => {
     const row = getRow(idx);
@@ -365,6 +432,7 @@ export default function BankStatement({
         type: "expense", propertyId: row.propertyId, year: row.year,
         value: Math.abs(tx.amount), date: tx.date, description: tx.description,
         expenseLine: row.expenseLine || "sonstige", sourceFile: fileName, recordedAt,
+        ...(bankAccountId ? { bankAccountId } : {}),
       });
     } else {
       if (!row.aptId) return;
@@ -372,6 +440,7 @@ export default function BankStatement({
         type: row.category, apartmentId: row.aptId, year: row.year, month: row.month,
         value: tx.amount, date: tx.date, description: tx.description,
         sourceFile: fileName, recordedAt,
+        ...(bankAccountId ? { bankAccountId } : {}),
       });
     }
     setSavedRows(p => ({ ...p, [idx]: true }));
@@ -388,6 +457,7 @@ export default function BankStatement({
   const reset = () => {
     setTransactions([]); setError(null); setRowStates({}); setSavedRows({});
     setAptPickerOpen({}); setFileName("");
+    setDetectedMeta(null); setAccSaved(false); setAccBannerOpen(false);
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -450,6 +520,60 @@ export default function BankStatement({
             </div>
             <Button variant="outline" size="sm" onClick={reset}>{t("uploadNew")}</Button>
           </div>
+
+          {/* Detected bank account banner */}
+          {detectedMeta && accBannerOpen && (
+            <Card className={cn("border", matchedBankAccount ? "border-green-200 bg-green-50" : "border-blue-200 bg-blue-50")}>
+              <CardContent className="pt-4 pb-4">
+                {matchedBankAccount ? (
+                  <div className="flex items-center gap-2 text-sm text-green-800">
+                    <Check className="h-4 w-4 shrink-0 text-green-600" />
+                    <span>
+                      {t("bankAccountDetected", { defaultValue: "Erkanntes Konto" })}{": "}
+                      <span className="font-mono font-medium">{detectedMeta.iban}</span>
+                      {(matchedBankAccount["bank-account/bank-name"]) && (
+                        <> — {matchedBankAccount["bank-account/bank-name"]}</>
+                      )}
+                    </span>
+                    <button onClick={() => setAccBannerOpen(false)} className="ml-auto text-xs text-green-700 hover:underline">✕</button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm text-blue-900 font-medium">
+                        <PlusCircle className="h-4 w-4 shrink-0" />
+                        {t("newBankAccountDetected", { defaultValue: "Neues Bankkonto erkannt" })}{": "}
+                        <span className="font-mono">{detectedMeta.iban}</span>
+                      </div>
+                      <button onClick={() => setAccBannerOpen(false)} className="text-xs text-blue-700 hover:underline">✕</button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-blue-800">{t("bankAccountOwner", { defaultValue: "Kontoinhaber" })}</Label>
+                        <Input value={newAccOwner} onChange={e => setNewAccOwner(e.target.value)}
+                          className="h-7 text-xs" placeholder={t("bankAccountOwnerPlaceholder", { defaultValue: "z.B. Max Mustermann" })} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-blue-800">{t("bankName", { defaultValue: "Bank" })}</Label>
+                        <Input value={newAccBankName} onChange={e => setNewAccBankName(e.target.value)}
+                          className="h-7 text-xs" placeholder="Deutsche Bank" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-blue-800">{t("description", { defaultValue: "Bezeichnung" })}</Label>
+                        <Input value={newAccDesc} onChange={e => setNewAccDesc(e.target.value)}
+                          className="h-7 text-xs" placeholder={t("descriptionPlaceholder", { defaultValue: "Optional" })} />
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button size="sm" className="h-7 text-xs" onClick={handleSaveBankAccount}>
+                        {t("saveBankAccount", { defaultValue: "Konto speichern" })}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {fileAlreadyImported && (
             <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">

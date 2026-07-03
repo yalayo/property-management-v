@@ -31,7 +31,8 @@
    :property-loan         :get-property-loans
    :property-maintenance  :get-property-maintenances
    :tenant-miete          :get-all-tenant-mieten
-   :garage                :get-all-garages})
+   :garage                :get-all-garages
+   :bank-account          :get-bank-accounts})
 
 (defn survey-questions
   "Public GET handler — returns all survey questions, no auth required."

@@ -55,7 +55,8 @@
     :create-expense-type  :upsert-tenant-miete
     :create-garage        :assign-tenant-to-garage
     :upsert-property-tax-config
-    :create-property-loan :create-property-maintenance})
+    :create-property-loan :create-property-maintenance
+    :create-bank-account})
 
 (defn- fetch-account [storage email]
   (js-await [eids ((:find-by-attr storage) :account/email email)]
@@ -539,7 +540,7 @@
 (defn- handle-create-cost! [storage data user]
   (with-org user
     (fn [org-id]
-      (let [{:keys [property-id line name year value source-file recorded-at]} data]
+      (let [{:keys [property-id line name year value source-file recorded-at bank-account-id]} data]
         (js-await [{:keys [tx-id entity-ids]}
                    ((:transact! storage)
                     [(cond-> {:db/type              "cost"
@@ -549,8 +550,9 @@
                                :cost/name             name
                                :cost/year             year
                                :cost/value            value}
-                       (some? source-file) (assoc :cost/source-file source-file)
-                       (some? recorded-at) (assoc :cost/recorded-at recorded-at))] nil)]
+                       (some? source-file)     (assoc :cost/source-file source-file)
+                       (some? recorded-at)     (assoc :cost/recorded-at recorded-at)
+                       (some? bank-account-id) (assoc :cost/bank-account-id bank-account-id))] nil)]
                   {:tx-id tx-id :cost-id (first entity-ids)})))))
 
 (defn- handle-update-cost! [storage data user]
@@ -593,7 +595,7 @@
   (with-org user
     (fn [org-id]
       (let [{:keys [apartment-id year month value kaltmiete nebenkosten-warm date description
-                    payment-type source-file recorded-at]} data]
+                    payment-type source-file recorded-at bank-account-id]} data]
         (js-await [{:keys [tx-id entity-ids]}
                    ((:transact! storage)
                     [(cond-> {:db/type                      "rent-payment"
@@ -608,7 +610,8 @@
                        (some? nebenkosten-warm) (assoc :rent-payment/nebenkosten-warm nebenkosten-warm)
                        (some? payment-type)     (assoc :rent-payment/payment-type payment-type)
                        (some? source-file)      (assoc :rent-payment/source-file source-file)
-                       (some? recorded-at)      (assoc :rent-payment/recorded-at recorded-at))] nil)]
+                       (some? recorded-at)      (assoc :rent-payment/recorded-at recorded-at)
+                       (some? bank-account-id)  (assoc :rent-payment/bank-account-id bank-account-id))] nil)]
                   {:tx-id tx-id :rent-payment-id (first entity-ids)})))))
 
 (defn- handle-update-rent-payment! [storage data user]
@@ -1340,6 +1343,57 @@
                     {:error :not-found}))))))
 
 ;; ---------------------------------------------------------------------------
+;; Bank-account handlers
+;; ---------------------------------------------------------------------------
+
+(defn- handle-get-bank-accounts! [storage user]
+  (with-org user
+    (fn [org-id]
+      (js-await [eids     ((:q storage) {:where [['?e :bank-account/organization-id org-id]]})
+                 accounts (pull-many+ storage (vec eids) '[*])]
+                {:bank-accounts accounts}))))
+
+(defn- handle-create-bank-account! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [{:keys [iban owner bank-name description]} data]
+        (js-await [{:keys [tx-id entity-ids]}
+                   ((:transact! storage)
+                    [(cond-> {:db/type                       "bank-account"
+                              :bank-account/organization-id  org-id
+                              :bank-account/iban             iban
+                              :bank-account/owner            owner
+                              :bank-account/bank-name        bank-name}
+                       (some? description) (assoc :bank-account/description description))] nil)]
+                  {:tx-id tx-id :bank-account-id (first entity-ids)})))))
+
+(defn- handle-update-bank-account! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:bank-account/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [{:keys [tx-id]}
+                               ((:transact! storage)
+                                [(cond-> {:db/id eid}
+                                   (some? (:iban data))        (assoc :bank-account/iban (:iban data))
+                                   (some? (:owner data))       (assoc :bank-account/owner (:owner data))
+                                   (some? (:bank-name data))   (assoc :bank-account/bank-name (:bank-name data))
+                                   (some? (:description data)) (assoc :bank-account/description (:description data)))] nil)]
+                              {:tx-id tx-id})))))))
+
+(defn- handle-delete-bank-account! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:bank-account/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [_ ((:excise! storage) eid nil)]
+                              {:ok true})))))))
+
+;; ---------------------------------------------------------------------------
 ;; Admin export / import
 ;; ---------------------------------------------------------------------------
 
@@ -1448,4 +1502,8 @@
     :create-property-maintenance     (handle-create-property-maintenance! storage data user)
     :update-property-maintenance     (handle-update-property-maintenance! storage data user)
     :delete-property-maintenance     (handle-delete-property-maintenance! storage data user)
+    :get-bank-accounts               (handle-get-bank-accounts! storage user)
+    :create-bank-account             (handle-create-bank-account! storage data user)
+    :update-bank-account             (handle-update-bank-account! storage data user)
+    :delete-bank-account             (handle-delete-bank-account! storage data user)
     {:error :unknown-command}))))
