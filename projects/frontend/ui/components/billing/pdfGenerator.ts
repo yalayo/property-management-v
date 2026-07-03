@@ -259,7 +259,7 @@ export async function generateBillingPdf(data: BillingData): Promise<Uint8Array>
   const summaryRows: Array<{ label: string; value: string; bold?: boolean; highlight?: boolean }> = [
     { label: "Summe Nebenkosten",       value: `€ ${formatEur(totalShare)}` },
     { label: "Abzüglich Vorauszahlungen", value: `- € ${formatEur(data.prepayment)}` },
-    { label: refund ? "Guthaben" : "Nachzahlung", value: `€ ${formatEur(Math.abs(net))}`, bold: true, highlight: true },
+    { label: refund ? "Gutschrift" : "Nachzahlung", value: `€ ${formatEur(Math.abs(net))}`, bold: true, highlight: true },
   ];
 
   for (const row of summaryRows) {
@@ -284,19 +284,23 @@ export async function generateBillingPdf(data: BillingData): Promise<Uint8Array>
     );
   } else {
     page.drawText(
-      `Wir werden den Betrag von € ${formatEur(Math.abs(net))} auf Ihr Konto erstatten.`,
+      `Die Abrechnung schließt mit einer Gutschrift von € ${formatEur(Math.abs(net))} zu Ihren Gunsten.`,
       { x: L, y, font: fontR, size: 9.5, color: black },
     );
   }
   y -= 16;
 
-  page.drawText(`IBAN: ${data.iban}`, { x: L, y, font: fontB, size: 9.5, color: black });
-  y -= 13;
-  if (data.bankName) {
-    page.drawText(`Bank: ${data.bankName}`, { x: L, y, font: fontR, size: 9.5, color: black });
+  if (!refund) {
+    page.drawText(`IBAN: ${data.iban}`, { x: L, y, font: fontB, size: 9.5, color: black });
     y -= 13;
+    if (data.bankName) {
+      page.drawText(`Bank: ${data.bankName}`, { x: L, y, font: fontR, size: 9.5, color: black });
+      y -= 13;
+    }
+    y -= 18;
+  } else {
+    y -= 18;
   }
-  y -= 18;
 
   // ── Closing ───────────────────────────────────────────────────────────────
   page.drawText("Mit freundlichen Grüßen", { x: L, y, font: fontR, size: 9.5, color: black });

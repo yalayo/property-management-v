@@ -574,17 +574,14 @@ export default function ApartmentBillingPanel({
               <span className="tabular-nums text-muted-foreground">− € {formatEur(selectedInfo.prepayment)}</span>
             </div>
             <div className="flex items-center justify-between text-sm border-t pt-2.5">
-              <span className="font-semibold">{t("netPayment")}</span>
+              <span className="font-semibold">
+                {selectedInfo.net < 0 ? "Gutschrift" : t("netPayment")}
+              </span>
               <span className={cn(
                 "tabular-nums font-semibold",
                 selectedInfo.net >= 0 ? "text-destructive" : "text-green-600"
               )}>
                 € {formatEur(Math.abs(selectedInfo.net))}
-                {selectedInfo.net < 0 && (
-                  <span className="text-xs font-normal ml-1 opacity-70">
-                    ({t("credit", { defaultValue: "Guthaben" })})
-                  </span>
-                )}
               </span>
             </div>
             <div className="flex justify-end pt-1">

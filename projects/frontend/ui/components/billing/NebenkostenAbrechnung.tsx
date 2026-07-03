@@ -901,9 +901,14 @@ export default function NebenkostenAbrechnung({
                     <span className="text-right tabular-nums text-sm text-muted-foreground">
                       − € {formatEur(info.prepayment)}
                     </span>
-                    <span className={`text-right tabular-nums text-sm font-semibold ${info.net >= 0 ? "text-destructive" : "text-green-600"}`}>
-                      € {formatEur(Math.abs(info.net))}
-                    </span>
+                    <div className="text-right">
+                      <span className={`tabular-nums text-sm font-semibold ${info.net >= 0 ? "text-destructive" : "text-green-600"}`}>
+                        € {formatEur(Math.abs(info.net))}
+                      </span>
+                      <p className={`text-xs ${info.net >= 0 ? "text-muted-foreground" : "text-green-600"}`}>
+                        {info.net < 0 ? "Gutschrift" : "Nachzahlung"}
+                      </p>
+                    </div>
                     <Button
                       size="sm"
                       disabled={!info.canGenerate || generating}
