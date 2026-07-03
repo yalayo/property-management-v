@@ -490,6 +490,33 @@ export default function BankStatement({
     return map;
   }, [allRentPayments, allCosts]);
 
+  // ── Transactions per bank account ─────────────────────────────────────────
+
+  type BaTx = { date: string; description: string; amount: number; type: "rent" | "expense" };
+
+  const txsByBankAccount = useMemo<Record<string, BaTx[]>>(() => {
+    const map: Record<string, BaTx[]> = {};
+    for (const ba of bankAccounts) {
+      const id = baId(ba);
+      if (id) map[id] = [];
+    }
+    const baRef = (item: any): string =>
+      String(item["bank-account-id"] ?? item["bank-account/id"] ?? item.bankAccountId ?? "");
+    for (const rp of allRentPayments) {
+      const ref = baRef(rp);
+      if (ref && map[ref] !== undefined)
+        map[ref].push({ date: rp.date ?? "", description: rp.description ?? "", amount: Math.abs(Number(rp.value)), type: "rent" });
+    }
+    for (const c of allCosts) {
+      const ref = baRef(c);
+      if (ref && map[ref] !== undefined)
+        map[ref].push({ date: c.date ?? String(c.year ?? ""), description: c.name ?? c.description ?? "", amount: Math.abs(Number(c.value)), type: "expense" });
+    }
+    for (const id in map)
+      map[id] = map[id].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
+    return map;
+  }, [bankAccounts, allRentPayments, allCosts]);
+
   // ── Row state helpers ─────────────────────────────────────────────────────
 
   const defaultRow = (tx: Transaction): RowState => ({
@@ -895,6 +922,56 @@ export default function BankStatement({
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Stored bank accounts + transaction history */}
+      {bankAccounts.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-sm font-semibold">{t("storedBankAccounts", { defaultValue: "Bankkonten" })}</p>
+          {bankAccounts.map((ba, i) => {
+            const id    = baId(ba);
+            const iban  = baIban(ba);
+            const owner = ba["bank-account/owner"] ?? (ba as any).owner ?? "";
+            const bank  = ba["bank-account/bank-name"] ?? (ba as any)["bank-name"] ?? "";
+            const txs   = txsByBankAccount[id] ?? [];
+            return (
+              <Card key={id || i} className="overflow-hidden">
+                <CardContent className="px-4 pt-3 pb-3 space-y-2">
+                  {/* Account header */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-mono text-sm font-medium">{formatIban(iban)}</p>
+                      {owner && <p className="text-xs text-muted-foreground mt-0.5 truncate">{owner}</p>}
+                      {bank  && <p className="text-xs text-muted-foreground truncate">{bank}</p>}
+                    </div>
+                    <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
+                      {txs.length > 0 ? `${txs.length} Buchung${txs.length !== 1 ? "en" : ""}` : "—"}
+                    </span>
+                  </div>
+
+                  {/* Recent transactions */}
+                  {txs.length > 0 ? (
+                    <div className="divide-y border-t">
+                      {txs.map((tx, j) => (
+                        <div key={j} className="flex items-center gap-2 py-1 text-xs">
+                          <span className="text-muted-foreground tabular-nums shrink-0 w-24">{tx.date}</span>
+                          <span className="truncate flex-1 min-w-0 text-foreground">{tx.description}</span>
+                          <span className={cn("tabular-nums shrink-0 font-medium", tx.type === "rent" ? "text-green-700" : "text-red-600")}>
+                            {tx.type === "rent" ? "+" : "−"}&#8364;&nbsp;{fmtAbs(tx.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground italic border-t pt-2">
+                      {t("noLinkedTransactions", { defaultValue: "Noch keine Buchungen verknüpft" })}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
