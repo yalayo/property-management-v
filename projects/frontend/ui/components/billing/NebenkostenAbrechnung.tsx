@@ -297,15 +297,19 @@ export default function NebenkostenAbrechnung({
 
       const proratedTotal = costBreakdown.reduce((sum, { share }) => sum + share, 0);
 
-      const paidMonthCount = months.filter(m => paidMonths.has(m)).length;
-      const prepayment = Number(tenant["nebenkosten-warm"] ?? 0) * paidMonthCount;
+      const prepayment = months
+        .filter(m => paidMonths.has(m))
+        .reduce((sum, m) => {
+          const pmt = rentPayments.find((r: any) => Number(r.year) === year && Number(r.month) === m);
+          return sum + Number(pmt?.["nebenkosten-warm"] ?? 0);
+        }, 0);
       const net = proratedTotal - prepayment;
 
       const canGenerate = hasIban && missingCostLines.length === 0 && missingMonths.length === 0;
 
       return { tenant, days, ratio, months, missingMonths, costBreakdown, proratedTotal, prepayment, net, canGenerate };
     });
-  }, [focusedTenants, year, paidMonths, activeCostLines, aptCosts, hasIban, missingCostLines, expenseTypeMethodMap]);
+  }, [focusedTenants, year, paidMonths, rentPayments, activeCostLines, aptCosts, hasIban, missingCostLines, expenseTypeMethodMap]);
 
   // ── Bank info save ────────────────────────────────────────────────────────
 
@@ -788,12 +792,11 @@ export default function NebenkostenAbrechnung({
           {/* Cost breakdown table — annual apartment-level shares */}
           <Card>
             <CardContent className="p-0">
-              <div className="grid grid-cols-[2fr_auto_1fr_1fr_1fr_1fr] text-xs font-medium text-muted-foreground border-b px-4 py-2 gap-1">
+              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] text-xs font-medium text-muted-foreground border-b px-4 py-2 gap-2">
                 <span>{t("costLine")}</span>
-                <span>{t("distributionMethod")}</span>
                 <span className="text-right">{t("total")}</span>
                 <span className="text-right">{t("verteiler")}</span>
-                <span className="text-right">{t("schluessel")}</span>
+                <span className="text-center">{t("schluessel")}</span>
                 <span className="text-right">{t("share")}</span>
               </div>
               {activeCostLines.length === 0 ? (
@@ -807,16 +810,14 @@ export default function NebenkostenAbrechnung({
                   const aptShare   = aptEntry ? Number(aptEntry.value) : null;
                   const verteiler  = aptEntry?.verteiler ?? "—";
                   const schluessel = aptEntry?.schluessel ?? "—";
-                  const method     = lineMethod(key);
                   return (
-                    <div key={key} className="grid grid-cols-[2fr_auto_1fr_1fr_1fr_1fr] text-sm px-4 py-2 border-b last:border-b-0 gap-1 items-center">
+                    <div key={key} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] text-sm px-4 py-2 border-b last:border-b-0 gap-2 items-center">
                       <span>{lineName(key)}</span>
-                      <span className="text-xs text-muted-foreground">{t(`methods.${method}`)}</span>
                       <span className="text-right tabular-nums text-muted-foreground">
                         {propTotal != null ? `€ ${formatEur(propTotal)}` : "—"}
                       </span>
                       <span className="text-right tabular-nums text-muted-foreground">{verteiler}</span>
-                      <span className="text-right tabular-nums text-muted-foreground">{schluessel}</span>
+                      <span className="text-center text-muted-foreground leading-tight">{schluessel}</span>
                       <span className="text-right tabular-nums">
                         {aptShare != null ? `€ ${formatEur(aptShare)}` : "—"}
                       </span>

@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, XCircle, FileText } from "lucide-react";
+import { CheckCircle2, XCircle, FileText, Pencil } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
+import { Input } from "../ui/input";
 import { cn } from "../../lib/utils";
 import { generateBillingPdf, downloadPdf } from "./pdfGenerator";
 import type { CostLineItem } from "./pdfGenerator";
@@ -74,6 +75,8 @@ type Props = {
   expenseTypes?: any[];
   rentPayments?: any[];
   isLoading?: boolean;
+  propertySaving?: boolean;
+  onEditProperty?: (id: string, data: any) => void;
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -88,13 +91,51 @@ export default function ApartmentBillingPanel({
   expenseTypes = [],
   rentPayments = [],
   isLoading,
+  propertySaving,
+  onEditProperty,
 }: Props) {
   const { t, i18n } = useTranslation("abrechnung");
   const [generating, setGenerating] = useState(false);
   const [selectedTenantIdx, setSelectedTenantIdx] = useState(0);
+  const [editingBankInfo, setEditingBankInfo] = useState(false);
+  const [ibanInput, setIbanInput] = useState("");
+  const [bankNameInput, setBankNameInput] = useState("");
+  const [landlordNameInput, setLandlordNameInput] = useState("");
+  const [landlordStreetInput, setLandlordStreetInput] = useState("");
+  const [landlordPostalCityInput, setLandlordPostalCityInput] = useState("");
 
   // Reset tab when year or apartment changes
   useEffect(() => { setSelectedTenantIdx(0); }, [year, apartment?.id]);
+
+  // Sync bank info inputs when property changes
+  useEffect(() => {
+    setIbanInput(property?.iban ?? "");
+    setBankNameInput(property?.["bank-name"] ?? "");
+    setLandlordNameInput(property?.["landlord-name"] ?? "");
+    setLandlordStreetInput(property?.["landlord-street"] ?? "");
+    setLandlordPostalCityInput(property?.["landlord-postal-city"] ?? "");
+    setEditingBankInfo(false);
+  }, [property?.id]);
+
+  const handleSaveBankInfo = () => {
+    if (!property) return;
+    onEditProperty?.(String(property.id), {
+      name:               property.name,
+      address:            property.address,
+      city:               property.city,
+      postalCode:         property["postal-code"],
+      country:            property.country,
+      units:              property.units,
+      purchasePrice:      property["purchase-price"],
+      currentValue:       property["current-value"],
+      iban:               ibanInput.trim(),
+      bankName:           bankNameInput.trim(),
+      landlordName:       landlordNameInput.trim(),
+      landlordStreet:     landlordStreetInput.trim(),
+      landlordPostalCity: landlordPostalCityInput.trim(),
+    });
+    setEditingBankInfo(false);
+  };
 
   // Expense type name + method maps
   const expenseTypeMap = useMemo(() => {
@@ -167,13 +208,17 @@ export default function ApartmentBillingPanel({
         return { key, name: lineName(key), method, aptValue: value, share };
       });
       const proratedTotal = costBreakdown.reduce((sum, { share }) => sum + share, 0);
-      const paidMonthCount = months.filter(m => paidMonths.has(m)).length;
-      const prepayment = Number(tenant["nebenkosten-warm"] ?? 0) * paidMonthCount;
+      const prepayment = months
+        .filter(m => paidMonths.has(m))
+        .reduce((sum, m) => {
+          const pmt = rentPayments.find((r: any) => Number(r.year) === year && Number(r.month) === m);
+          return sum + Number(pmt?.["nebenkosten-warm"] ?? 0);
+        }, 0);
       const net = proratedTotal - prepayment;
       const canGenerate = hasIban && missingCostLines.length === 0 && missingMonths.length === 0;
       return { tenant, days, ratio, months, missingMonths, costBreakdown, proratedTotal, prepayment, net, canGenerate };
     });
-  }, [tenantsForApt, year, paidMonths, activeCostLines, aptCosts, hasIban, missingCostLines]);
+  }, [tenantsForApt, year, paidMonths, rentPayments, activeCostLines, aptCosts, hasIban, missingCostLines]);
 
   // Selected tenant (clamped to valid range)
   const selectedInfo = perTenantInfo.length > 0
@@ -302,15 +347,71 @@ export default function ApartmentBillingPanel({
               })}
             </div>
           )}
-          <div className="mt-3 pt-3 border-t grid grid-cols-2 gap-2 text-sm">
-            <div>
-              <p className="text-xs text-muted-foreground mb-0.5">IBAN</p>
-              <p className="font-mono text-xs">{property?.iban || "—"}</p>
+          <div className="mt-3 pt-3 border-t">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t("bankInfo")}</p>
+              {!editingBankInfo && (
+                <Button variant="ghost" size="sm" className="h-6 gap-1 text-xs" onClick={() => setEditingBankInfo(true)}>
+                  <Pencil className="h-3 w-3" />
+                  {t("editBankInfo")}
+                </Button>
+              )}
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground mb-0.5">{t("bankName")}</p>
-              <p>{property?.["bank-name"] || "—"}</p>
-            </div>
+            {editingBankInfo ? (
+              <div className="space-y-2">
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs w-28 text-muted-foreground shrink-0">{t("iban")}</span>
+                  <Input value={ibanInput} onChange={e => setIbanInput(e.target.value)} placeholder={t("ibanPlaceholder")} className="h-7 text-sm flex-1" />
+                </div>
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs w-28 text-muted-foreground shrink-0">{t("bankName")}</span>
+                  <Input value={bankNameInput} onChange={e => setBankNameInput(e.target.value)} placeholder={t("bankNamePlaceholder")} className="h-7 text-sm flex-1" />
+                </div>
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs w-28 text-muted-foreground shrink-0">{t("landlordName")}</span>
+                  <Input value={landlordNameInput} onChange={e => setLandlordNameInput(e.target.value)} placeholder={t("landlordNamePlaceholder")} className="h-7 text-sm flex-1" />
+                </div>
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs w-28 text-muted-foreground shrink-0">{t("landlordStreet")}</span>
+                  <Input value={landlordStreetInput} onChange={e => setLandlordStreetInput(e.target.value)} placeholder={t("landlordStreetPlaceholder")} className="h-7 text-sm flex-1" />
+                </div>
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs w-28 text-muted-foreground shrink-0">{t("landlordPostalCity")}</span>
+                  <Input value={landlordPostalCityInput} onChange={e => setLandlordPostalCityInput(e.target.value)} placeholder={t("landlordPostalCityPlaceholder")} className="h-7 text-sm flex-1" />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button size="sm" className="h-7 px-3" disabled={propertySaving} onClick={handleSaveBankInfo}>
+                    {t("saveBankInfo")}
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setEditingBankInfo(false)}>
+                    {t("cancelEdit")}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">{t("iban")}</p>
+                  <p className="font-mono text-xs">{property?.iban || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{t("bankName")}</p>
+                  <p>{property?.["bank-name"] || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{t("landlordName")}</p>
+                  <p>{property?.["landlord-name"] || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{t("landlordStreet")}</p>
+                  <p>{property?.["landlord-street"] || "—"}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs text-muted-foreground">{t("landlordPostalCity")}</p>
+                  <p>{property?.["landlord-postal-city"] || "—"}</p>
+                </div>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -372,12 +473,11 @@ export default function ApartmentBillingPanel({
       {/* Cost breakdown — "Ihr Anteil" shows the selected tenant's prorated share */}
       <Card>
         <CardContent className="p-0">
-          <div className="grid grid-cols-[2fr_auto_1fr_1fr_1fr_1fr] text-xs font-medium text-muted-foreground border-b px-4 py-2 gap-1">
+          <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] text-xs font-medium text-muted-foreground border-b px-4 py-2 gap-2">
             <span>{t("costLine")}</span>
-            <span>{t("distributionMethod")}</span>
             <span className="text-right">{t("total")}</span>
             <span className="text-right">{t("verteiler")}</span>
-            <span className="text-right">{t("schluessel")}</span>
+            <span className="text-center">{t("schluessel")}</span>
             <span className="text-right">{t("share")}</span>
           </div>
           {activeCostLines.length === 0 ? (
@@ -386,17 +486,15 @@ export default function ApartmentBillingPanel({
             activeCostLines.map(key => {
               const propTotal = effectiveCostVal(propertyCosts, key, year);
               const aptEntry  = costEntryForYear(aptCosts, key, year);
-              const method    = lineMethod(key);
               const tenantShare = selectedInfo?.costBreakdown.find(b => b.key === key)?.share ?? null;
               return (
-                <div key={key} className="grid grid-cols-[2fr_auto_1fr_1fr_1fr_1fr] text-sm px-4 py-2 border-b last:border-b-0 gap-1 items-center">
+                <div key={key} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] text-sm px-4 py-2 border-b last:border-b-0 gap-2 items-center">
                   <span>{lineName(key)}</span>
-                  <span className="text-xs text-muted-foreground">{t(`methods.${method}`)}</span>
                   <span className="text-right tabular-nums text-muted-foreground">
                     {propTotal != null ? `€ ${formatEur(propTotal)}` : "—"}
                   </span>
                   <span className="text-right tabular-nums text-muted-foreground">{aptEntry?.verteiler ?? "—"}</span>
-                  <span className="text-right tabular-nums text-muted-foreground">{aptEntry?.schluessel ?? "—"}</span>
+                  <span className="text-center text-muted-foreground leading-tight">{aptEntry?.schluessel ?? "—"}</span>
                   <span className="text-right tabular-nums">
                     {tenantShare != null ? `€ ${formatEur(tenantShare)}` : "—"}
                   </span>

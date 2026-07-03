@@ -64,6 +64,7 @@ type TenantUpdateData = {
   phone?: string;
   startDate?: string;
   endDate?: string;
+  residentsCount?: number;
 };
 
 type CostLine = { id: string; key: string; name?: string; "name-en"?: string; "name-de"?: string; "distribution-method"?: string };
@@ -258,7 +259,7 @@ export default function ApartmentView({
   onUpdateApartment,
   onLoadCosts,
   onEditProperty,
-  propertySaving: _propertySaving,
+  propertySaving,
 }: Props) {
   const { t }         = useTranslation("apartments");
   const { t: tCosts } = useTranslation("costs");
@@ -815,13 +816,15 @@ export default function ApartmentView({
 
   const startEdit = (tenant: Tenant) => {
     setEditingTenantId(tenant.id);
+    const rc = tenant["residents-count"];
     setEditForm({
-      firstName: tenant["first-name"] ?? tenant.name ?? "",
-      lastName:  tenant["last-name"] ?? "",
-      email:     tenant.email ?? "",
-      phone:     tenant.phone ?? "",
-      startDate: tenant["start-date"] ?? "",
-      endDate:   tenant["end-date"] ?? "",
+      firstName:      tenant["first-name"] ?? tenant.name ?? "",
+      lastName:       tenant["last-name"] ?? "",
+      email:          tenant.email ?? "",
+      phone:          tenant.phone ?? "",
+      startDate:      tenant["start-date"] ?? "",
+      endDate:        tenant["end-date"] ?? "",
+      residentsCount: rc != null && !isNaN(Number(rc)) ? Number(rc) : undefined,
     });
   };
 
@@ -836,6 +839,9 @@ export default function ApartmentView({
     if ((editForm.phone     ?? "") !== (orig?.phone          ?? ""))               changed.phone     = editForm.phone;
     if ((editForm.startDate ?? "") !== (orig?.["start-date"] ?? ""))               changed.startDate = editForm.startDate;
     if ((editForm.endDate   ?? "") !== (orig?.["end-date"]   ?? ""))               changed.endDate   = editForm.endDate;
+    const origRc = orig?.["residents-count"];
+    const origRcNum = origRc != null && !isNaN(Number(origRc)) ? Number(origRc) : undefined;
+    if ((editForm.residentsCount ?? undefined) !== origRcNum)                      changed.residentsCount = editForm.residentsCount;
     if (Object.keys(changed).length > 0) {
       onUpdateTenant?.(tenantId, changed);
       toast({ title: tCommon("saved"), duration: 2000 });
@@ -1276,6 +1282,17 @@ export default function ApartmentView({
                         </div>
                       );
                     })()}
+                    {(() => {
+                      const rc = mgmtTenant["residents-count"];
+                      const count = rc != null && !isNaN(Number(rc)) ? Number(rc) : null;
+                      if (count == null || count <= 0) return null;
+                      return (
+                        <div className="space-y-0.5">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Personen</p>
+                          <p className="text-sm font-semibold tabular-nums">{count}</p>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
@@ -1414,6 +1431,18 @@ export default function ApartmentView({
                           <div className="space-y-1">
                             <Label className="text-xs">{tT("fields.endDate")}</Label>
                             <Input type="date" value={editForm.endDate ?? ""} onChange={e => setEditForm(f => ({ ...f, endDate: e.target.value }))} disabled={tenantsSaving} />
+                          </div>
+                          <div className="space-y-1 sm:col-span-2">
+                            <Label className="text-xs">Personen im Haushalt gesamt</Label>
+                            <Input type="number" inputMode="numeric" min="1" step="1"
+                              value={editForm.residentsCount ?? ""}
+                              onChange={e => {
+                                const v = parseInt(e.target.value, 10);
+                                setEditForm(f => ({ ...f, residentsCount: isNaN(v) || v <= 0 ? undefined : v }));
+                              }}
+                              disabled={tenantsSaving}
+                              className="sm:max-w-[50%]"
+                            />
                           </div>
                         </div>
                         <div className="flex gap-2">
@@ -1630,6 +1659,8 @@ export default function ApartmentView({
                       {tenantDateRange(tn, tCosts("openEnded", { defaultValue: "open" })) && (
                         <span className="block text-xs font-normal text-muted-foreground truncate">
                           {tenantDateRange(tn, tCosts("openEnded", { defaultValue: "open" }))}
+                          {" "}
+                          <span className="tabular-nums">({tenantDaysInYear(tn, year)} Tage)</span>
                         </span>
                       )}
                     </button>
@@ -1638,7 +1669,14 @@ export default function ApartmentView({
               )}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-base font-semibold">{tCosts("rentPayments")}</h3>
+                  <div>
+                    <h3 className="text-base font-semibold">{tCosts("rentPayments")}</h3>
+                    {dataSelectedTenant && (
+                      <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
+                        {tenantDaysInYear(dataSelectedTenant, year)} Tage in {year}
+                      </p>
+                    )}
+                  </div>
                   {prevRentMonthsToCopy.length > 0 && (
                     <Button variant="outline" size="sm" className="h-7 text-xs" disabled={rentSaving} onClick={copyPrevYearRent}>
                       <Copy className="h-3 w-3 mr-1.5" />
@@ -1689,6 +1727,8 @@ export default function ApartmentView({
                       {tenantDateRange(tn, tCosts("openEnded", { defaultValue: "open" })) && (
                         <span className="block text-xs font-normal text-muted-foreground truncate">
                           {tenantDateRange(tn, tCosts("openEnded", { defaultValue: "open" }))}
+                          {" "}
+                          <span className="tabular-nums">({tenantDaysInYear(tn, year)} Tage)</span>
                         </span>
                       )}
                     </button>
@@ -1699,6 +1739,11 @@ export default function ApartmentView({
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-base font-semibold">{tCosts("aptNebenkosten")}</h3>
+                    {dataSelectedTenant && (
+                      <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
+                        {tenantDaysInYear(dataSelectedTenant, year)} Tage in {year}
+                      </p>
+                    )}
                     {isAutoFilled && (
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {tCosts("autoFilledHint", { year: year - 1, defaultValue: `Pre-filled from ${year - 1} — adjust Schlüssel or Anteil if needed, then save.` })}
@@ -1899,6 +1944,8 @@ export default function ApartmentView({
           expenseTypes={expenseTypes}
           rentPayments={rentPayments}
           isLoading={aptCostsLoading || rentLoading}
+          propertySaving={propertySaving}
+          onEditProperty={onEditProperty}
         />
       )}
 
