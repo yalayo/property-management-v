@@ -97,7 +97,7 @@ type Props = {
   aptCostSaveError?: boolean;
   onClearAptCostError?: () => void;
   onLoadAptCosts?: (apartmentId: string) => void;
-  onAddAptCost?: (data: { apartmentId: string; line: string; name: string; year: number; value: number; verteiler?: number; anteil?: number; schluessel?: string }) => void;
+  onAddAptCost?: (data: { apartmentId: string; line: string; name: string; year: number; value: number; verteiler?: number; anteil?: number; schluessel?: string; tenantId?: string }) => void;
   onUpdateAptCost?: (data: { id: string; value: number; verteiler?: number; anteil?: number; schluessel?: string }) => void;
   onDeleteAptCost?: (id: string) => void;
   allCosts?: any[];
@@ -382,12 +382,9 @@ export default function ApartmentView({
     );
     if (propLineKeys.size === 0) return;
 
-    // Lines already saved this year — skip them, show the rest
-    const savedThisYear = new Set(
-      aptCosts
-        .filter((c: any) => Number(c.year) === year)
-        .map((c: any) => c.line as string)
-    );
+    // Lines already saved for this tenant this year — skip them, show the rest.
+    // Uses tenant-scoped keys (tenant-specific entries take precedence over legacy unscoped ones).
+    const savedThisYear = new Set(savedCostKeys);
 
     const toOpen: Record<string, CostEditFields> = {};
     propLineKeys.forEach(lineKey => {
@@ -518,7 +515,17 @@ export default function ApartmentView({
 
   const defaultsForSchluessel = (schl: string): { verteiler: string; anteil: string } => {
     if (schl === "Wohnfläche")      return { verteiler: property?.["living-area-m2"] != null ? String(property["living-area-m2"]) : propertyWohnflaecheStr, anteil: apartment["wohnflaeche"] != null ? String(apartment["wohnflaeche"]) : "" };
-    if (schl === "Anzahl Personen") return { verteiler: propertyPersonDaysStr,      anteil: aptPersonDaysStr };
+    if (schl === "Anzahl Personen") {
+      const tenantPersonDays = (() => {
+        if (dataSelectedTenant) {
+          const rc = dataSelectedTenant["residents-count"];
+          const count = rc != null && !isNaN(Number(rc)) ? Number(rc) : 0;
+          return count * tenantDaysInYear(dataSelectedTenant, year);
+        }
+        return aptPersonDays;
+      })();
+      return { verteiler: propertyPersonDaysStr, anteil: tenantPersonDays > 0 ? String(tenantPersonDays) : aptPersonDaysStr };
+    }
     if (schl === "Wohneinheiten")   return { verteiler: propertyApartmentCountStr,  anteil: "1" };
     return { verteiler: "", anteil: "" };
   };
@@ -528,18 +535,33 @@ export default function ApartmentView({
     const v = parseFloat(verteilerStr.replace(",", "."));
     const a = parseFloat(anteilStr.replace(",", "."));
     if (propTotal == null || isNaN(v) || v === 0 || isNaN(a) || a === 0) return "";
-    const fullShare = (propTotal / v) * a;
-    const yearDays = isLeapYear(year) ? 366 : 365;
-    const tDays = dataSelectedTenant ? tenantDaysInYear(dataSelectedTenant, year) : yearDays;
-    const value = tDays < yearDays ? fullShare * (tDays / yearDays) : fullShare;
-    return value.toFixed(2);
+    const baseShare = (propTotal / v) * a;
+    // For area-based costs (Wohnfläche etc.), prorate by the selected tenant's occupied days.
+    // Person-based already encodes days in the anteil (residents × days); consumed is entered directly.
+    const method = expenseTypes.find((l: any) => l.key === lineKey)?.["distribution-method"] ?? "living-area";
+    if (method !== "person" && method !== "consumed" && dataSelectedTenant) {
+      const yearDays = isLeapYear(year) ? 366 : 365;
+      const days     = tenantDaysInYear(dataSelectedTenant, year);
+      return (baseShare * days / yearDays).toFixed(2);
+    }
+    return baseShare.toFixed(2);
   };
 
   // ── Cost line helpers ─────────────────────────────────────────────────────
   const costLines: CostLine[] = expenseTypes;
   const yearCostEntries       = aptCosts.filter((c: any) => Number(c.year) === year);
-  const savedCostKeys         = yearCostEntries.map((c: any) => c.line as string);
-  const costEntryFor    = (lineId: string) => yearCostEntries.find((c: any) => c.line === lineId) ?? null;
+  const selectedTenantId      = dataSelectedTenant?.id != null ? String(dataSelectedTenant.id) : null;
+  // Tenant-specific entries take precedence; unscoped (legacy) entries fill in lines not yet saved per-tenant.
+  const tenantCostEntries = selectedTenantId
+    ? (() => {
+        const tenantSpecific = yearCostEntries.filter((c: any) => String(c["tenant-id"]) === selectedTenantId);
+        const tenantLines    = new Set(tenantSpecific.map((c: any) => c.line as string));
+        const legacyFallback = yearCostEntries.filter((c: any) => c["tenant-id"] == null && !tenantLines.has(c.line as string));
+        return [...tenantSpecific, ...legacyFallback];
+      })()
+    : yearCostEntries;
+  const savedCostKeys         = tenantCostEntries.map((c: any) => c.line as string);
+  const costEntryFor    = (lineId: string) => tenantCostEntries.find((c: any) => c.line === lineId) ?? null;
   const inheritedCostFor= (lineId: string) =>
     [...aptCosts].filter((c: any) => c.line === lineId && Number(c.year) < year)
       .sort((a: any, b: any) => Number(b.year) - Number(a.year))[0] ?? null;
@@ -564,12 +586,21 @@ export default function ApartmentView({
       schluessel: fields.fixedValue ? undefined : (fields.schluessel.trim() || undefined),
     };
     const existing = costEntryFor(lineKey);
-    if (existing) {
+    // Only update if the existing entry already belongs to this tenant (not a legacy fallback).
+    const isTenantOwned = existing && (selectedTenantId ? String(existing["tenant-id"]) === selectedTenantId : existing["tenant-id"] == null);
+    if (existing && isTenantOwned) {
       onUpdateAptCost?.({ id: existing.id, ...payload });
     } else {
       const line = costLines.find(l => l.key === lineKey);
       if (!line) return;
-      onAddAptCost?.({ apartmentId: String(apartment.id), line: lineKey, name: costLineName(line, i18n.language), year, ...payload });
+      onAddAptCost?.({
+        apartmentId: String(apartment.id),
+        line: lineKey,
+        name: costLineName(line, i18n.language),
+        year,
+        ...payload,
+        ...(selectedTenantId ? { tenantId: selectedTenantId } : {}),
+      });
     }
     closeCostEdit(lineKey);
     toast({ title: tCommon("saved"), duration: 2000 });
@@ -620,6 +651,7 @@ export default function ApartmentView({
           verteiler:  prev.verteiler != null ? Number(prev.verteiler) : undefined,
           anteil:     prev.anteil    != null ? Number(prev.anteil)    : undefined,
           schluessel: prev.schluessel || undefined,
+          ...(selectedTenantId ? { tenantId: selectedTenantId } : {}),
         });
       }
     });
@@ -643,12 +675,20 @@ export default function ApartmentView({
         schluessel: fields.fixedValue ? undefined : (fields.schluessel.trim() || undefined),
       };
       const existing = costEntryFor(lineKey);
-      if (existing) {
+      const isTenantOwned = existing && (selectedTenantId ? String(existing["tenant-id"]) === selectedTenantId : existing["tenant-id"] == null);
+      if (existing && isTenantOwned) {
         onUpdateAptCost?.({ id: existing.id, ...payload });
       } else {
         const line = costLines.find(l => l.key === lineKey);
         if (!line) return;
-        onAddAptCost?.({ apartmentId: String(apartment.id), line: lineKey, name: costLineName(line, i18n.language), year, ...payload });
+        onAddAptCost?.({
+          apartmentId: String(apartment.id),
+          line: lineKey,
+          name: costLineName(line, i18n.language),
+          year,
+          ...payload,
+          ...(selectedTenantId ? { tenantId: selectedTenantId } : {}),
+        });
       }
       dispatched.push(lineKey);
     });

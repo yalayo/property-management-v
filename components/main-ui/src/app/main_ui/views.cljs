@@ -206,14 +206,15 @@
                                                                      (let [d (js->clj data :keywordize-keys true)]
                                                                        (re-frame/dispatch
                                                                         [::cost-events/create-apartment-cost
-                                                                         {:apartment-id (:apartmentId d)
-                                                                          :line         (:line d)
-                                                                          :name         (:name d)
-                                                                          :year         (:year d)
-                                                                          :value        (:value d)
-                                                                          :verteiler    (:verteiler d)
-                                                                          :anteil       (:anteil d)
-                                                                          :schluessel   (:schluessel d)}])))
+                                                                         (cond-> {:apartment-id (:apartmentId d)
+                                                                                  :line         (:line d)
+                                                                                  :name         (:name d)
+                                                                                  :year         (:year d)
+                                                                                  :value        (:value d)
+                                                                                  :verteiler    (:verteiler d)
+                                                                                  :anteil       (:anteil d)
+                                                                                  :schluessel   (:schluessel d)}
+                                                                           (:tenantId d) (assoc :tenant-id (:tenantId d)))])))
                                                :on-update-apt-cost (fn [data]
                                                                      (let [d (js->clj data :keywordize-keys true)]
                                                                        (re-frame/dispatch

@@ -286,12 +286,33 @@ export default function NebenkostenAbrechnung({
 
       const missingMonths = months.filter(m => !paidMonths.has(m));
 
+      const rc = tenant["residents-count"];
+      const residents = (rc != null && !isNaN(Number(rc))) ? Number(rc) : 0;
+      const tenantPersonDays = residents * days;
+
       // Per-line cost breakdown respecting distribution method
+      const tenantId = String(tenant.id);
       const costBreakdown = activeCostLines.map(key => {
-        const entry  = costEntryFor(aptCosts, key, year);
-        const value  = Number(entry?.value ?? 0);
-        const method = lineMethod(key);
-        const share  = method === "consumed" ? value : value * ratio;
+        // Prefer this tenant's entry; fall back to unscoped (legacy) entry
+        const entry = aptCosts.find((c: any) => c.line === key && Number(c.year) === year && String(c["tenant-id"]) === tenantId)
+          ?? aptCosts.find((c: any) => c.line === key && Number(c.year) === year && c["tenant-id"] == null)
+          ?? null;
+        const value    = Number(entry?.value ?? 0);
+        const method   = lineMethod(key);
+        const propTotal = effectiveCostValue(propertyCosts, key, year) ?? 0;
+        const verteiler = Number(entry?.verteiler ?? 0);
+        const anteil    = Number(entry?.anteil ?? 0);
+        const share = (() => {
+          if (method === "consumed") return value;
+          if (method === "person" && propTotal > 0 && verteiler > 0) {
+            return propTotal * tenantPersonDays / verteiler;
+          }
+          // living-area (default): annual_apt_share * (tenant_days / year_days)
+          if (propTotal > 0 && verteiler > 0 && anteil > 0) {
+            return propTotal * anteil / verteiler * ratio;
+          }
+          return value * ratio;
+        })();
         return { key, name: lineName(key), method, aptValue: value, share };
       });
 
@@ -341,17 +362,32 @@ export default function NebenkostenAbrechnung({
     try {
       const { tenant, days, ratio, prepayment } = info;
 
+      const tenantIdForPdf = String(tenant.id);
+      const rc = tenant["residents-count"];
+      const residents = (rc != null && !isNaN(Number(rc))) ? Number(rc) : 0;
+      const tenantPersonDays = residents * days;
       const costLines: CostLineItem[] = activeCostLines.map(key => {
-        const aptEntry  = costEntryFor(aptCosts, key, year);
-        const fullShare = Number(aptEntry?.value ?? 0);
+        const aptEntry = aptCosts.find((c: any) => c.line === key && Number(c.year) === year && String(c["tenant-id"]) === tenantIdForPdf)
+          ?? aptCosts.find((c: any) => c.line === key && Number(c.year) === year && c["tenant-id"] == null)
+          ?? null;
         const method    = lineMethod(key);
+        const propTotal = effectiveCostValue(propertyCosts, key, year) ?? 0;
+        const verteiler = Number(aptEntry?.verteiler ?? 0);
+        const anteil    = Number(aptEntry?.anteil ?? 0);
+        const fullShare = Number(aptEntry?.value ?? 0);
+        const share = (() => {
+          if (method === "consumed") return fullShare;
+          if (method === "person" && propTotal > 0 && verteiler > 0) return propTotal * tenantPersonDays / verteiler;
+          if (propTotal > 0 && verteiler > 0 && anteil > 0) return propTotal * anteil / verteiler * ratio;
+          return fullShare * ratio;
+        })();
         return {
-          name:      lineName(key),
-          total:     effectiveCostValue(propertyCosts, key, year),
-          share:     method === "consumed" ? fullShare : fullShare * ratio,
-          verteiler: aptEntry?.verteiler ?? null,
+          name:       lineName(key),
+          total:      propTotal > 0 ? propTotal : null,
+          share,
+          verteiler:  aptEntry?.verteiler ?? null,
           schluessel: aptEntry?.schluessel ?? null,
-          anteil:    aptEntry?.anteil ?? null,
+          anteil:     aptEntry?.anteil ?? null,
         };
       });
 
@@ -792,10 +828,11 @@ export default function NebenkostenAbrechnung({
           {/* Cost breakdown table — annual apartment-level shares */}
           <Card>
             <CardContent className="p-0">
-              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] text-xs font-medium text-muted-foreground border-b px-4 py-2 gap-2">
+              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] text-xs font-medium text-muted-foreground border-b px-4 py-2 gap-2">
                 <span>{t("costLine")}</span>
                 <span className="text-right">{t("total")}</span>
                 <span className="text-right">{t("verteiler")}</span>
+                <span className="text-right">{t("anteil", { defaultValue: "Anteil" })}</span>
                 <span className="text-center">{t("schluessel")}</span>
                 <span className="text-right">{t("share")}</span>
               </div>
@@ -809,14 +846,16 @@ export default function NebenkostenAbrechnung({
                   const aptEntry   = costEntryFor(aptCosts, key, year);
                   const aptShare   = aptEntry ? Number(aptEntry.value) : null;
                   const verteiler  = aptEntry?.verteiler ?? "—";
+                  const anteil     = aptEntry?.anteil ?? "—";
                   const schluessel = aptEntry?.schluessel ?? "—";
                   return (
-                    <div key={key} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] text-sm px-4 py-2 border-b last:border-b-0 gap-2 items-center">
+                    <div key={key} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] text-sm px-4 py-2 border-b last:border-b-0 gap-2 items-center">
                       <span>{lineName(key)}</span>
                       <span className="text-right tabular-nums text-muted-foreground">
                         {propTotal != null ? `€ ${formatEur(propTotal)}` : "—"}
                       </span>
                       <span className="text-right tabular-nums text-muted-foreground">{verteiler}</span>
+                      <span className="text-right tabular-nums text-muted-foreground">{anteil}</span>
                       <span className="text-center text-muted-foreground leading-tight">{schluessel}</span>
                       <span className="text-right tabular-nums">
                         {aptShare != null ? `€ ${formatEur(aptShare)}` : "—"}
