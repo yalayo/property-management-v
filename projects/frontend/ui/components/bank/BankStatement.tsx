@@ -37,21 +37,45 @@ function loadPdfJs(): Promise<any> {
 // ── Parsing ───────────────────────────────────────────────────────────────────
 
 const GERMAN_MONTHS: Record<string, number> = {
-  Jan: 1, Feb: 2, März: 3, Mär: 3, Apr: 4, Mai: 5, Juni: 6,
-  Juli: 7, Aug: 8, Sep: 9, Okt: 10, Nov: 11, Dez: 12,
+  Jan: 1, Feb: 2, "Mär": 3, "März": 3, Apr: 4, Mai: 5,
+  Jun: 6, Juni: 6, Jul: 7, Juli: 7, Aug: 8, Sep: 9, Okt: 10, Nov: 11, Dez: 12,
 };
 
+// Known banks: [detection pattern, canonical display name]
+const BANK_PATTERNS: [RegExp, string][] = [
+  [/deutsche\s+apotheker|ärztebank/i,  "Deutsche Apotheker- und Ärztebank"],
+  [/HypoVereinsbank/i,                       "HypoVereinsbank"],
+  [/UniCredit/i,                             "HypoVereinsbank"],
+  [/Commerzbank/i,                           "Commerzbank"],
+  [/Deutsche\s+Bank/i,                       "Deutsche Bank"],
+  [/\bDKB\b/,                                "DKB"],
+  [/\bING\b/,                                "ING"],
+  [/Comdirect/i,                             "Comdirect"],
+  [/Postbank/i,                              "Postbank"],
+  [/Sparkasse/i,                             "Sparkasse"],
+  [/Volksbank/i,                             "Volksbank"],
+  [/Raiffeisen/i,                            "Raiffeisen"],
+  [/\bN26\b/,                                "N26"],
+];
+
 function cleanStr(s: string): string {
-  return s.replace(/ /g, " ").replace(/\s+/g, " ").trim();
+  return s.replace(/ /g, " ").replace(/\s+/g, " ").trim();
+}
+
+const DESCRIPTION_LABELS = /\b(Verwendungszweck|Auftraggeber|Empfänger|Beguenstigter|Glaeubiger-?ID|Mandatsreferenz|Kundenreferenz|End-to-End-Ref)\b\.?\s*:?\s*/gi;
+
+function cleanDescription(desc: string): string {
+  return desc.replace(DESCRIPTION_LABELS, " ").replace(/\s+/g, " ").trim();
 }
 
 function parseAmount(s: string): number {
   return parseFloat(s.replace(/\./g, "").replace(",", "."));
 }
 
+// DAB style: "12. Dez. 2023 SALVATORE RASPANTI ... 1.015,00"
 function parseGermanLongLine(line: string): Transaction | null {
   const match = cleanStr(line).match(
-    /^(\d{1,2})\. ([A-ZÄÖÜa-zäöüß]+)\. (\d{4}) (.*?) (-?\d{1,3}(?:\.\d{3})*,\d{2})/
+    /^(\d{1,2})\.\s+([A-ZÄÖÜ][a-zäöüß]+)\.?\s+(\d{4})\s+(.*?)\s+(-?\d{1,3}(?:\.\d{3})*,\d{2})\s*$/
   );
   if (!match) return null;
   const [, dayStr, monthName, yearStr, description, amountStr] = match;
@@ -61,19 +85,23 @@ function parseGermanLongLine(line: string): Transaction | null {
   const year = parseInt(yearStr, 10);
   return {
     date: `${yearStr}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
-    description: description.trim(),
+    description: cleanDescription(description),
     amount: parseAmount(amountStr),
     year, month,
   };
 }
 
+// HVB style: "24.06.2024 24.06.2024 SEPA-GUTSCHRIFT ... 1.990,00 EUR"
+// DAB numeric style would also hit this.
 function parseNumericDateLine(line: string): Transaction | null {
   const clean     = cleanStr(line);
+  // Optional second date (valuta date in HVB format)
   const dateMatch = clean.match(/^(\d{2})\.(\d{2})\.(\d{4})(?:\s+\d{2}\.\d{2}\.\d{4})?\s+/);
   if (!dateMatch) return null;
   const [fullPart, day, mon, year] = dateMatch;
   const rest = clean.slice(fullPart.length);
-  const amtMatch = rest.match(/^(.*)\s+(-?\d{1,3}(?:\.\d{3})*,\d{2})(?: EUR)?$/);
+  // Amount at end, optionally followed by " EUR"
+  const amtMatch = rest.match(/^(.*?)\s+(-?\d{1,3}(?:\.\d{3})*,\d{2})(?:\s+EUR)?\s*$/);
   if (!amtMatch) return null;
   const [, description, amountStr] = amtMatch;
   const m = parseInt(mon, 10);
@@ -81,7 +109,7 @@ function parseNumericDateLine(line: string): Transaction | null {
   if (m < 1 || m > 12) return null;
   return {
     date: `${year}-${mon}-${day}`,
-    description: description.trim(),
+    description: cleanDescription(description),
     amount: parseAmount(amountStr),
     year: y, month: m,
   };
@@ -91,44 +119,144 @@ function parseLine(line: string): Transaction | null {
   return parseGermanLongLine(line) ?? parseNumericDateLine(line);
 }
 
+// Merge PDF text items into one string per transaction.
+// HVB has two consecutive dates per row (Buchung + Valuta date).
+// When we're still in an all-date prefix, additional dates are appended
+// (treated as valuta) instead of starting a new block.
 function mergeItems(parts: string[]): string[] {
-  const result: string[] = [];
-  let current: string[]  = [];
-  let prevWasNumericDate = false;
+  const result: string[]  = [];
+  let current: string[]   = [];
+  let blockOnlyDates      = false;
+
   for (const raw of parts) {
     const part = cleanStr(raw);
     if (!part) continue;
-    const isGermanDate  = /^\d{1,2}\. [A-ZÄÖÜa-zäöüß]+\. \d{4}/.test(part);
+    const isGermanDate  = /^\d{1,2}\.\s+[A-ZÄÖÜ]/.test(part);
     const isNumericDate = /^\d{2}\.\d{2}\.\d{4}(\s|$)/.test(part);
+
     if (isGermanDate) {
       if (current.length) result.push(current.join(" "));
-      current = [part]; prevWasNumericDate = false;
-    } else if (isNumericDate && !prevWasNumericDate) {
-      if (current.length) result.push(current.join(" "));
-      current = [part]; prevWasNumericDate = true;
+      current = [part]; blockOnlyDates = true;
+    } else if (isNumericDate) {
+      if (blockOnlyDates) {
+        // Second date in block (HVB valuta) — keep in same row
+        current.push(part);
+      } else {
+        if (current.length) result.push(current.join(" "));
+        current = [part]; blockOnlyDates = true;
+      }
     } else {
-      current.push(part); prevWasNumericDate = false;
+      current.push(part); blockOnlyDates = false;
     }
   }
   if (current.length) result.push(current.join(" "));
   return result;
 }
 
-// ── IBAN extraction ───────────────────────────────────────────────────────────
+// ── PDF meta (IBAN, bank name, owner) ────────────────────────────────────────
 
-interface PdfMeta { iban: string; bankName: string; }
+interface PdfMeta { iban: string; bankName: string; owner?: string; }
 
-function extractIbanFromParts(parts: string[]): PdfMeta | null {
-  // Normalise non-breaking spaces and join
-  const fullText = parts.join(" ").replace(/ /g, " ");
-  const ibanMatch = fullText.match(/\b([A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]{4}){4,7}[A-Z0-9]{0,3})\b/);
-  if (!ibanMatch) return null;
-  const iban = ibanMatch[1].replace(/\s/g, "");
-  if (iban.length < 15) return null;
-  const idx  = fullText.indexOf(ibanMatch[1]);
-  const near = fullText.slice(Math.max(0, idx - 300), idx + 300);
-  const bankMatch = near.match(/(?:Sparkasse|Volksbank|Raiffeisen|Commerzbank|Deutsche Bank|DKB|N26|ING|Comdirect|Postbank|HypoVereinsbank|UniCredit|[A-ZÄÖÜ][a-zäöüß]+(?: [A-ZÄÖÜ][a-zäöüß]+)* Bank)/);
-  return { iban, bankName: bankMatch ? bankMatch[0].trim().slice(0, 80) : "" };
+// BLZ (chars 4-11 of a German IBAN) → canonical bank name
+const BLZ_TO_BANK: Record<string, string> = {
+  "30060601": "Deutsche Apotheker- und Ärztebank",
+  "30060610": "Deutsche Apotheker- und Ärztebank",
+  "36020186": "HypoVereinsbank",
+  "10020200": "HypoVereinsbank",
+  "10070024": "Deutsche Bank",
+  "20070024": "Deutsche Bank",
+  "37070024": "Deutsche Bank",
+  "10040000": "Commerzbank",
+  "20040050": "Commerzbank",
+  "30040000": "Commerzbank",
+  "20010010": "Postbank",
+  "10010010": "Postbank",
+  "44010046": "Postbank",
+  "12030000": "DKB",
+  "50010517": "ING",
+  "20041111": "Comdirect",
+  "10011001": "N26",
+};
+
+function detectBankFromIban(iban: string): string {
+  if (iban.startsWith("DE") && iban.length === 22) {
+    const blz = iban.slice(4, 12);
+    return BLZ_TO_BANK[blz] ?? "";
+  }
+  return "";
+}
+
+function detectBankName(iban: string, text: string): string {
+  const fromIban = detectBankFromIban(iban);
+  if (fromIban) return fromIban;
+  for (const [rx, name] of BANK_PATTERNS) {
+    if (rx.test(text)) return name;
+  }
+  return "";
+}
+
+function detectOwner(text: string): string | undefined {
+  // Pattern 1: explicit "Kontoinhaber:" label (HVB and others)
+  const labelled = text.match(/Kontoinhaber\s*:?\s*([A-ZÄÖÜ][A-Za-zäöüÄÖÜß ,.\-&]{3,80})/);
+  if (labelled) return labelled[1].trim().slice(0, 100);
+
+  // Pattern 2: <Name> <AccountType> with overlapping search so a rejected match at an
+  // earlier position (e.g. "Kontoauszug …Privatkonto") doesn't consume the real match.
+  const rx = /([A-ZÄÖÜ][A-Za-zäöüÄÖÜß ,.\-&]{3,100}?)\s{1,3}(Privatkonto|Girokonto|Geschäftskonto|Sparkonto|AktivKonto)\s/g;
+  let m: RegExpExecArray | null;
+  while ((m = rx.exec(text)) !== null) {
+    const candidate = m[1].trim();
+    const words = candidate.split(/\s+/);
+    if (
+      !/^(Konto|Kunden|Datum|Name|Text|Buchung|Seite|Erstellt|Saldo|IBAN)/i.test(candidate) &&
+      words.length >= 2 &&
+      words.length <= 10
+    ) {
+      return candidate.slice(0, 100);
+    }
+    rx.lastIndex = m.index + 1;
+  }
+  return undefined;
+}
+
+function formatIban(iban: string): string {
+  return iban.replace(/(.{4})/g, "$1 ").trim();
+}
+
+// IBAN lengths by country code (chars after stripping spaces)
+const IBAN_LENGTHS: Record<string, number> = {
+  DE: 22, AT: 20, CH: 21, NL: 18, FR: 27, GB: 22, ES: 24, IT: 27, BE: 16,
+};
+
+function trimIban(raw: string): string {
+  const len = IBAN_LENGTHS[raw.slice(0, 2)];
+  return len ? raw.slice(0, len) : raw;
+}
+
+// Groups of 1-4 chars handle trailing short groups (e.g. DE20...4970 94 where "94" is only 2 digits)
+function extractIban(text: string): string | null {
+  const labelled = text.match(/\bIBAN:?\s+([A-Z]{2}\d{2}(?:\s*[A-Z0-9]{1,4}){3,9})/);
+  if (labelled) {
+    const iban = trimIban(labelled[1].replace(/\s/g, ""));
+    if (iban.length >= 15) return iban;
+  }
+  const any = text.match(/\b([A-Z]{2}\d{2}(?:\s*[A-Z0-9]{1,4}){3,9})\b/);
+  if (any) {
+    const iban = trimIban(any[1].replace(/\s/g, ""));
+    if (iban.length >= 15) return iban;
+  }
+  return null;
+}
+
+function extractMetaFromParts(parts: string[]): PdfMeta | null {
+  const fullText = parts.map(cleanStr).join(" ");
+  const iban = extractIban(fullText);
+  if (!iban) return null;
+  return {
+    iban,
+    bankName: detectBankName(iban, fullText),
+    owner:    detectOwner(fullText),
+  };
 }
 
 async function extractPdf(file: File): Promise<{ transactions: Transaction[]; meta: PdfMeta | null }> {
@@ -144,7 +272,7 @@ async function extractPdf(file: File): Promise<{ transactions: Transaction[]; me
     }
   }
   const transactions = mergeItems(parts).map(parseLine).filter((t): t is Transaction => t !== null);
-  const meta = extractIbanFromParts(parts);
+  const meta = extractMetaFromParts(parts);
   return { transactions, meta };
 }
 
@@ -387,6 +515,7 @@ export default function BankStatement({
       if (meta) {
         setDetectedMeta(meta);
         setNewAccBankName(meta.bankName);
+        setNewAccOwner(meta.owner ?? "");
         setAccBannerOpen(true);
       }
       if (txs.length === 0) setError(t("noTransactions"));
@@ -530,8 +659,8 @@ export default function BankStatement({
                     <Check className="h-4 w-4 shrink-0 text-green-600" />
                     <span>
                       {t("bankAccountDetected", { defaultValue: "Erkanntes Konto" })}{": "}
-                      <span className="font-mono font-medium">{detectedMeta.iban}</span>
-                      {(matchedBankAccount["bank-account/bank-name"]) && (
+                      <span className="font-mono font-medium">{formatIban(detectedMeta.iban)}</span>
+                      {matchedBankAccount["bank-account/bank-name"] && (
                         <> — {matchedBankAccount["bank-account/bank-name"]}</>
                       )}
                     </span>
@@ -543,11 +672,11 @@ export default function BankStatement({
                       <div className="flex items-center gap-2 text-sm text-blue-900 font-medium">
                         <PlusCircle className="h-4 w-4 shrink-0" />
                         {t("newBankAccountDetected", { defaultValue: "Neues Bankkonto erkannt" })}{": "}
-                        <span className="font-mono">{detectedMeta.iban}</span>
+                        <span className="font-mono">{formatIban(detectedMeta.iban)}</span>
                       </div>
                       <button onClick={() => setAccBannerOpen(false)} className="text-xs text-blue-700 hover:underline">✕</button>
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
                         <Label className="text-xs text-blue-800">{t("bankAccountOwner", { defaultValue: "Kontoinhaber" })}</Label>
                         <Input value={newAccOwner} onChange={e => setNewAccOwner(e.target.value)}
@@ -557,11 +686,6 @@ export default function BankStatement({
                         <Label className="text-xs text-blue-800">{t("bankName", { defaultValue: "Bank" })}</Label>
                         <Input value={newAccBankName} onChange={e => setNewAccBankName(e.target.value)}
                           className="h-7 text-xs" placeholder="Deutsche Bank" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-blue-800">{t("description", { defaultValue: "Bezeichnung" })}</Label>
-                        <Input value={newAccDesc} onChange={e => setNewAccDesc(e.target.value)}
-                          className="h-7 text-xs" placeholder={t("descriptionPlaceholder", { defaultValue: "Optional" })} />
                       </div>
                     </div>
                     <div className="flex justify-end">
@@ -603,7 +727,7 @@ export default function BankStatement({
                       </div>
                       <p className={cn("text-sm font-semibold tabular-nums shrink-0",
                         debit ? "text-red-600" : "text-green-700")}>
-                        {debit ? "−" : "+"}€ {fmtAbs(tx.amount)}
+                        {debit ? "−" : "+"}&#8364; {fmtAbs(tx.amount)}
                       </p>
                     </div>
 
