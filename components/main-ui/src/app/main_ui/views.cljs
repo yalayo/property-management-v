@@ -331,6 +331,18 @@
                                         :owner       (:owner d)
                                         :bank-name   (:bankName d)
                                         :description (:description d)}]))))
+           :onUpdateBankAccount (when can-create?
+                                  (fn [data]
+                                    (let [d (js->clj data :keywordize-keys true)]
+                                      (re-frame/dispatch
+                                       [::cost-events/update-bank-account
+                                        {:id        (:id d)
+                                         :iban      (:iban d)
+                                         :owner     (:owner d)
+                                         :bank-name (:bankName d)}]))))
+           :onDeleteBankAccount (when can-create?
+                                  (fn [id]
+                                    (re-frame/dispatch [::cost-events/delete-bank-account id])))
            :onAssignPayment    (when can-create?
                                  (fn [data]
                                    (let [d (js->clj data :keywordize-keys true)]

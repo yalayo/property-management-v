@@ -370,11 +370,15 @@ export default function Dashboard(props) {
               tenants={props.tenants}
               properties={props.properties}
               expenseTypes={props.expenseTypes}
-              allRentPayments={props.rentPayments}
+              allRentPayments={props.allRentPayments}
               allCosts={props.allCosts}
+              bankAccounts={props.bankAccounts}
               isSaving={props.rentSaving}
               onAssignPayment={props.onAssignPayment}
               onRecordExpense={props.onRecordExpense}
+              onSaveBankAccount={props.onSaveBankAccount}
+              onUpdateBankAccount={props.onUpdateBankAccount}
+              onDeleteBankAccount={props.onDeleteBankAccount}
             />
           )}
           {activeTab === "abrechnung" && (

@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Upload, Landmark, Check, ChevronsUpDown, AlertTriangle, History, ChevronDown, ChevronUp, PlusCircle } from "lucide-react";
+import { Upload, Landmark, Check, ChevronsUpDown, AlertTriangle, History, ChevronDown, ChevronUp, PlusCircle, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "../../hooks/use-toast";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
@@ -329,6 +329,10 @@ type Props = {
   onSaveBankAccount?: (data: {
     iban: string; owner: string; bankName: string; description: string;
   }) => void;
+  onUpdateBankAccount?: (data: {
+    id: string | number; iban: string; owner: string; bankName: string;
+  }) => void;
+  onDeleteBankAccount?: (id: string | number) => void;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -368,6 +372,8 @@ export default function BankStatement({
   onAssignPayment,
   onRecordExpense,
   onSaveBankAccount,
+  onUpdateBankAccount,
+  onDeleteBankAccount,
 }: Props) {
   const { t }       = useTranslation("bank");
   const { t: tCom } = useTranslation("common");
@@ -390,6 +396,16 @@ export default function BankStatement({
   const [newAccDesc, setNewAccDesc]         = useState("");
   const [accBannerOpen, setAccBannerOpen]   = useState(false);
   const [accSaved, setAccSaved]             = useState(false);
+
+  // Bank account inline edit / delete / create state
+  const [editingBaId, setEditingBaId]   = useState<string | null>(null);
+  const [editOwner, setEditOwner]       = useState("");
+  const [editBankName, setEditBankName] = useState("");
+  const [deletingBaId, setDeletingBaId] = useState<string | null>(null);
+  const [showCreateBa, setShowCreateBa] = useState(false);
+  const [createIban, setCreateIban]     = useState("");
+  const [createOwner, setCreateOwner]   = useState("");
+  const [createBank, setCreateBank]     = useState("");
 
   // ── Matched bank account ──────────────────────────────────────────────────
 
@@ -926,54 +942,172 @@ export default function BankStatement({
       )}
 
       {/* Stored bank accounts + transaction history */}
-      {bankAccounts.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-sm font-semibold">{t("storedBankAccounts", { defaultValue: "Bankkonten" })}</p>
+      <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold">{t("storedBankAccounts", { defaultValue: "Bankkonten" })}</p>
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
+              onClick={() => { setShowCreateBa(v => !v); setCreateIban(""); setCreateOwner(""); setCreateBank(""); setEditingBaId(null); setDeletingBaId(null); }}>
+              <PlusCircle className="h-3.5 w-3.5" />
+              {t("addBankAccount", { defaultValue: "Konto anlegen" })}
+            </Button>
+          </div>
+
+          {/* Manual create form */}
+          {showCreateBa && (
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="px-4 pt-3 pb-3 space-y-2">
+                <p className="text-xs font-medium text-blue-900">{t("newBankAccount", { defaultValue: "Neues Bankkonto" })}</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-blue-800">IBAN *</Label>
+                    <Input value={createIban} onChange={e => setCreateIban(e.target.value)}
+                      className="h-7 text-xs font-mono" placeholder="DE89 3704 0044 …" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-blue-800">{t("bankAccountOwner", { defaultValue: "Kontoinhaber" })} *</Label>
+                    <Input value={createOwner} onChange={e => setCreateOwner(e.target.value)}
+                      className="h-7 text-xs" placeholder="Max Mustermann" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-blue-800">{t("bankName", { defaultValue: "Bank" })}</Label>
+                    <Input value={createBank} onChange={e => setCreateBank(e.target.value)}
+                      className="h-7 text-xs" placeholder="Deutsche Bank" />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" size="sm" className="h-7 text-xs"
+                    onClick={() => setShowCreateBa(false)}>
+                    {tCom("cancel", { defaultValue: "Abbrechen" })}
+                  </Button>
+                  <Button size="sm" className="h-7 text-xs"
+                    disabled={!createIban.trim() || !createOwner.trim()}
+                    onClick={() => {
+                      onSaveBankAccount?.({ iban: createIban.replace(/\s/g, ""), owner: createOwner.trim(), bankName: createBank.trim(), description: "" });
+                      setShowCreateBa(false);
+                      setCreateIban(""); setCreateOwner(""); setCreateBank("");
+                    }}>
+                    {tCom("save", { defaultValue: "Speichern" })}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Empty state */}
+          {bankAccounts.length === 0 && !showCreateBa && (
+            <Card className="border-dashed">
+              <CardContent className="px-4 py-6 text-center text-sm text-muted-foreground">
+                {t("noBankAccounts", { defaultValue: "Noch keine Bankkonten gespeichert. PDF importieren oder manuell anlegen." })}
+              </CardContent>
+            </Card>
+          )}
           {bankAccounts.map((ba, i) => {
             const id    = baId(ba);
             const iban  = baIban(ba);
             const owner = ba["bank-account/owner"] ?? (ba as any).owner ?? "";
             const bank  = ba["bank-account/bank-name"] ?? (ba as any)["bank-name"] ?? "";
             const txs   = txsByBankAccount[id] ?? [];
+            const isEditing  = editingBaId === id;
+            const isDeleting = deletingBaId === id;
+
             return (
               <Card key={id || i} className="overflow-hidden">
                 <CardContent className="px-4 pt-3 pb-3 space-y-2">
-                  {/* Account header */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-mono text-sm font-medium">{formatIban(iban)}</p>
-                      {owner && <p className="text-xs text-muted-foreground mt-0.5 truncate">{owner}</p>}
-                      {bank  && <p className="text-xs text-muted-foreground truncate">{bank}</p>}
-                    </div>
-                    <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
-                      {txs.length > 0 ? `${txs.length} Buchung${txs.length !== 1 ? "en" : ""}` : "—"}
-                    </span>
-                  </div>
 
-                  {/* Recent transactions */}
-                  {txs.length > 0 ? (
-                    <div className="divide-y border-t">
-                      {txs.map((tx, j) => (
-                        <div key={j} className="flex items-center gap-2 py-1 text-xs">
-                          <span className="text-muted-foreground tabular-nums shrink-0 w-24">{tx.date}</span>
-                          <span className="truncate flex-1 min-w-0 text-foreground">{tx.description}</span>
-                          <span className={cn("tabular-nums shrink-0 font-medium", tx.type === "rent" ? "text-green-700" : "text-red-600")}>
-                            {tx.type === "rent" ? "+" : "−"}&#8364;&nbsp;{fmtAbs(tx.amount)}
-                          </span>
+                  {isEditing ? (
+                    /* ── Edit form ── */
+                    <div className="space-y-2">
+                      <p className="text-xs font-mono text-muted-foreground">{formatIban(iban)}</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs">{t("bankAccountOwner", { defaultValue: "Kontoinhaber" })}</Label>
+                          <Input value={editOwner} onChange={e => setEditOwner(e.target.value)} className="h-7 text-xs" />
                         </div>
-                      ))}
+                        <div className="space-y-1">
+                          <Label className="text-xs">{t("bankName", { defaultValue: "Bank" })}</Label>
+                          <Input value={editBankName} onChange={e => setEditBankName(e.target.value)} className="h-7 text-xs" />
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" className="h-7 text-xs"
+                          onClick={() => setEditingBaId(null)}>
+                          {tCom("cancel", { defaultValue: "Abbrechen" })}
+                        </Button>
+                        <Button size="sm" className="h-7 text-xs"
+                          onClick={() => {
+                            onUpdateBankAccount?.({ id, iban, owner: editOwner, bankName: editBankName });
+                            setEditingBaId(null);
+                          }}>
+                          {tCom("save", { defaultValue: "Speichern" })}
+                        </Button>
+                      </div>
                     </div>
                   ) : (
-                    <p className="text-xs text-muted-foreground italic border-t pt-2">
-                      {t("noLinkedTransactions", { defaultValue: "Noch keine Buchungen verknüpft" })}
-                    </p>
+                    /* ── Normal view ── */
+                    <>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-mono text-sm font-medium">{formatIban(iban)}</p>
+                          {owner && <p className="text-xs text-muted-foreground mt-0.5 truncate">{owner}</p>}
+                          {bank  && <p className="text-xs text-muted-foreground truncate">{bank}</p>}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-xs text-muted-foreground tabular-nums mr-1">
+                            {txs.length > 0 ? `${txs.length} Buchung${txs.length !== 1 ? "en" : ""}` : "—"}
+                          </span>
+                          <Button variant="ghost" size="icon" className="h-6 w-6"
+                            onClick={() => { setEditingBaId(id); setEditOwner(owner); setEditBankName(bank); setDeletingBaId(null); }}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive"
+                            onClick={() => setDeletingBaId(isDeleting ? null : id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Delete confirmation */}
+                      {isDeleting && (
+                        <div className="flex items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
+                          <p className="text-xs text-destructive">{t("confirmDeleteBankAccount", { defaultValue: "Konto wirklich löschen?" })}</p>
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm" className="h-6 text-xs px-2"
+                              onClick={() => setDeletingBaId(null)}>
+                              {tCom("cancel", { defaultValue: "Abbrechen" })}
+                            </Button>
+                            <Button variant="destructive" size="sm" className="h-6 text-xs px-2"
+                              onClick={() => { onDeleteBankAccount?.(id); setDeletingBaId(null); }}>
+                              {tCom("delete", { defaultValue: "Löschen" })}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Recent transactions */}
+                      {txs.length > 0 ? (
+                        <div className="divide-y border-t">
+                          {txs.map((tx, j) => (
+                            <div key={j} className="flex items-center gap-2 py-1 text-xs">
+                              <span className="text-muted-foreground tabular-nums shrink-0 w-24">{tx.date}</span>
+                              <span className="truncate flex-1 min-w-0 text-foreground">{tx.description}</span>
+                              <span className={cn("tabular-nums shrink-0 font-medium", tx.type === "rent" ? "text-green-700" : "text-red-600")}>
+                                {tx.type === "rent" ? "+" : "−"}&#8364;&nbsp;{fmtAbs(tx.amount)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground italic border-t pt-2">
+                          {t("noLinkedTransactions", { defaultValue: "Noch keine Buchungen verknüpft" })}
+                        </p>
+                      )}
+                    </>
                   )}
                 </CardContent>
               </Card>
             );
           })}
         </div>
-      )}
 
       {/* Import history */}
       {hasHistory && (
