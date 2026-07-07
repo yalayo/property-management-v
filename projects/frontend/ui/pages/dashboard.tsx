@@ -312,6 +312,8 @@ export default function Dashboard(props) {
                 taxConfigs={props.taxConfigs}
                 loans={props.taxLoans}
                 onNavigate={(tab, ctx) => handleSelect(tab, ctx)}
+                onEditProperty={props.onEditProperty}
+                onAddRentPayment={props.onAddRentPayment}
               />
             </div>
           )}

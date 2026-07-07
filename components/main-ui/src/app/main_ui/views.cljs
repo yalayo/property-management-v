@@ -469,6 +469,16 @@
            :onDeleteProperty   (when can-create?
                                  (fn [id]
                                    (re-frame/dispatch [::property-events/delete-property id])))
+           :onAddRentPayment   (when can-create?
+                                 (fn [data]
+                                   (let [d (js->clj data :keywordize-keys true)]
+                                     (re-frame/dispatch
+                                      [::rent-events/create-rent-payment
+                                       {:apartment-id     (:apartmentId d)
+                                        :year             (:year d)
+                                        :month            (:month d)
+                                        :nebenkosten-warm (:nebenkostenWarm d)
+                                        :value            (:nebenkostenWarm d)}]))))
            :aptCosts           (clj->js apt-costs)
            :aptCostsLoading    apt-costs-loading?
            :rentPayments       (clj->js rent-payments)
