@@ -353,6 +353,8 @@ export default function Dashboard(props) {
                 apartments={props.apartments}
                 isSaving={props.isSaving}
                 isReadOnly={props.isReadOnly}
+                saveError={props.propSaveError}
+                justSaved={props.propJustSaved}
                 onAddProperty={props.onAddProperty}
                 onEditProperty={props.onEditProperty}
                 onDeleteProperty={props.onDeleteProperty}

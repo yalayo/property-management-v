@@ -62,6 +62,8 @@
         properties           @(re-frame/subscribe [::property-subs/properties])
         prop-loading?        @(re-frame/subscribe [::property-subs/loading?])
         prop-saving?         @(re-frame/subscribe [::property-subs/saving?])
+        prop-save-error      @(re-frame/subscribe [::property-subs/save-error])
+        prop-just-saved?     @(re-frame/subscribe [::property-subs/just-saved?])
         all-apartments       @(re-frame/subscribe [::apartment-subs/apartments])
         all-garages          @(re-frame/subscribe [::apartment-subs/garages])
         apts-loading?        @(re-frame/subscribe [::apartment-subs/loading?])
@@ -195,6 +197,8 @@
            :propertiesLoading  prop-loading?
            :apartmentsLoading  apts-loading?
            :isSaving           prop-saving?
+           :propSaveError      (when prop-save-error (name prop-save-error))
+           :propJustSaved      prop-just-saved?
            :tenants            (clj->js tenants)
            :tenantsLoading     tenants-loading?
            :apartments         (clj->js all-apartments)

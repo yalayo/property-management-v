@@ -1,5 +1,5 @@
 import React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Plus, Edit, Trash2, Search } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -49,6 +49,8 @@ type Props = {
   apartments?: any[];
   isSaving?: boolean;
   isReadOnly?: boolean;
+  saveError?: string | null;
+  justSaved?: boolean;
   onAddProperty?: (data: any) => void;
   onEditProperty?: (id: number, data: any) => void;
   onDeleteProperty?: (id: number) => void;
@@ -230,7 +232,7 @@ const emptyDefaults: PropertyFormValues = {
 function parseNum(val?: string) { return val ? parseFloat(val) : undefined; }
 function parseInt10(val?: string) { return val ? parseInt(val, 10) : undefined; }
 
-export default function PropertyList({ properties = [], apartments = [], isSaving = false, isReadOnly = false, onAddProperty, onEditProperty, onDeleteProperty, onViewApartments, onSelectProperty, onGoBack, navContext }: Props) {
+export default function PropertyList({ properties = [], apartments = [], isSaving = false, isReadOnly = false, saveError, justSaved, onAddProperty, onEditProperty, onDeleteProperty, onViewApartments, onSelectProperty, onGoBack, navContext }: Props) {
   const { t } = useTranslation("properties");
   const { t: tCommon } = useTranslation("common");
   const { toast } = useToast();
@@ -239,6 +241,28 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
   const [deletingProperty, setDeletingProperty] = useState<any | null>(null);
   const [page, setPage] = useState(1);
   const [filterText, setFilterText] = useState("");
+
+  const prevSaveError = useRef<string | null | undefined>(saveError);
+  const prevJustSaved = useRef<boolean | undefined>(justSaved);
+
+  useEffect(() => {
+    if (saveError && saveError !== prevSaveError.current) {
+      const desc = saveError === "duplicate-name"
+        ? t("validation.nameTaken")
+        : saveError === "trial-expired"
+        ? tCommon("trialExpired", { defaultValue: "Your trial has expired." })
+        : tCommon("saveFailed", { defaultValue: "Failed to save. Please try again." });
+      toast({ title: tCommon("error", { defaultValue: "Error" }), description: desc, variant: "destructive" });
+    }
+    prevSaveError.current = saveError;
+  }, [saveError]);
+
+  useEffect(() => {
+    if (justSaved && justSaved !== prevJustSaved.current) {
+      toast({ title: tCommon("saved") });
+    }
+    prevJustSaved.current = justSaved;
+  }, [justSaved]);
 
   useEffect(() => { setPage(1); }, [properties, filterText]);
 
@@ -290,7 +314,6 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
     }
     if (onAddProperty) {
       onAddProperty(data);
-      toast({ title: tCommon("saved") });
     } else {
       toast({ title: tCommon("comingSoon"), description: "Property management is being connected." });
     }
@@ -355,7 +378,6 @@ export default function PropertyList({ properties = [], apartments = [], isSavin
 
       if (Object.keys(changes).length > 0) {
         onEditProperty(editingProperty.id, changes);
-        toast({ title: tCommon("saved") });
       }
     }
     setEditingProperty(null);

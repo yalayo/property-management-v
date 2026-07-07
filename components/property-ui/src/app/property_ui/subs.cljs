@@ -20,3 +20,13 @@
  ::current-user
  (fn [db _]
    (get-in db [:user :info])))
+
+(re-frame/reg-sub
+ ::save-error
+ (fn [db _]
+   (get-in db [:properties :save-error])))
+
+(re-frame/reg-sub
+ ::just-saved?
+ (fn [db _]
+   (get-in db [:properties :just-saved?] false)))

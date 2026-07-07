@@ -18,7 +18,8 @@
  (fn [db [_ {:keys [properties]}]]
    (-> db
        (assoc-in [:properties :list] properties)
-       (assoc-in [:properties :loading?] false))))
+       (assoc-in [:properties :loading?] false)
+       (assoc-in [:properties :just-saved?] false))))
 
 (re-frame/reg-event-fx
  ::properties-error
@@ -29,7 +30,9 @@
 (re-frame/reg-event-fx
  ::add-property
  (fn [{:keys [db]} [_ property-data]]
-   {:db       (assoc-in db [:properties :saving?] true)
+   {:db       (-> db
+                  (assoc-in [:properties :saving?] true)
+                  (assoc-in [:properties :save-error] nil))
     :dispatch [:app.core-ui.events/command
                :create-property
                property-data
@@ -40,20 +43,28 @@
  ::property-added
  [local-storage-interceptor]
  (fn [{:keys [db]} _]
-   {:db       (assoc-in db [:properties :saving?] false)
+   {:db       (-> db
+                  (assoc-in [:properties :saving?] false)
+                  (assoc-in [:properties :save-error] nil)
+                  (assoc-in [:properties :just-saved?] true))
     :dispatch [::load-properties]}))
 
 (re-frame/reg-event-db
  ::property-save-error
  [local-storage-interceptor]
  (fn [db [_ error]]
-   (js/console.error "Failed to save property:" error)
-   (assoc-in db [:properties :saving?] false)))
+   (let [err-code (-> error :response :error)]
+     (js/console.error "Property save failed - status:" (:status error) "error:" (pr-str err-code))
+     (-> db
+         (assoc-in [:properties :saving?] false)
+         (assoc-in [:properties :save-error] (or err-code :unknown))))))
 
 (re-frame/reg-event-fx
  ::update-property
  (fn [{:keys [db]} [_ id property-data]]
-   {:db       (assoc-in db [:properties :saving?] true)
+   {:db       (-> db
+                  (assoc-in [:properties :saving?] true)
+                  (assoc-in [:properties :save-error] nil))
     :dispatch [:app.core-ui.events/command
                :update-property
                (assoc property-data :id id)
@@ -64,7 +75,10 @@
  ::property-updated
  [local-storage-interceptor]
  (fn [{:keys [db]} _]
-   {:db       (assoc-in db [:properties :saving?] false)
+   {:db       (-> db
+                  (assoc-in [:properties :saving?] false)
+                  (assoc-in [:properties :save-error] nil)
+                  (assoc-in [:properties :just-saved?] true))
     :dispatch [::load-properties]}))
 
 (re-frame/reg-event-fx
