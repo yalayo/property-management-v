@@ -62,6 +62,7 @@ type Props = {
   isImporting?: boolean;
   onPauseUserTrial?: (email: string) => void;
   onResumeUserTrial?: (email: string) => void;
+  onExtendUserTrial?: (email: string, days: number) => void;
 };
 
 function planLabel(tier?: string): string {
@@ -139,8 +140,11 @@ export default function AdminPanel({
   isImporting = false,
   onPauseUserTrial,
   onResumeUserTrial,
+  onExtendUserTrial,
 }: Props) {
   const [setting, setSetting] = useState<string | null>(null);
+  const [extendEmail, setExtendEmail] = useState<string | null>(null);
+  const [extendDays, setExtendDays] = useState("7");
   const [newQuestionText, setNewQuestionText] = useState("");
   const [editingId, setEditingId] = useState<string | number | null>(null);
   const [editingText, setEditingText] = useState("");
@@ -326,6 +330,58 @@ export default function AdminPanel({
                         <History className="h-3.5 w-3.5 mr-1" />
                         History
                       </Button>
+                    )}
+
+                    {!u.plan && u.trial && extendEmail !== u.email && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-green-700 hover:bg-green-50"
+                        onClick={() => { setExtendEmail(u.email); setExtendDays("7"); }}
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1" />
+                        Extend
+                      </Button>
+                    )}
+                    {!u.plan && u.trial && extendEmail === u.email && (
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          min={1}
+                          max={365}
+                          className="h-7 w-16 text-xs px-2"
+                          value={extendDays}
+                          onChange={(e) => setExtendDays(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              const d = parseInt(extendDays, 10);
+                              if (d > 0) { onExtendUserTrial?.(u.email, d); setExtendEmail(null); }
+                            }
+                            if (e.key === "Escape") setExtendEmail(null);
+                          }}
+                          autoFocus
+                        />
+                        <span className="text-xs text-muted-foreground">d</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => {
+                            const d = parseInt(extendDays, 10);
+                            if (d > 0) { onExtendUserTrial?.(u.email, d); setExtendEmail(null); }
+                          }}
+                        >
+                          <Check className="h-3.5 w-3.5 text-green-600" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => setExtendEmail(null)}
+                        >
+                          <X className="h-3.5 w-3.5 text-muted-foreground" />
+                        </Button>
+                      </div>
                     )}
 
                     <Button

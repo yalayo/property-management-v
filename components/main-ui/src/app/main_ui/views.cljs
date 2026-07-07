@@ -646,4 +646,6 @@
                                     :onPauseUserTrial  (fn [email]
                                                          (re-frame/dispatch [::events/admin-pause-trial email]))
                                     :onResumeUserTrial (fn [email]
-                                                         (re-frame/dispatch [::events/admin-resume-trial email]))}]))}]))}]]))
+                                                         (re-frame/dispatch [::events/admin-resume-trial email]))
+                                    :onExtendUserTrial (fn [email extra-days]
+                                                         (re-frame/dispatch [::events/admin-extend-trial email extra-days]))}]))}]))}]]))

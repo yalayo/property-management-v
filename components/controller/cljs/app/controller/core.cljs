@@ -1272,6 +1272,37 @@
                                 {:error :not-found}))
                     {:error :not-found}))))))
 
+(defn- handle-admin-extend-trial! [storage data user]
+  (admin-guard user
+    (fn []
+      (let [{:keys [email extra-days]} data
+            extra-ms (* (or extra-days 0) 86400000)]
+        (if (<= extra-ms 0)
+          {:error :invalid-days}
+          (js-await [account-eids ((:find-by-attr storage) :account/email email)]
+                    (if-let [account-eid (first account-eids)]
+                      (js-await [membership (fetch-membership storage account-eid)]
+                                (if membership
+                                  (let [org-id (:membership/organization-id membership)]
+                                    (js-await [org ((:pull storage) org-id '[*])]
+                                              (let [current-elapsed (or (:organization/trial-elapsed-ms org) 0)
+                                                    new-elapsed     (max 0 (- current-elapsed extra-ms))
+                                                    now             (.now js/Date)
+                                                    history         (try (js->clj (js/JSON.parse (or (:organization/trial-history org) "[]")) :keywordize-keys false)
+                                                                         (catch :default _ []))
+                                                    new-hist        (.stringify js/JSON (clj->js (conj history {:type "extend" :ts now :days extra-days})))]
+                                                (js-await [_ ((:transact! storage)
+                                                              [{:db/id                         org-id
+                                                                :organization/trial-elapsed-ms new-elapsed
+                                                                :organization/trial-history    new-hist}] nil)]
+                                                          (let [updated-org (assoc org
+                                                                                   :organization/trial-elapsed-ms new-elapsed
+                                                                                   :organization/trial-history    new-hist)]
+                                                            {:ok true :trial (compute-trial updated-org)})))))
+                                  {:error :not-found}))
+                      {:error :not-found})))))))
+
+
 (defn- handle-admin-list-users! [storage user]
   (admin-guard user
     (fn []
@@ -1446,14 +1477,12 @@
 ;; Dispatcher
 ;; ---------------------------------------------------------------------------
 
-(defn dispatch [{:keys [core storage command data env user]}]
-  (if (and (trial-gated-commands command) (not (trial-access? user)))
-    {:error :trial-expired}
-    (let [storage (with-impersonation-meta storage user)]
-  (case command
-    :user-sign-up                    (handle-sign-up! core storage data env)
-    :user-sign-in                    (handle-sign-in! core storage data env)
-    :get-properties                  (handle-get-properties! storage user)
+(defn- run-command! [core storage command data env user]
+  (let [storage (with-impersonation-meta storage user)]
+    (case command
+      :user-sign-up                    (handle-sign-up! core storage data env)
+      :user-sign-in                    (handle-sign-in! core storage data env)
+      :get-properties                  (handle-get-properties! storage user)
     :create-property                 (handle-create-property! core storage data user)
     :update-property                 (handle-update-property! core storage data user)
     :delete-property                 (handle-delete-property! storage data user)
@@ -1516,6 +1545,7 @@
     :resume-trial                    (handle-resume-trial! storage user)
     :admin-pause-trial               (handle-admin-pause-trial! storage data user)
     :admin-resume-trial              (handle-admin-resume-trial! storage data user)
+    :admin-extend-trial              (handle-admin-extend-trial! storage data user)
     :get-survey-questions            (handle-get-survey-questions! storage)
     :submit-survey                   (handle-submit-survey! storage data)
     :get-property-tax-configs        (handle-get-property-tax-configs! storage user)
@@ -1532,4 +1562,22 @@
     :create-bank-account             (handle-create-bank-account! storage data user)
     :update-bank-account             (handle-update-bank-account! storage data user)
     :delete-bank-account             (handle-delete-bank-account! storage data user)
-    {:error :unknown-command}))))
+    {:error :unknown-command})))
+
+(defn- trial-access-live? [storage user]
+  (let [org-id (:org-id user)]
+    (if-not org-id
+      (js/Promise.resolve false)
+      (js-await [org ((:pull storage) org-id '[*])]
+                (let [plan  (:organization/plan org)
+                      trial (when (nil? plan) (compute-trial org))]
+                  (or (some? plan) (= "active" (:status trial))))))))
+
+(defn dispatch [{:keys [core storage command data env user]}]
+  (if (and (trial-gated-commands command) (not (trial-access? user)))
+    ;; JWT says blocked — re-check DB to handle stale JWT (e.g. trial resumed after last login)
+    (js-await [live? (trial-access-live? storage user)]
+              (if live?
+                (run-command! core storage command data env user)
+                {:error :trial-expired}))
+    (run-command! core storage command data env user)))

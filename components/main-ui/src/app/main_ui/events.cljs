@@ -437,6 +437,15 @@
                [::admin-trial-updated email]
                [::admin-users-error]]}))
 
+(re-frame/reg-event-fx
+ ::admin-extend-trial
+ (fn [{:keys [_db]} [_ email extra-days]]
+   {:dispatch [::core-events/command
+               :admin-extend-trial
+               {:email email :extra-days extra-days}
+               [::admin-trial-updated email]
+               [::admin-users-error]]}))
+
 (re-frame/reg-event-db
  ::admin-trial-updated
  (fn [db [_ email response]]
