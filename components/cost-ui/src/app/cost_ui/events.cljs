@@ -59,10 +59,13 @@
 (re-frame/reg-event-fx
  ::cost-mutated
  (fn [{:keys [db]} _]
-   (let [property-id (get-in db [:costs :property-id])]
+   (let [property-id  (get-in db [:costs :property-id])
+         apartment-id (get-in db [:apartment-costs :apartment-id])]
      {:db         (assoc-in db [:costs :saving?] false)
-      :dispatch-n [[::load-costs property-id]
-                   [::load-all-costs]]})))
+      :dispatch-n (cond-> [[::load-costs property-id]
+                            [::load-all-costs]
+                            [::load-all-apt-costs]]
+                    apartment-id (conj [::load-apartment-costs apartment-id]))})))
 
 (re-frame/reg-event-db
  ::cost-error

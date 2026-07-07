@@ -561,15 +561,38 @@
 (defn- handle-update-cost! [storage data user]
   (with-org user
     (fn [org-id]
-      (let [eid (:id data)]
+      (let [eid       (:id data)
+            new-value (:value data)]
         (js-await [entity ((:pull storage) eid '*)]
                   (if (not= (:cost/organization-id entity) org-id)
                     {:error :not-found}
-                    (js-await [{:keys [tx-id]}
-                               ((:transact! storage)
-                                [{:db/id      eid
-                                  :cost/value (:value data)}] nil)]
-                              {:tx-id tx-id})))))))
+                    (let [line (:cost/line entity)
+                          year (:cost/year entity)]
+                      (js-await [{:keys [tx-id]}
+                                 ((:transact! storage)
+                                  [{:db/id      eid
+                                    :cost/value new-value}] nil)
+                                 apt-eids
+                                 ((:q storage)
+                                  {:where [['?e :apartment-cost/line            line]
+                                           ['?e :apartment-cost/year            year]
+                                           ['?e :apartment-cost/organization-id org-id]]})
+                                 apt-costs
+                                 (pull-many+ storage (vec apt-eids) '[*])]
+                                (let [txns (into []
+                                                 (keep (fn [ac]
+                                                         (let [v (:apartment-cost/verteiler ac)
+                                                               a (:apartment-cost/anteil    ac)]
+                                                           (when (and (some? v) (some? a) (pos? v))
+                                                             {:db/id                (:db/id ac)
+                                                              :apartment-cost/value (/ (* (double new-value) (double a))
+                                                                                       (double v))})))
+                                                       apt-costs))]
+                                  (if (seq txns)
+                                    (js-await [_ ((:transact! storage) txns nil)]
+                                              {:tx-id tx-id})
+                                    {:tx-id tx-id}))))))))))
+
 
 (defn- handle-delete-cost! [storage data user]
   (with-org user
