@@ -319,7 +319,7 @@ export default function ApartmentsList({
             <DoorOpen className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
             <p className="text-muted-foreground font-medium">{t("noApartments")}</p>
             <p className="text-sm text-muted-foreground mt-1">{t("addFirst")}</p>
-            <Button className="mt-4" size="sm" onClick={onChangeAddApartmentDialogOpen}>
+            <Button className="mt-4" size="sm" disabled={isReadOnly} onClick={onChangeAddApartmentDialogOpen}>
               <Plus className="h-4 w-4 mr-2" />
               {t("addApartment")}
             </Button>

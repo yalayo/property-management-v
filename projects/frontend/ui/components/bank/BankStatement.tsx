@@ -314,6 +314,7 @@ type Props = {
   allCosts?:        any[];
   bankAccounts?:    BankAccount[];
   isSaving?:        boolean;
+  isReadOnly?:      boolean;
   onAssignPayment?: (data: {
     type: "miete" | "nebenkosten";
     apartmentId: string; year: number; month: number; value: number;
@@ -369,6 +370,7 @@ export default function BankStatement({
   allCosts        = [],
   bankAccounts    = [],
   isSaving,
+  isReadOnly      = false,
   onAssignPayment,
   onRecordExpense,
   onSaveBankAccount,
@@ -656,16 +658,16 @@ export default function BankStatement({
         <Card>
           <CardContent className="pt-6">
             <div
-              className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-muted rounded-lg p-10 cursor-pointer hover:border-primary transition-colors"
-              onDrop={handleDrop}
-              onDragOver={e => e.preventDefault()}
-              onClick={() => fileRef.current?.click()}
+              className={cn("flex flex-col items-center justify-center gap-3 border-2 border-dashed border-muted rounded-lg p-10 transition-colors", isReadOnly ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-primary")}
+              onDrop={isReadOnly ? undefined : handleDrop}
+              onDragOver={isReadOnly ? undefined : e => e.preventDefault()}
+              onClick={isReadOnly ? undefined : () => fileRef.current?.click()}
             >
               <Upload className="h-8 w-8 text-muted-foreground" />
               <p className="text-sm text-muted-foreground text-center">
                 {parsing ? t("parsing") : t("dropOrClick")}
               </p>
-              {!parsing && (
+              {!parsing && !isReadOnly && (
                 <Button type="button" variant="outline" size="sm"
                   onClick={e => { e.stopPropagation(); fileRef.current?.click(); }}>
                   {t("browse")}
@@ -732,7 +734,7 @@ export default function BankStatement({
                       </div>
                     </div>
                     <div className="flex justify-end">
-                      <Button size="sm" className="h-7 text-xs" onClick={handleSaveBankAccount}>
+                      <Button size="sm" className="h-7 text-xs" disabled={isReadOnly} onClick={handleSaveBankAccount}>
                         {t("saveBankAccount", { defaultValue: "Konto speichern" })}
                       </Button>
                     </div>
@@ -916,7 +918,7 @@ export default function BankStatement({
                             )}
 
                             <Button size="sm" className="h-7 px-3 text-xs ml-auto"
-                              disabled={!canSave(idx) || isSaving}
+                              disabled={!canSave(idx) || isSaving || isReadOnly}
                               onClick={() => handleSave(idx, tx)}>
                               {tCom("save")}
                             </Button>
@@ -945,7 +947,7 @@ export default function BankStatement({
       <div className="space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold">{t("storedBankAccounts", { defaultValue: "Bankkonten" })}</p>
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" disabled={isReadOnly}
               onClick={() => { setShowCreateBa(v => !v); setCreateIban(""); setCreateOwner(""); setCreateBank(""); setEditingBaId(null); setDeletingBaId(null); }}>
               <PlusCircle className="h-3.5 w-3.5" />
               {t("addBankAccount", { defaultValue: "Konto anlegen" })}
@@ -1055,14 +1057,18 @@ export default function BankStatement({
                           <span className="text-xs text-muted-foreground tabular-nums mr-1">
                             {txs.length > 0 ? `${txs.length} Buchung${txs.length !== 1 ? "en" : ""}` : "—"}
                           </span>
-                          <Button variant="ghost" size="icon" className="h-6 w-6"
-                            onClick={() => { setEditingBaId(id); setEditOwner(owner); setEditBankName(bank); setDeletingBaId(null); }}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive"
-                            onClick={() => setDeletingBaId(isDeleting ? null : id)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                          {!isReadOnly && (
+                            <>
+                              <Button variant="ghost" size="icon" className="h-6 w-6"
+                                onClick={() => { setEditingBaId(id); setEditOwner(owner); setEditBankName(bank); setDeletingBaId(null); }}>
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive"
+                                onClick={() => setDeletingBaId(isDeleting ? null : id)}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </div>
 

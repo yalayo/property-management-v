@@ -233,7 +233,7 @@ export default function TenantsList({
             <User className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
             <p className="text-muted-foreground font-medium">{t("noTenants")}</p>
             <p className="text-sm text-muted-foreground mt-1">{t("addFirst")}</p>
-            <Button className="mt-4" size="sm" onClick={onOpenAddTenantDialog}>
+            <Button className="mt-4" size="sm" disabled={isReadOnly} onClick={onOpenAddTenantDialog}>
               <Plus className="h-4 w-4 mr-2" />
               {t("addTenant")}
             </Button>

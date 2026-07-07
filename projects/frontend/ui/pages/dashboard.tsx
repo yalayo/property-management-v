@@ -374,6 +374,7 @@ export default function Dashboard(props) {
               allCosts={props.allCosts}
               bankAccounts={props.bankAccounts}
               isSaving={props.rentSaving}
+              isReadOnly={props.isReadOnly}
               onAssignPayment={props.onAssignPayment}
               onRecordExpense={props.onRecordExpense}
               onSaveBankAccount={props.onSaveBankAccount}
