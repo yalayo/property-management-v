@@ -46,7 +46,8 @@
       (:impersonated-by user)
       (some? (:plan user))
       (and (some? (:trialExpiresAt user))
-           (> (:trialExpiresAt user) (.now js/Date)))))
+           (> (:trialExpiresAt user) (.now js/Date))
+           (not (:trialPaused user)))))
 
 (def ^:private trial-gated-commands
   #{:create-property      :create-apartment         :start-onboarding
@@ -171,8 +172,10 @@
                                                                        sections    (doto (aset "sections" sections))
                                                                        superadmin? (doto (aset "superadmin" true))
                                                                        plan        (doto (aset "plan" plan))
-                                                                       (and (some? trial) (not= "expired" (:status trial)))
-                                                                       (doto (aset "trialExpiresAt" (+ (.now js/Date) (* (:days-remaining trial) 86400000.0)))))
+                                                                       (and (some? trial) (= "active" (:status trial)))
+                                                                       (doto (aset "trialExpiresAt" (+ (.now js/Date) (* (:days-remaining trial) 86400000.0))))
+                                                                       (and (some? trial) (= "paused" (:status trial)))
+                                                                       (doto (aset "trialPaused" true)))
                                                         token       (jwt/sign claims (aget env "JWT_SECRET"))]
                                                     {:token token
                                                      :user  (cond-> (assoc (:user result)

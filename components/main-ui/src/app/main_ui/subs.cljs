@@ -32,7 +32,7 @@
    (let [plan  (get-in db [:user :info :plan])
          trial (get-in db [:user :info :trial])]
      (or (some? plan)
-         (and (some? trial) (not= "expired" (:status trial)))))))
+         (and (some? trial) (= "active" (:status trial)))))))
 
 (re-frame/reg-sub
  ::trial-info

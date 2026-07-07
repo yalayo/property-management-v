@@ -621,6 +621,19 @@ export default function ApartmentView({
   const availablePropertyLines = availableCostLines.filter(l => propertyCostKeys.has(l.key));
   const availableOtherLines    = availableCostLines.filter(l => !propertyCostKeys.has(l.key));
 
+  const pendingBetragTotal = editingNewCostKeys.reduce((sum, k) => {
+    const f = costInput[k];
+    if (!f) return sum;
+    const raw = f.fixedValue ? f.value : (f.value || calculateShare(k, f.verteiler, f.anteil));
+    const v = parseFloat(raw);
+    return sum + (isNaN(v) ? 0 : v);
+  }, 0);
+
+  const savedBetragTotal = [...savedCostKeys, ...pendingCostKeys].reduce((sum, k) => {
+    const e = costEntryFor(k);
+    return e ? sum + Number(e.value) : sum;
+  }, 0);
+
   const handleSelectCostLine = (key: string) => {
     const line = costLines.find(l => l.key === key);
     if (!line) return;
@@ -1790,18 +1803,58 @@ export default function ApartmentView({
                       </p>
                     )}
                   </div>
-                  {editingNewCostKeys.length > 0 && (
-                    <Button size="sm" className="h-7 px-3 text-xs" disabled={aptCostsSaving} onClick={commitAllPendingCosts}>
-                      <Check className="h-3 w-3 mr-1.5" />
-                      {tCosts("saveAll", { defaultValue: "Save All" })}
-                    </Button>
-                  )}
-                  {editingNewCostKeys.length === 0 && prevCostLinesToCopy.length > 0 && (
-                    <Button variant="outline" size="sm" className="h-7 text-xs" disabled={aptCostsSaving} onClick={copyPrevYearCosts}>
-                      <Copy className="h-3 w-3 mr-1.5" />
-                      {tCosts("copyFromYear", { year: year - 1 })}
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {editingNewCostKeys.length > 0 && (
+                      <Button size="sm" className="h-7 px-3 text-xs" disabled={aptCostsSaving} onClick={commitAllPendingCosts}>
+                        <Check className="h-3 w-3 mr-1.5" />
+                        {tCosts("saveAll", { defaultValue: "Save All" })}
+                      </Button>
+                    )}
+                    {editingNewCostKeys.length === 0 && prevCostLinesToCopy.length > 0 && (
+                      <Button variant="outline" size="sm" className="h-7 text-xs" disabled={aptCostsSaving} onClick={copyPrevYearCosts}>
+                        <Copy className="h-3 w-3 mr-1.5" />
+                        {tCosts("copyFromYear", { year: year - 1 })}
+                      </Button>
+                    )}
+                    {availableCostLines.length > 0 && (
+                      <Popover open={addLineOpen} onOpenChange={setAddLineOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-7 text-xs">
+                            <Plus className="h-3.5 w-3.5 mr-1.5" />
+                            {tCosts("addCostLine")}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[280px] p-0" align="end">
+                          <Command>
+                            <CommandInput placeholder={tCosts("searchCostLine")} />
+                            <CommandList>
+                              <CommandEmpty>{tCosts("noMatchCostLine")}</CommandEmpty>
+                              {availablePropertyLines.length > 0 && (
+                                <CommandGroup heading={tCosts("propertyKostenarten", { defaultValue: "Property cost types" })}>
+                                  {availablePropertyLines.map(line => (
+                                    <CommandItem key={line.id} value={costLineName(line, i18n.language)}
+                                      onSelect={() => handleSelectCostLine(line.key)}>
+                                      {costLineName(line, i18n.language)}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              )}
+                              {availableOtherLines.length > 0 && (
+                                <CommandGroup heading={availablePropertyLines.length > 0 ? tCosts("otherKostenarten", { defaultValue: "Other" }) : undefined}>
+                                  {availableOtherLines.map(line => (
+                                    <CommandItem key={line.id} value={costLineName(line, i18n.language)}
+                                      onSelect={() => handleSelectCostLine(line.key)}>
+                                      {costLineName(line, i18n.language)}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              )}
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </div>
                 </div>
                 {aptCostsLoading ? (
                   <p className="text-sm text-muted-foreground">{tCosts("loading")}</p>
@@ -1906,6 +1959,19 @@ export default function ApartmentView({
                               );
                             })}
                           </CardContent>
+                          {pendingBetragTotal > 0 && (
+                            <div className="hidden sm:flex items-center gap-2 px-4 py-2 border-t bg-muted/20 text-sm font-medium">
+                              <span className="flex-1 text-muted-foreground">{tCosts("total", { defaultValue: "Gesamt" })}</span>
+                              <span className="w-24 shrink-0" />
+                              <span className="w-10 shrink-0" />
+                              <span className="w-24 shrink-0" />
+                              <span className="w-20 shrink-0" />
+                              <span className="w-24 text-right tabular-nums shrink-0">
+                                € {pendingBetragTotal.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                              <span className="w-14 shrink-0" />
+                            </div>
+                          )}
                         </Card>
                     )}
 
@@ -1925,45 +1991,19 @@ export default function ApartmentView({
                             .filter((l): l is CostLine => !!l)
                             .map(line => <React.Fragment key={line.id}>{CostRow({ line })}</React.Fragment>)}
                         </CardContent>
+                        {savedBetragTotal > 0 && (
+                          <div className="hidden sm:flex items-center gap-2 px-4 py-2 border-t bg-muted/20 text-sm font-medium">
+                            <span className="flex-1 text-muted-foreground">{tCosts("total", { defaultValue: "Gesamt" })}</span>
+                            <span className="w-24 text-right tabular-nums shrink-0">
+                              € {savedBetragTotal.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            <span className="w-10 shrink-0" />
+                            <span className="w-20 shrink-0" />
+                            <span className="w-10 shrink-0" />
+                            <span className="w-16 shrink-0" />
+                          </div>
+                        )}
                       </Card>
-                    )}
-                    {availableCostLines.length > 0 && (
-                      <Popover open={addLineOpen} onOpenChange={setAddLineOpen}>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" className="w-full h-8 border-dashed text-sm text-muted-foreground justify-start font-normal">
-                            <Plus className="h-3.5 w-3.5 mr-2" />
-                            {tCosts("addCostLine")}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                          <Command>
-                            <CommandInput placeholder={tCosts("searchCostLine")} />
-                            <CommandList>
-                              <CommandEmpty>{tCosts("noMatchCostLine")}</CommandEmpty>
-                              {availablePropertyLines.length > 0 && (
-                                <CommandGroup heading={tCosts("propertyKostenarten", { defaultValue: "Property cost types" })}>
-                                  {availablePropertyLines.map(line => (
-                                    <CommandItem key={line.id} value={costLineName(line, i18n.language)}
-                                      onSelect={() => handleSelectCostLine(line.key)}>
-                                      {costLineName(line, i18n.language)}
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              )}
-                              {availableOtherLines.length > 0 && (
-                                <CommandGroup heading={availablePropertyLines.length > 0 ? tCosts("otherKostenarten", { defaultValue: "Other" }) : undefined}>
-                                  {availableOtherLines.map(line => (
-                                    <CommandItem key={line.id} value={costLineName(line, i18n.language)}
-                                      onSelect={() => handleSelectCostLine(line.key)}>
-                                      {costLineName(line, i18n.language)}
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              )}
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
                     )}
                   </div>
                 )}

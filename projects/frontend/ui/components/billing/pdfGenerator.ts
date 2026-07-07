@@ -230,8 +230,10 @@ export async function generateBillingPdf(data: BillingData): Promise<Uint8Array>
   y -= rowH + 2;
 
   let totalShare = 0;
+  let totalPropertyCost = 0;
   for (const line of data.costLines) {
     totalShare += line.share;
+    totalPropertyCost += line.total ?? 0;
 
     page.drawLine({
       start: { x: L, y: y + rowH - 1 }, end: { x: R, y: y + rowH - 1 },
@@ -248,8 +250,20 @@ export async function generateBillingPdf(data: BillingData): Promise<Uint8Array>
     y -= rowH;
   }
 
+  // ── Table totals row ──────────────────────────────────────────────────────
+  page.drawLine({ start: { x: L, y }, end: { x: R, y }, thickness: 0.5, color: gray });
+  y -= rowH - 2;
+  page.drawText("Gesamt", { x: cName + 3, y: y + 3, font: fontB, size: 8, color: black });
+  if (totalPropertyCost > 0) {
+    const totalPropStr = `€ ${formatEur(totalPropertyCost)}`;
+    page.drawText(totalPropStr, { x: cTotal + 3, y: y + 3, font: fontB, size: 8, color: black });
+  }
+  const totalShareStr = `€ ${formatEur(totalShare)}`;
+  page.drawText(totalShareStr, { x: cShare + 3, y: y + 3, font: fontB, size: 8, color: black });
+  y -= rowH;
+
   // ── Summary ───────────────────────────────────────────────────────────────
-  y -= 6;
+  y -= 4;
   page.drawLine({ start: { x: L, y }, end: { x: R, y }, thickness: 0.7, color: gray });
   y -= 14;
 
