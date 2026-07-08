@@ -252,6 +252,10 @@ const resources = {
         "missing-iban":             "Add IBAN — {{property}}",
         "missing-rent-payments":    "Add rent payments for {{apt}}",
         "missing-apt-costs":        "Add cost allocation for {{apt}}",
+        "missing-wohnflaeche":      "Add living area (m²) for {{apt}}",
+        "missing-tenant":           "Add tenant or declare vacant — {{apt}}",
+        "missing-property-costs":   "Add property costs — {{property}}",
+        "missing-apt-allocation":   "Add cost allocation (Verteiler) — {{apt}}",
       },
     },
     team: {
@@ -1369,6 +1373,10 @@ const resources = {
         "missing-iban":             "IBAN hinzufügen — {{property}}",
         "missing-rent-payments":    "Mietzahlungen hinzufügen für {{apt}}",
         "missing-apt-costs":        "Kostenumlage hinzufügen für {{apt}}",
+        "missing-wohnflaeche":      "Wohnfläche (m²) hinzufügen — {{apt}}",
+        "missing-tenant":           "Mieter hinzufügen oder Leerstand bestätigen — {{apt}}",
+        "missing-property-costs":   "Kosten hinzufügen — {{property}}",
+        "missing-apt-allocation":   "Kostenumlage eingeben (Verteiler) — {{apt}}",
       },
     },
     team: {

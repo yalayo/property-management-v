@@ -355,14 +355,15 @@
                     (let [result ((:process core) {:command :update-apartment :data data})]
                       (if (:error result)
                         result
-                        (let [{:keys [code occupied wohnflaeche market-rent strom-zaehler-nr wasser-zaehler-nrn]} (:updates result)
+                        (let [{:keys [code occupied wohnflaeche market-rent strom-zaehler-nr wasser-zaehler-nrn leerstand]} (:updates result)
                               facts (cond-> {:db/id eid}
                                       (some? code)        (assoc :apartment/code code)
                                       (some? occupied)    (assoc :apartment/occupied (boolean occupied))
                                       (some? wohnflaeche) (assoc :apartment/wohnflaeche (js/parseFloat (str wohnflaeche)))
                                       (some? market-rent) (assoc :apartment/market-rent (js/parseFloat (str market-rent)))
                                       (some? strom-zaehler-nr)   (assoc :apartment/strom-zaehler-nr strom-zaehler-nr)
-                                      (some? wasser-zaehler-nrn) (assoc :apartment/wasser-zaehler-nrn (vec wasser-zaehler-nrn)))]
+                                      (some? wasser-zaehler-nrn) (assoc :apartment/wasser-zaehler-nrn (vec wasser-zaehler-nrn))
+                                      (some? leerstand)          (assoc :apartment/leerstand (boolean leerstand)))]
                           (js-await [{:keys [tx-id]}
                                      ((:transact! storage)
                                       [facts] nil)]

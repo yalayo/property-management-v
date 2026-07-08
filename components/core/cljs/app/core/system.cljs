@@ -94,7 +94,8 @@
                :wohnflaeche       (get data :wohnflaeche)
                :market-rent       (get data :market-rent)
                :strom-zaehler-nr  (get data :strom-zaehler-nr)
-               :wasser-zaehler-nrn (get data :wasser-zaehler-nrn)}}
+               :wasser-zaehler-nrn (get data :wasser-zaehler-nrn)
+               :leerstand         (get data :leerstand)}}
 
     :create-tenant
     (let [{:keys [first-name last-name]} data]

@@ -307,13 +307,18 @@ export default function Dashboard(props) {
                 properties={props.properties}
                 apartments={props.apartments}
                 tenants={props.tenants}
+                allCosts={props.allCosts}
                 allAptCosts={props.allAptCosts}
                 allRentPayments={props.allRentPayments}
                 taxConfigs={props.taxConfigs}
                 loans={props.taxLoans}
+                expenseTypes={props.expenseTypes}
                 onNavigate={(tab, ctx) => handleSelect(tab, ctx)}
                 onEditProperty={props.onEditProperty}
                 onAddRentPayment={props.onAddRentPayment}
+                onUpdateApartment={props.onUpdateApartment}
+                onAddCost={props.onAddCost}
+                onAddAptCost={props.onAddAptCost}
               />
             </div>
           )}

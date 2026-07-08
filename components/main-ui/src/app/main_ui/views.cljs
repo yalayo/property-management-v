@@ -483,6 +483,27 @@
                                         :month            (:month d)
                                         :nebenkosten-warm (:nebenkostenWarm d)
                                         :value            (:nebenkostenWarm d)}]))))
+           :onUpdateApartment  (when can-create?
+                                 (fn [apt-id data]
+                                   (let [d (js->clj data :keywordize-keys true)]
+                                     (re-frame/dispatch
+                                      [::apartment-events/update-apartment apt-id
+                                       (cond-> {}
+                                         (:wohnflaeche d)          (assoc :wohnflaeche (:wohnflaeche d))
+                                         (some? (:leerstand d))    (assoc :leerstand (:leerstand d)))]))))
+           :onAddAptCost      (when can-create?
+                                (fn [data]
+                                  (let [d (js->clj data :keywordize-keys true)]
+                                    (re-frame/dispatch
+                                     [::cost-events/create-apartment-cost
+                                      (cond-> {:apartment-id (:apartmentId d)
+                                               :line         (:line d)
+                                               :name         (:name d)
+                                               :year         (:year d)
+                                               :value        (:value d)}
+                                        (:verteiler d)  (assoc :verteiler (:verteiler d))
+                                        (:anteil d)     (assoc :anteil (:anteil d))
+                                        (:schluessel d) (assoc :schluessel (:schluessel d)))]))))
            :aptCosts           (clj->js apt-costs)
            :aptCostsLoading    apt-costs-loading?
            :rentPayments       (clj->js rent-payments)
