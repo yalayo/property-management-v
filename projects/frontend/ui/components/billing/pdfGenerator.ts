@@ -93,7 +93,11 @@ export async function generateBillingPdf(data: BillingData): Promise<Uint8Array>
   const dateW   = fontR.widthOfTextAtSize(dateStr, 9);
   page.drawText(dateStr, { x: R - dateW, y: topY, font: fontR, size: 9, color: black });
 
-  const closingLine = `${data.closingName ?? data.senderName} - ${[data.senderStreet, data.senderPostalCity].filter(Boolean).join(" ")}`;
+  const senderAddrParts = [data.senderStreet, data.senderPostalCity].filter(Boolean);
+  const senderLabel = data.closingName ?? data.senderName;
+  const closingLine = senderAddrParts.length > 0
+    ? `${senderLabel} - ${senderAddrParts.join(" ")}`
+    : senderLabel;
   page.drawText(closingLine, { x: L, y: topY, font: fontR, size: 7, color: blue });
   page.drawLine({
     start: { x: L, y: topY - 5 }, end: { x: L + 240, y: topY - 5 },

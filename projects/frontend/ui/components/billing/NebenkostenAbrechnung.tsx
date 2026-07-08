@@ -298,14 +298,14 @@ export default function NebenkostenAbrechnung({
       const tenantId = String(tenant.id);
       const costBreakdown = activeCostLines.map(key => {
         // Prefer this tenant's entry; fall back to unscoped (legacy) entry
-        const entry = aptCosts.find((c: any) => c.line === key && Number(c.year) === year && String(c["tenant-id"]) === tenantId)
-          ?? aptCosts.find((c: any) => c.line === key && Number(c.year) === year && c["tenant-id"] == null)
-          ?? null;
+        const tenantEntry = aptCosts.find((c: any) => c.line === key && Number(c.year) === year && String(c["tenant-id"]) === tenantId) ?? null;
+        const baseEntry   = aptCosts.find((c: any) => c.line === key && Number(c.year) === year && c["tenant-id"] == null) ?? null;
+        const entry       = tenantEntry ?? baseEntry ?? null;
         const value    = Number(entry?.value ?? 0);
         const method   = lineMethod(key);
         const propTotal = effectiveCostValue(propertyCosts, key, year) ?? 0;
-        const verteiler = Number(entry?.verteiler ?? 0);
-        const anteil    = Number(entry?.anteil ?? 0);
+        const verteiler = Number(tenantEntry?.verteiler ?? baseEntry?.verteiler ?? 0);
+        const anteil    = Number(tenantEntry?.anteil    ?? baseEntry?.anteil    ?? 0);
         const share = (() => {
           if (method === "consumed") return value;
           // person and living-area: prorate annual apt share by tenant days
@@ -364,17 +364,14 @@ export default function NebenkostenAbrechnung({
       const { tenant, days, ratio, prepayment } = info;
 
       const tenantIdForPdf = String(tenant.id);
-      const rc = tenant["residents-count"];
-      const residents = (rc != null && !isNaN(Number(rc))) ? Number(rc) : 0;
-      const tenantPersonDays = residents * days;
       const costLines: CostLineItem[] = activeCostLines.map(key => {
-        const aptEntry = aptCosts.find((c: any) => c.line === key && Number(c.year) === year && String(c["tenant-id"]) === tenantIdForPdf)
-          ?? aptCosts.find((c: any) => c.line === key && Number(c.year) === year && c["tenant-id"] == null)
-          ?? null;
+        const tenantEntry = aptCosts.find((c: any) => c.line === key && Number(c.year) === year && String(c["tenant-id"]) === tenantIdForPdf) ?? null;
+        const baseEntry   = aptCosts.find((c: any) => c.line === key && Number(c.year) === year && c["tenant-id"] == null) ?? null;
+        const aptEntry    = tenantEntry ?? baseEntry ?? null;
         const method    = lineMethod(key);
         const propTotal = effectiveCostValue(propertyCosts, key, year) ?? 0;
-        const verteiler = Number(aptEntry?.verteiler ?? 0);
-        const anteil    = Number(aptEntry?.anteil ?? 0);
+        const verteiler = Number(tenantEntry?.verteiler ?? baseEntry?.verteiler ?? 0);
+        const anteil    = Number(tenantEntry?.anteil    ?? baseEntry?.anteil    ?? 0);
         const fullShare = Number(aptEntry?.value ?? 0);
         const share = (() => {
           if (method === "consumed") return fullShare;
@@ -399,8 +396,9 @@ export default function NebenkostenAbrechnung({
 
       const street     = selectedProperty.address ?? "";
       const postalCity = [selectedProperty["postal-code"], selectedProperty.city].filter(Boolean).join(" ");
-      const landlordStreet     = selectedProperty["landlord-street"] || street;
-      const landlordPostalCity = selectedProperty["landlord-postal-city"] || postalCity;
+      const landlordName       = selectedProperty["landlord-name"] ?? "";
+      const landlordStreet     = selectedProperty["landlord-street"] ?? "";
+      const landlordPostalCity = selectedProperty["landlord-postal-city"] ?? "";
 
       // Clamp tenant's period to the billing year for the PDF header
       const yearStart = new Date(year, 0, 1);
@@ -411,7 +409,7 @@ export default function NebenkostenAbrechnung({
       const effEnd    = tEnd   > yearEnd   ? yearEnd   : tEnd;
 
       const bytes = await generateBillingPdf({
-        senderName:          selectedProperty.name ?? "Vermieter",
+        senderName:          landlordName || selectedProperty.name || "Vermieter",
         senderStreet:        landlordStreet,
         senderPostalCity:    landlordPostalCity,
         senderAddress:       [landlordStreet, landlordPostalCity].filter(Boolean).join(", "),
@@ -427,7 +425,7 @@ export default function NebenkostenAbrechnung({
         bankName:            selectedProperty["bank-name"] ?? bankNameInput,
         costLines,
         prepayment,
-        closingName:         selectedProperty["landlord-name"] || selectedProperty.name || "Vermieter",
+        closingName:         landlordName || selectedProperty.name || "Vermieter",
         billingDays:         days,
         billingPeriodStart:  fmtGermanDate(effStart),
         billingPeriodEnd:    fmtGermanDate(effEnd),
