@@ -154,9 +154,11 @@ function computeTasks(
 // ── Modals ────────────────────────────────────────────────────────────────────
 
 function IbanModal({ task, onClose, onSave }: { task: Task; onClose: () => void; onSave: (data: Record<string, any>) => void }) {
-  const [iban, setIban]             = useState("");
-  const [bankName, setBankName]     = useState("");
-  const [landlordName, setLandlordName] = useState("");
+  const [iban, setIban]                         = useState("");
+  const [bankName, setBankName]                 = useState("");
+  const [landlordName, setLandlordName]         = useState("");
+  const [landlordStreet, setLandlordStreet]     = useState("");
+  const [landlordPostalCity, setLandlordPostalCity] = useState("");
   const valid = iban.trim().length >= 15;
   return (
     <DialogContent className="max-w-md">
@@ -177,10 +179,18 @@ function IbanModal({ task, onClose, onSave }: { task: Task; onClose: () => void;
           <Label className="text-xs">Vermieter Name</Label>
           <Input value={landlordName} onChange={e => setLandlordName(e.target.value)} placeholder="Max Mustermann" />
         </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Straße (Vermieter)</Label>
+          <Input value={landlordStreet} onChange={e => setLandlordStreet(e.target.value)} placeholder="Musterstraße 12" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">PLZ + Ort (Vermieter)</Label>
+          <Input value={landlordPostalCity} onChange={e => setLandlordPostalCity(e.target.value)} placeholder="12345 Berlin" />
+        </div>
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>Abbrechen</Button>
-        <Button disabled={!valid} onClick={() => { onSave({ iban: iban.replace(/\s/g, ""), bankName, landlordName }); onClose(); }}>Speichern</Button>
+        <Button disabled={!valid} onClick={() => { onSave({ iban: iban.replace(/\s/g, ""), bankName, landlordName, landlordStreet, landlordPostalCity }); onClose(); }}>Speichern</Button>
       </DialogFooter>
     </DialogContent>
   );
