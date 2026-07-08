@@ -93,6 +93,7 @@
             status     (cond expired? "expired" paused? "paused" :else "active")]
         {:status         status
          :days-remaining (/ remaining 86400000.0)
+         :expires-at     (when (= status "active") (+ now remaining))
          :started-at     started-at
          :paused         paused?
          :history        (try (js->clj (js/JSON.parse (or (:organization/trial-history org) "[]")) :keywordize-keys false)

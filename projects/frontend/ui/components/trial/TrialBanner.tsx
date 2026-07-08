@@ -6,6 +6,7 @@ import { Button } from "../ui/button";
 export type TrialInfo = {
   status: "active" | "paused" | "expired";
   "days-remaining": number;
+  "expires-at"?: number;
   "started-at": number;
   paused: boolean;
   history?: Array<{ type: string; ts: number }>;
@@ -23,7 +24,10 @@ export default function TrialBanner({ trialInfo, onPause, onResume }: Props) {
   if (!trialInfo) return null;
 
   const { status } = trialInfo;
-  const daysRemaining = trialInfo["days-remaining"] ?? 0;
+  const expiresAt = trialInfo["expires-at"];
+  const daysRemaining = (status === "active" && expiresAt)
+    ? Math.max(0, (expiresAt - Date.now()) / 86400000)
+    : (trialInfo["days-remaining"] ?? 0);
   const daysDisplay = Math.ceil(daysRemaining);
 
   if (status === "expired") {
