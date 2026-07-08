@@ -486,6 +486,23 @@
                                         :kaltmiete        kalt
                                         :nebenkosten-warm nk
                                         :value            (+ kalt nk)}]))))
+           :onAddRentPayments  (when can-create?
+                                 (fn [data]
+                                   (let [d      (js->clj data :keywordize-keys true)
+                                         apt-id (str (:apartmentId d))
+                                         year   (:year d)
+                                         batch  (mapv (fn [p]
+                                                        (let [kalt (or (:kaltmiete p) 0)
+                                                              nk   (or (:nebenkostenWarm p) 0)]
+                                                          {:apartment-id     apt-id
+                                                           :year             year
+                                                           :month            (:month p)
+                                                           :kaltmiete        kalt
+                                                           :nebenkosten-warm nk
+                                                           :value            (+ kalt nk)}))
+                                                      (:payments d))]
+                                     (re-frame/dispatch
+                                      [::rent-events/create-rent-payments-batch batch apt-id]))))
            :onUpdateApartment  (when can-create?
                                  (fn [apt-id data]
                                    (let [d (js->clj data :keywordize-keys true)]
@@ -517,6 +534,13 @@
                                         (:verteiler d)  (assoc :verteiler (:verteiler d))
                                         (:anteil d)     (assoc :anteil (:anteil d))
                                         (:schluessel d) (assoc :schluessel (:schluessel d)))]))))
+           :onUpdateAptCost   (when can-create?
+                                (fn [data]
+                                  (let [d (js->clj data :keywordize-keys true)]
+                                    (re-frame/dispatch
+                                     [::cost-events/update-apartment-cost
+                                      {:id        (:id d)
+                                       :verteiler (:verteiler d)}]))))
            :aptCosts           (clj->js apt-costs)
            :aptCostsLoading    apt-costs-loading?
            :rentPayments       (clj->js rent-payments)

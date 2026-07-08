@@ -58,8 +58,10 @@ type Props = {
   onEditProperty?: (id: string, data: Record<string, any>) => void;
   onUpdateApartment?: (aptId: string, data: Record<string, any>) => void;
   onAddRentPayment?: (data: { apartmentId: string; year: number; month: number; kaltmiete: number; nebenkostenWarm: number }) => void;
+  onAddRentPayments?: (data: { apartmentId: string; year: number; payments: { month: number; kaltmiete: number; nebenkostenWarm: number }[] }) => void;
   onAddCost?: (data: { propertyId: string; line: string; name: string; year: number; value: number }) => void;
   onAddAptCost?: (data: { apartmentId: string; line: string; name: string; year: number; value: number; verteiler?: number; anteil?: number; schluessel?: string }) => void;
+  onUpdateAptCost?: (data: { id: string; verteiler: number }) => void;
   onUpdateTenant?: (tenantId: string, data: Record<string, any>) => void;
 };
 
@@ -780,13 +782,14 @@ function TenantModal({ task, onClose, onNavigate, onDeclareVacant }: {
 
 const MONTH_FULL = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
 
-function RentPaymentsModal({ task, year, tenants, allRentPayments, onClose, onSave }: {
+function RentPaymentsModal({ task, year, tenants, allRentPayments, onClose, onSave, onSaveAll }: {
   task: Task;
   year: number;
   tenants: any[];
   allRentPayments: any[];
   onClose: () => void;
   onSave: (month: number, kalt: number, nk: number) => void;
+  onSaveAll?: (payments: { month: number; kalt: number; nk: number }[]) => void;
 }) {
   const paidMonths = useMemo(() => new Set(
     allRentPayments
@@ -919,7 +922,11 @@ function RentPaymentsModal({ task, year, tenants, allRentPayments, onClose, onSa
       <DialogFooter className="shrink-0 pt-2 border-t">
         <Button variant="outline" onClick={onClose}>Abbrechen</Button>
         <Button disabled={filledMonths.length === 0} onClick={() => {
-          for (const m of filledMonths) onSave(m, getKalt(m), getNk(m));
+          if (onSaveAll) {
+            onSaveAll(filledMonths.map(m => ({ month: m, kalt: getKalt(m), nk: getNk(m) })));
+          } else {
+            for (const m of filledMonths) onSave(m, getKalt(m), getNk(m));
+          }
           onClose();
         }}>
           Speichern ({filledMonths.length} {filledMonths.length === 1 ? "Monat" : "Monate"})
@@ -1011,8 +1018,10 @@ export default function PendingTasksWidget({
   onEditProperty,
   onUpdateApartment,
   onAddRentPayment,
+  onAddRentPayments,
   onAddCost,
   onAddAptCost,
+  onUpdateAptCost,
   onUpdateTenant,
 }: Props) {
   const { t } = useTranslation("tasks");
@@ -1062,6 +1071,15 @@ export default function PendingTasksWidget({
     onAddRentPayment?.({ apartmentId: activeTask.aptId, year: targetYear, month, kaltmiete: kalt, nebenkostenWarm: nk });
   };
 
+  const handleAddAllRentPaymentsSave = (payments: { month: number; kalt: number; nk: number }[]) => {
+    if (!activeTask?.aptId) return;
+    onAddRentPayments?.({
+      apartmentId: activeTask.aptId,
+      year: targetYear,
+      payments: payments.map(p => ({ month: p.month, kaltmiete: p.kalt, nebenkostenWarm: p.nk })),
+    });
+  };
+
   const handlePropertyCostsSave = (costs: Array<{ line: string; name: string; value: number }>) => {
     if (!activeTask) return;
     for (const c of costs) {
@@ -1071,8 +1089,30 @@ export default function PendingTasksWidget({
 
   const handleAptAllocationSave = (items: Array<{ line: string; name: string; value: number; verteiler?: number; anteil?: number; schluessel?: string }>) => {
     if (!activeTask?.aptId) return;
+
     for (const item of items) {
       onAddAptCost?.({ apartmentId: activeTask.aptId, line: item.line, name: item.name, year: targetYear, value: item.value, verteiler: item.verteiler, anteil: item.anteil, schluessel: item.schluessel });
+    }
+
+    // Propagate the new verteiler to existing entries of all other apartments in the same property
+    if (onUpdateAptCost) {
+      const otherAptIds = new Set(
+        (apartments ?? [])
+          .filter(a => String(a["property-id"]) === activeTask.propertyId && String(a.id) !== activeTask.aptId)
+          .map(a => String(a.id))
+      );
+      for (const item of items) {
+        if (item.verteiler == null || !item.schluessel || item.schluessel === "Manuell") continue;
+        const toUpdate = (allAptCosts ?? []).filter(c =>
+          otherAptIds.has(String(c["apartment-id"])) &&
+          String(c.line) === item.line &&
+          Number(c.year) === targetYear &&
+          c["tenant-id"] == null
+        );
+        for (const entry of toUpdate) {
+          onUpdateAptCost({ id: String(entry.id), verteiler: item.verteiler });
+        }
+      }
     }
   };
 
@@ -1200,7 +1240,7 @@ export default function PendingTasksWidget({
           />
         )}
         {activeTask?.type === "missing-rent-payments" && (
-          <RentPaymentsModal task={activeTask} year={targetYear} tenants={tenants} allRentPayments={allRentPayments} onClose={() => setActiveTask(null)} onSave={handleAddRentPaymentSave} />
+          <RentPaymentsModal task={activeTask} year={targetYear} tenants={tenants} allRentPayments={allRentPayments} onClose={() => setActiveTask(null)} onSave={handleAddRentPaymentSave} onSaveAll={handleAddAllRentPaymentsSave} />
         )}
         {activeTask && PROPERTY_FIELD_CONFIG[activeTask.type] && (
           <PropertyFieldModal task={activeTask} onClose={() => setActiveTask(null)} onSave={handleEditPropertySave} />

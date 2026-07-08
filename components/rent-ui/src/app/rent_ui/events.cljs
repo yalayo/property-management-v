@@ -66,6 +66,24 @@
  (fn [db _]
    (assoc-in db [:rent-payments :saving?] false)))
 
+(re-frame/reg-event-fx
+ ::create-rent-payments-batch
+ (fn [{:keys [db]} [_ payments apartment-id]]
+   (if (empty? payments)
+     {:db       (assoc-in db [:rent-payments :saving?] false)
+      :dispatch [::load-rent-payments apartment-id]}
+     {:db       (assoc-in db [:rent-payments :saving?] true)
+      :dispatch [:app.core-ui.events/command
+                 :create-rent-payment
+                 (first payments)
+                 [::rent-payments-batch-continue (vec (rest payments)) apartment-id]
+                 [::rent-save-error]]})))
+
+(re-frame/reg-event-fx
+ ::rent-payments-batch-continue
+ (fn [_ [_ remaining apartment-id _response]]
+   {:dispatch [::create-rent-payments-batch remaining apartment-id]}))
+
 ;; ── Tenant Mieten ─────────────────────────────────────────────────────────────
 
 (re-frame/reg-event-fx

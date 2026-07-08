@@ -200,26 +200,18 @@ export default function ApartmentBillingPanel({
       const ratio  = days / yearDays;
       const months = tenantActiveMonthsFor(tenant, year);
       const missingMonths = months.filter(m => !paidMonths.has(m));
-      const rc = tenant["residents-count"];
-      const residents = (rc != null && !isNaN(Number(rc))) ? Number(rc) : 0;
-      const tenantPersonDays = residents * days;
       const tenantId = String(tenant.id);
       const costBreakdown = activeCostLines.map(key => {
-        // Prefer this tenant's entry; fall back to unscoped (legacy) entry
-        const entry = aptCosts.find((c: any) => c.line === key && Number(c.year) === year && String(c["tenant-id"]) === tenantId)
-          ?? aptCosts.find((c: any) => c.line === key && Number(c.year) === year && c["tenant-id"] == null)
-          ?? null;
-        const value  = Number(entry?.value ?? 0);
-        const method = lineMethod(key);
+        const tenantEntry = aptCosts.find((c: any) => c.line === key && Number(c.year) === year && String(c["tenant-id"]) === tenantId) ?? null;
+        const baseEntry   = aptCosts.find((c: any) => c.line === key && Number(c.year) === year && c["tenant-id"] == null) ?? null;
+        const entry    = tenantEntry ?? baseEntry ?? null;
+        const value    = Number(entry?.value ?? 0);
+        const method   = lineMethod(key);
         const propTotal  = effectiveCostVal(propertyCosts, key, year) ?? 0;
-        const verteiler  = Number(entry?.verteiler ?? 0);
-        const anteil     = Number(entry?.anteil ?? 0);
+        const verteiler  = Number(tenantEntry?.verteiler ?? baseEntry?.verteiler ?? 0);
+        const anteil     = Number(tenantEntry?.anteil    ?? baseEntry?.anteil    ?? 0);
         const share = (() => {
           if (method === "consumed") return value;
-          if (method === "person" && propTotal > 0 && verteiler > 0) {
-            return propTotal * tenantPersonDays / verteiler;
-          }
-          // living-area (default): annual_apt_share * (tenant_days / year_days)
           if (propTotal > 0 && verteiler > 0 && anteil > 0) {
             return propTotal * anteil / verteiler * ratio;
           }
@@ -266,21 +258,17 @@ export default function ApartmentBillingPanel({
     try {
       const { tenant, days, ratio, prepayment } = info;
       const tenantId = String(tenant.id);
-      const rc = tenant["residents-count"];
-      const residents = (rc != null && !isNaN(Number(rc))) ? Number(rc) : 0;
-      const tenantPersonDays = residents * days;
       const costLines: CostLineItem[] = activeCostLines.map(key => {
-        const aptEntry = aptCosts.find((c: any) => c.line === key && Number(c.year) === year && String(c["tenant-id"]) === tenantId)
-          ?? aptCosts.find((c: any) => c.line === key && Number(c.year) === year && c["tenant-id"] == null)
-          ?? null;
+        const tenantEntry = aptCosts.find((c: any) => c.line === key && Number(c.year) === year && String(c["tenant-id"]) === tenantId) ?? null;
+        const baseEntry   = aptCosts.find((c: any) => c.line === key && Number(c.year) === year && c["tenant-id"] == null) ?? null;
+        const aptEntry    = tenantEntry ?? baseEntry ?? null;
         const method    = lineMethod(key);
         const propTotal = effectiveCostVal(propertyCosts, key, year) ?? 0;
-        const verteiler = Number(aptEntry?.verteiler ?? 0);
-        const anteil    = Number(aptEntry?.anteil ?? 0);
+        const verteiler = Number(tenantEntry?.verteiler ?? baseEntry?.verteiler ?? 0);
+        const anteil    = Number(tenantEntry?.anteil    ?? baseEntry?.anteil    ?? 0);
         const fullShare = Number(aptEntry?.value ?? 0);
         const share = (() => {
           if (method === "consumed") return fullShare;
-          if (method === "person" && propTotal > 0 && verteiler > 0) return propTotal * tenantPersonDays / verteiler;
           if (propTotal > 0 && verteiler > 0 && anteil > 0) return propTotal * anteil / verteiler * ratio;
           return fullShare * ratio;
         })();
