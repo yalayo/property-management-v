@@ -705,8 +705,20 @@ export default function NebenkostenAbrechnung({
 
   const isLoading = aptCostsLoading || rentLoading;
 
+  const computeAptShare = (key: string): number | null => {
+    const aptEntry  = costEntryFor(aptCosts, key, year);
+    if (!aptEntry) return null;
+    const method    = lineMethod(key);
+    const propTotal = effectiveCostValue(propertyCosts, key, year);
+    const v = Number(aptEntry.verteiler ?? 0);
+    const a = Number(aptEntry.anteil   ?? 0);
+    if (method === "consumed") return Number(aptEntry.value);
+    if (propTotal != null && v > 0 && a > 0) return Math.min(propTotal * a / v, propTotal);
+    return Number(aptEntry.value);
+  };
+
   const totalAnnualShare = activeCostLines.reduce((sum, key) => {
-    return sum + Number(costEntryFor(aptCosts, key, year)?.value ?? 0);
+    return sum + (computeAptShare(key) ?? 0);
   }, 0);
 
   const totalAnnualPropertyCosts = activeCostLines.reduce((sum, key) => {
@@ -844,7 +856,7 @@ export default function NebenkostenAbrechnung({
                 activeCostLines.map(key => {
                   const propTotal  = effectiveCostValue(propertyCosts, key, year);
                   const aptEntry   = costEntryFor(aptCosts, key, year);
-                  const aptShare   = aptEntry ? Number(aptEntry.value) : null;
+                  const aptShare   = computeAptShare(key);
                   const verteiler  = aptEntry?.verteiler ?? "—";
                   const anteil     = aptEntry?.anteil ?? "—";
                   const schluessel = aptEntry?.schluessel ?? "—";
