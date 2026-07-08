@@ -237,14 +237,55 @@ function IbanModal({ task, onClose, onSave }: { task: Task; onClose: () => void;
   );
 }
 
-function PropertyCostsModal({ task, targetYear, expenseTypes, onClose, onSave }: {
+function CostRow({ et, inputs, setInputs }: { et: any; inputs: Record<string, string>; setInputs: React.Dispatch<React.SetStateAction<Record<string, string>>> }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-sm flex-1 truncate">{etName(et)}</span>
+      <div className="flex items-center gap-1 shrink-0">
+        <Input
+          type="number"
+          min="0"
+          step="0.01"
+          className="h-7 w-28 text-sm text-right"
+          placeholder="0,00"
+          value={inputs[et.key] ?? ""}
+          onChange={e => setInputs(prev => ({ ...prev, [et.key]: e.target.value }))}
+        />
+        <span className="text-xs text-muted-foreground w-3">€</span>
+      </div>
+    </div>
+  );
+}
+
+function PropertyCostsModal({ task, targetYear, expenseTypes, allCosts, onClose, onSave }: {
   task: Task;
   targetYear: number;
   expenseTypes: any[];
+  allCosts: any[];
   onClose: () => void;
   onSave: (costs: Array<{ line: string; name: string; value: number }>) => void;
 }) {
   const [inputs, setInputs] = useState<Record<string, string>>({});
+  const [reusedKeys, setReusedKeys] = useState<Set<string>>(new Set());
+
+  const prevYearCosts = useMemo(
+    () => allCosts.filter(c => String(c["property-id"]) === task.propertyId && Number(c.year) === targetYear - 1),
+    [allCosts, task.propertyId, targetYear]
+  );
+
+  const applyPrevYear = () => {
+    const next: Record<string, string> = { ...inputs };
+    const keys = new Set<string>();
+    for (const c of prevYearCosts) {
+      const v = typeof c.value === "number" ? c.value : parseFloat(c.value);
+      if (!isNaN(v) && v > 0) { next[c.line] = String(v); keys.add(c.line); }
+    }
+    setInputs(next);
+    setReusedKeys(keys);
+  };
+
+  const prevYearTypes = reusedKeys.size > 0 ? expenseTypes.filter(et => reusedKeys.has(et.key)) : [];
+  const otherTypes    = reusedKeys.size > 0 ? expenseTypes.filter(et => !reusedKeys.has(et.key)) : expenseTypes;
 
   const filled = expenseTypes.filter(et => {
     const v = inputs[et.key];
@@ -252,34 +293,50 @@ function PropertyCostsModal({ task, targetYear, expenseTypes, onClose, onSave }:
   });
 
   return (
-    <DialogContent className="max-w-md">
-      <DialogHeader>
+    <DialogContent className="max-w-md flex flex-col max-h-[90vh]">
+      <DialogHeader className="shrink-0">
         <DialogTitle>Kosten hinzufügen</DialogTitle>
         <p className="text-sm text-muted-foreground">{task.propertyName} · {targetYear}</p>
       </DialogHeader>
-      <div className="py-2 space-y-2 max-h-[55vh] overflow-y-auto pr-1">
+
+      {prevYearCosts.length > 0 && reusedKeys.size === 0 && (
+        <div className="shrink-0 flex items-center justify-between rounded-md border bg-muted/50 px-3 py-2 text-sm">
+          <span className="text-muted-foreground">Vorjahr ({targetYear - 1}) übernehmen?</span>
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={applyPrevYear}>
+            Übernehmen
+          </Button>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto pr-1 py-1 space-y-1 min-h-0">
         {expenseTypes.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">Keine Kostenarten konfiguriert.</p>
         )}
-        {expenseTypes.map((et: any) => (
-          <div key={et.key} className="flex items-center gap-3">
-            <span className="text-sm flex-1 truncate">{etName(et)}</span>
-            <div className="flex items-center gap-1 shrink-0">
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                className="h-7 w-28 text-sm text-right"
-                placeholder="0,00"
-                value={inputs[et.key] ?? ""}
-                onChange={e => setInputs(prev => ({ ...prev, [et.key]: e.target.value }))}
-              />
-              <span className="text-xs text-muted-foreground w-3">€</span>
+
+        {prevYearTypes.length > 0 && (
+          <>
+            <div className="flex items-center gap-2 py-1">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Vorjahr {targetYear - 1}</span>
+              <div className="flex-1 border-t" />
+              <Button variant="ghost" size="sm" className="h-5 px-1 text-xs text-muted-foreground" onClick={() => setReusedKeys(new Set())}>
+                Zurücksetzen
+              </Button>
             </div>
-          </div>
-        ))}
+            {prevYearTypes.map(et => <CostRow key={et.key} et={et} inputs={inputs} setInputs={setInputs} />)}
+
+            {otherTypes.length > 0 && (
+              <div className="flex items-center gap-2 pt-2 pb-1">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Weitere Positionen</span>
+                <div className="flex-1 border-t" />
+              </div>
+            )}
+          </>
+        )}
+
+        {otherTypes.map(et => <CostRow key={et.key} et={et} inputs={inputs} setInputs={setInputs} />)}
       </div>
-      <DialogFooter>
+
+      <DialogFooter className="shrink-0 pt-2 border-t">
         <Button variant="outline" onClick={onClose}>Abbrechen</Button>
         <Button
           disabled={filled.length === 0}
@@ -749,6 +806,7 @@ export default function PendingTasksWidget({
             task={activeTask}
             targetYear={targetYear}
             expenseTypes={expenseTypes}
+            allCosts={allCosts}
             onClose={() => setActiveTask(null)}
             onSave={handlePropertyCostsSave}
           />
