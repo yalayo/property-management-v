@@ -293,16 +293,6 @@ export default function Dashboard(props) {
           )}
           {activeTab === "overview" && (
             <div className="space-y-6">
-              <DashboardSummary
-                properties={props.properties}
-                propertiesLoading={props.propertiesLoading}
-                apartments={props.apartments}
-                apartmentsLoading={props.apartmentsLoading}
-                tenants={props.tenants}
-                tenantsLoading={props.tenantsLoading}
-                latePayments={props.latePayments}
-                paymentsLoading={props.paymentsLoading}
-              />
               <PendingTasksWidget
                 properties={props.properties}
                 apartments={props.apartments}
@@ -320,6 +310,16 @@ export default function Dashboard(props) {
                 onAddCost={props.onAddCost}
                 onAddAptCost={props.onAddAptCost}
                 onUpdateTenant={props.onUpdateTenant}
+              />
+              <DashboardSummary
+                properties={props.properties}
+                propertiesLoading={props.propertiesLoading}
+                apartments={props.apartments}
+                apartmentsLoading={props.apartmentsLoading}
+                tenants={props.tenants}
+                tenantsLoading={props.tenantsLoading}
+                allRentPayments={props.allRentPayments}
+                paymentsLoading={props.paymentsLoading}
               />
             </div>
           )}

@@ -6,27 +6,44 @@ import {
   Home,
   Users,
   CreditCard,
-  ArrowUpRight,
-  ArrowDownRight,
   TrendingUp
 } from "lucide-react";
 
 export default function DashboardSummary(props) {
   const { t } = useTranslation("dashboard");
 
-  const properties: any[]     = props.properties     || [];
-  const apartments: any[]     = props.apartments      || [];
-  const tenants: any[]        = props.tenants         || [];
-  const latePayments: any[]   = props.latePayments    || [];
+  const properties: any[]      = props.properties      || [];
+  const apartments: any[]      = props.apartments       || [];
+  const tenants: any[]         = props.tenants          || [];
+  const allRentPayments: any[] = props.allRentPayments  || [];
 
   const isLoading =
     props.propertiesLoading || props.apartmentsLoading || props.tenantsLoading || props.paymentsLoading;
 
-  const currentMonth = new Date().toLocaleString("default", { month: "long" });
+  const propertyCount = properties.length;
+  const tenantCount   = tenants.length;
 
-  const propertyCount    = properties.length;
-  const tenantCount      = tenants.length;
-  const latePaymentCount = latePayments.length;
+  // Previous month (Kontoauszug coverage)
+  const now           = new Date();
+  const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevMonth     = prevMonthDate.getMonth() + 1;
+  const prevYear      = prevMonthDate.getFullYear();
+  const prevMonthName = prevMonthDate.toLocaleString("de-DE", { month: "long" });
+  const pmStart       = new Date(prevYear, prevMonth - 1, 1);
+  const pmEnd         = new Date(prevYear, prevMonth, 0);
+
+  const activeAptCount = apartments.filter((apt: any) =>
+    tenants.some((t: any) => {
+      if (String(t["apartment-id"]) !== String(apt.id)) return false;
+      const s = t["start-date"] ? new Date(t["start-date"] + "T00:00:00") : null;
+      const e = t["end-date"]   ? new Date(t["end-date"]   + "T00:00:00") : null;
+      return (!s || s <= pmEnd) && (!e || e >= pmStart);
+    })
+  ).length;
+
+  const kontoauszugCount = allRentPayments.filter((p: any) =>
+    Number(p.month) === prevMonth && Number(p.year) === prevYear && !!p["source-file"]
+  ).length;
 
   const totalUnits    = apartments.length;
   const occupiedUnits = apartments.filter((a: any) => a.occupied).length;
@@ -99,22 +116,14 @@ export default function DashboardSummary(props) {
               <CreditCard className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="flex items-baseline space-x-2">
-                <div className="text-2xl font-bold">{latePaymentCount}</div>
-                {latePaymentCount > 0 ? (
-                  <span className="text-red-500 text-sm flex items-center">
-                    <ArrowUpRight className="h-4 w-4 mr-1" />
-                    {t("summary.late")}
-                  </span>
-                ) : (
-                  <span className="text-green-500 text-sm flex items-center">
-                    <ArrowDownRight className="h-4 w-4 mr-1" />
-                    {t("summary.onTime")}
-                  </span>
-                )}
+              <div className="flex items-baseline gap-1.5">
+                <div className={`text-2xl font-bold ${kontoauszugCount === activeAptCount && activeAptCount > 0 ? "text-green-600" : ""}`}>
+                  {kontoauszugCount}
+                </div>
+                <span className="text-sm text-muted-foreground">von {activeAptCount}</span>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {t("summary.paymentsFor", { month: currentMonth })}
+              <p className="text-xs text-muted-foreground mt-1">
+                via Kontoauszug · {prevMonthName}
               </p>
             </CardContent>
           </Card>

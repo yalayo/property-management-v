@@ -1029,6 +1029,8 @@ export default function PendingTasksWidget({
   const progressPct  = totalChecks > 0 ? Math.round((passedChecks / totalChecks) * 100) : 100;
   const visibleTasks = showAll ? tasks : tasks.slice(0, VISIBLE_COUNT);
 
+  if (tasks.length === 0) return null;
+
   const categoryColor: Record<TaskCategory, string> = {
     steuer:      "bg-blue-100 text-blue-700",
     nebenkosten: "bg-amber-100 text-amber-700",
