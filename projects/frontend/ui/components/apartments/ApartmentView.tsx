@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft, CalendarClock, ChevronLeft, ChevronRight, Trash2, Loader2,
   DoorOpen, DoorClosed, UserPlus, Clock, CheckCircle2,
@@ -608,11 +608,13 @@ export default function ApartmentView({
 
   const pendingCostKeys     = [...savingKeys].filter(k => !savedCostKeys.includes(k));
   const editingNewCostKeys  = Object.keys(costInput).filter(k => costInput[k] != null && !savedCostKeys.includes(k) && !savingKeys.has(k));
+  const costLineOrder = useMemo(() => new Map(costLines.map((l, i) => [l.key, i])), [costLines]);
   const activeCostLines = [
     ...savedCostKeys.map(k => costLines.find(l => l.key === k)),
     ...pendingCostKeys.map(k => costLines.find(l => l.key === k)),
     ...editingNewCostKeys.map(k => costLines.find(l => l.key === k)),
-  ].filter(Boolean) as CostLine[];
+  ].filter(Boolean)
+   .sort((a, b) => (costLineOrder.get(a!.key) ?? 999) - (costLineOrder.get(b!.key) ?? 999)) as CostLine[];
   const isAutoFilled        = savedCostKeys.length === 0 && activeCostLines.length > 0;
   const availableCostLines  = costLines.filter(l => !savedCostKeys.includes(l.key) && costInput[l.key] == null && !savingKeys.has(l.key));
   const prevCostLinesToCopy = availableCostLines.filter(l => inheritedCostFor(l.key));
@@ -1740,8 +1742,8 @@ export default function ApartmentView({
                 {rentLoading ? (
                   <p className="text-sm text-muted-foreground">{tCosts("loading")}</p>
                 ) : (
-                  <Card>
-                    <CardContent className="p-0">
+                  <Card className="overflow-hidden">
+                    <CardContent className="p-0 max-h-[480px] overflow-y-auto">
                       {visibleMonths.map(m => <React.Fragment key={m}>{RentRow({ month: m })}</React.Fragment>)}
                     </CardContent>
                   </Card>

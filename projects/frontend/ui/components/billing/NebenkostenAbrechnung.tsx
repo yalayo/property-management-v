@@ -256,10 +256,14 @@ export default function NebenkostenAbrechnung({
     [activeCostLines, aptCosts, year]
   );
 
-  // Rent payment months present in the selected year
+  // Rent payment months present in the selected year for the selected apartment
   const paidMonths = useMemo(
-    () => new Set(rentPayments.filter((r: any) => Number(r.year) === year).map((r: any) => Number(r.month))),
-    [rentPayments, year]
+    () => new Set(
+      rentPayments
+        .filter((r: any) => Number(r.year) === year && (!selectedAptId || String(r["apartment-id"]) === selectedAptId))
+        .map((r: any) => Number(r.month))
+    ),
+    [rentPayments, year, selectedAptId]
   );
 
   // Active months (union) that have no recorded rent payment
@@ -304,12 +308,9 @@ export default function NebenkostenAbrechnung({
         const anteil    = Number(entry?.anteil ?? 0);
         const share = (() => {
           if (method === "consumed") return value;
-          if (method === "person" && propTotal > 0 && verteiler > 0) {
-            return propTotal * tenantPersonDays / verteiler;
-          }
-          // living-area (default): annual_apt_share * (tenant_days / year_days)
+          // person and living-area: prorate annual apt share by tenant days
           if (propTotal > 0 && verteiler > 0 && anteil > 0) {
-            return propTotal * anteil / verteiler * ratio;
+            return Math.min(propTotal * anteil / verteiler, propTotal) * ratio;
           }
           return value * ratio;
         })();
@@ -377,8 +378,7 @@ export default function NebenkostenAbrechnung({
         const fullShare = Number(aptEntry?.value ?? 0);
         const share = (() => {
           if (method === "consumed") return fullShare;
-          if (method === "person" && propTotal > 0 && verteiler > 0) return propTotal * tenantPersonDays / verteiler;
-          if (propTotal > 0 && verteiler > 0 && anteil > 0) return propTotal * anteil / verteiler * ratio;
+          if (propTotal > 0 && verteiler > 0 && anteil > 0) return Math.min(propTotal * anteil / verteiler, propTotal) * ratio;
           return fullShare * ratio;
         })();
         return {

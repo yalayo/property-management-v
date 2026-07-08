@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, CalendarClock, Copy, Pencil, Plus, Trash2, Building2, User, Warehouse, Search } from "lucide-react";
 import { useToast } from "../../hooks/use-toast";
@@ -500,11 +500,13 @@ function NebenkostenTab({
 
   const pendingKeys = [...savingKeys].filter(k => !savedKeys.includes(k));
   const editingNewKeys = Object.keys(inputState).filter(k => inputState[k] != null && !savedKeys.includes(k) && !savingKeys.has(k));
+  const costLineOrder = useMemo(() => new Map(costLines.map((l, i) => [l.key, i])), [costLines]);
   const activeLines = [
     ...savedKeys.map(k => costLines.find(l => l.key === k)),
     ...pendingKeys.map(k => costLines.find(l => l.key === k)),
     ...editingNewKeys.map(k => costLines.find(l => l.key === k)),
-  ].filter(Boolean) as CostLine[];
+  ].filter(Boolean)
+   .sort((a, b) => (costLineOrder.get(a!.key) ?? 999) - (costLineOrder.get(b!.key) ?? 999)) as CostLine[];
 
   const availableLines = costLines.filter(l => !savedKeys.includes(l.key) && inputState[l.key] == null && !savingKeys.has(l.key));
   const prevYearLinesToCopy = availableLines.filter(l => prevEntryFor(l.key));

@@ -23,6 +23,8 @@ type Task = {
   aptCode?: string;
   aptId?: string;
   aptTab?: string;
+  tenantId?: string;
+  tenantName?: string;
   navigateTo: "properties" | "abrechnung" | "apartments" | "tax";
   priority: number;
   missingMonths?: number[];
@@ -55,9 +57,10 @@ type Props = {
   onNavigate?: (tab: string, context?: NavContext) => void;
   onEditProperty?: (id: string, data: Record<string, any>) => void;
   onUpdateApartment?: (aptId: string, data: Record<string, any>) => void;
-  onAddRentPayment?: (data: { apartmentId: string; year: number; month: number; nebenkostenWarm: number }) => void;
+  onAddRentPayment?: (data: { apartmentId: string; year: number; month: number; kaltmiete: number; nebenkostenWarm: number }) => void;
   onAddCost?: (data: { propertyId: string; line: string; name: string; year: number; value: number }) => void;
   onAddAptCost?: (data: { apartmentId: string; line: string; name: string; year: number; value: number; verteiler?: number; anteil?: number; schluessel?: string }) => void;
+  onUpdateTenant?: (tenantId: string, data: Record<string, any>) => void;
 };
 
 // ── Task types with inline modal ───────────────────────────────────────────────
@@ -75,6 +78,9 @@ const MODAL_TYPES = new Set([
   "missing-ownership-share",
   "missing-year-built",
   "missing-usage",
+  "missing-tenant-startdate",
+  "missing-tenant-miete",
+  "missing-tenant-personenzahl",
 ]);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -179,14 +185,55 @@ function computeTasks(
       });
 
       // Cost allocation — modal when property costs exist, navigate otherwise
-      const hasAptCosts = allAptCosts.some(c => String(c["apartment-id"]) === aptId && Number(c.year) === year);
       const aptCostType = hasPropertyCosts ? "missing-apt-allocation" : "missing-apt-costs";
-      check(hasAptCosts, {
+      const allCostsCovered = hasPropertyCosts
+        ? (() => {
+            const propLines = allCosts
+              .filter(c => String(c["property-id"]) === propId && Number(c.year) === year)
+              .map(c => String(c.line));
+            const aptLines = new Set(
+              allAptCosts
+                .filter(c => String(c["apartment-id"]) === aptId && Number(c.year) === year)
+                .map(c => String(c.line))
+            );
+            return propLines.every(l => aptLines.has(l));
+          })()
+        : allAptCosts.some(c => String(c["apartment-id"]) === aptId && Number(c.year) === year);
+      check(allCostsCovered, {
         id: `nk-${aptId}-aptcosts-${year}`, category: "nebenkosten", type: aptCostType,
         propertyId: propId, propertyName: propName, aptCode, aptId, aptTab: "costs",
         navigateTo: "apartments", priority: 12,
       });
     }
+  }
+
+  // Per-tenant completeness checks
+  for (const tenant of tenants) {
+    const tenantId   = String(tenant.id);
+    const tenantName = [tenant["first-name"], tenant["last-name"]].filter(Boolean).join(" ") || tenantId;
+    const s = tenant["start-date"] ? new Date(tenant["start-date"] + "T00:00:00") : null;
+    const e = tenant["end-date"]   ? new Date(tenant["end-date"]   + "T00:00:00") : null;
+    if (s && s > yearEnd)   continue;
+    if (e && e < yearStart) continue;
+
+    const aptId   = tenant["apartment-id"] != null ? String(tenant["apartment-id"]) : undefined;
+    const apt     = aptId ? apartments.find(a => String(a.id) === aptId) : undefined;
+    const aptCode = apt?.code ?? aptId ?? "";
+    const propId  = apt ? String(apt["property-id"]) : "";
+    const propName = properties.find(p => String(p.id) === propId)?.name ?? propId;
+    const base    = { category: "nebenkosten" as TaskCategory, propertyId: propId, propertyName: propName, aptCode, aptId, tenantId, tenantName, navigateTo: "apartments" as const };
+
+    check(!!tenant["start-date"], {
+      ...base, id: `t-${tenantId}-startdate`, type: "missing-tenant-startdate", aptTab: "tenants", priority: 5,
+    });
+    check(
+      (tenant.kaltmiete != null && tenant.kaltmiete !== "") &&
+      (tenant["nebenkosten-warm"] != null && tenant["nebenkosten-warm"] !== ""),
+      { ...base, id: `t-${tenantId}-miete`, type: "missing-tenant-miete", aptTab: "tenants", priority: 6 }
+    );
+    check(tenant["residents-count"] != null && tenant["residents-count"] !== "", {
+      ...base, id: `t-${tenantId}-personenzahl`, type: "missing-tenant-personenzahl", aptTab: "tenants", priority: 6,
+    });
   }
 
   return { tasks: tasks.sort((a, b) => a.priority - b.priority), totalChecks, passedChecks };
@@ -357,50 +404,122 @@ function PropertyCostsModal({ task, targetYear, expenseTypes, allCosts, onClose,
   );
 }
 
-function AptAllocationModal({ task, targetYear, allCosts, properties, apartments, expenseTypes, onClose, onSave }: {
+type AllocationLine = {
+  line: string;
+  name: string;
+  total: number;
+  verteiler: number | null;
+  schluessel: string;
+  defaultAnteil: number | null;
+  missingReq: string | null;
+  manual: boolean;
+};
+
+function AptAllocationModal({ task, targetYear, allCosts, allAptCosts, properties, apartments, tenants, expenseTypes, onClose, onSave }: {
   task: Task;
   targetYear: number;
   allCosts: any[];
+  allAptCosts: any[];
   properties: any[];
   apartments: any[];
+  tenants: any[];
   expenseTypes: any[];
   onClose: () => void;
   onSave: (items: Array<{ line: string; name: string; value: number; verteiler?: number; anteil?: number; schluessel?: string }>) => void;
 }) {
-  const propertyCosts = allCosts.filter(c => String(c["property-id"]) === task.propertyId && Number(c.year) === targetYear);
-  const property = properties.find(p => String(p.id) === task.propertyId);
-  const apt = apartments.find(a => String(a.id) === task.aptId);
+  const savedAptLines = new Set(
+    allAptCosts
+      .filter(c => String(c["apartment-id"]) === task.aptId && Number(c.year) === targetYear)
+      .map(c => String(c.line))
+  );
+  const propertyCosts = allCosts
+    .filter(c => String(c["property-id"]) === task.propertyId && Number(c.year) === targetYear)
+    .filter(c => !savedAptLines.has(String(c.line)));
+  const property  = properties.find(p => String(p.id) === task.propertyId);
+  const apt       = apartments.find(a => String(a.id) === task.aptId);
+  const propApts  = apartments.filter(a => String(a["property-id"]) === task.propertyId);
 
-  const aptWohnflaeche = apt?.wohnflaeche != null ? parseFloat(String(apt.wohnflaeche)) : null;
+  const aptWohnflaeche  = apt?.wohnflaeche != null ? parseFloat(String(apt.wohnflaeche)) : null;
   const propWohnflaeche = property?.["living-area-m2"] != null
     ? parseFloat(String(property["living-area-m2"]))
-    : apartments
-        .filter(a => String(a["property-id"]) === task.propertyId && a.wohnflaeche != null)
-        .reduce((s, a) => s + parseFloat(String(a.wohnflaeche)), 0) || null;
+    : propApts.filter(a => a.wohnflaeche != null).reduce((s, a) => s + parseFloat(String(a.wohnflaeche)), 0) || null;
 
-  function defaultForLine(cost: any) {
-    const et = expenseTypes.find(e => e.key === cost.line);
-    const method = et?.["distribution-method"] ?? "living-area";
-    if (method === "living-area" && propWohnflaeche && aptWohnflaeche) {
-      const share = (cost.value * aptWohnflaeche) / propWohnflaeche;
-      return { value: share.toFixed(2), verteiler: propWohnflaeche, anteil: aptWohnflaeche, schluessel: "Wohnfläche" };
-    }
-    return { value: "", verteiler: null, anteil: null, schluessel: null };
-  }
+  const yearStart = new Date(targetYear, 0, 1);
+  const yearEnd   = new Date(targetYear, 11, 31);
 
-  const [inputs, setInputs] = useState<Record<string, string>>(() =>
-    Object.fromEntries(propertyCosts.map(c => [c.line, defaultForLine(c).value]))
-  );
-
-  const defaults = useMemo(
-    () => Object.fromEntries(propertyCosts.map(c => [c.line, defaultForLine(c)])),
-    [propertyCosts, aptWohnflaeche, propWohnflaeche]
-  );
-
-  const filled = propertyCosts.filter(c => {
-    const v = inputs[c.line];
-    return v && v.trim() !== "" && !isNaN(parseFloat(v.replace(",", ".")));
+  const aptTenants = tenants.filter(t => {
+    if (String(t["apartment-id"]) !== task.aptId) return false;
+    const s = t["start-date"] ? new Date(t["start-date"] + "T00:00:00") : null;
+    const e = t["end-date"]   ? new Date(t["end-date"]   + "T00:00:00") : null;
+    return (!s || s <= yearEnd) && (!e || e >= yearStart);
   });
+  const aptResidents = aptTenants.reduce((sum, t) => sum + (t["residents-count"] != null ? parseFloat(String(t["residents-count"])) : 0), 0) || null;
+
+  const propAptIds = new Set(propApts.map(a => String(a.id)));
+  const propResidents = tenants.filter(t => {
+    if (!propAptIds.has(String(t["apartment-id"]))) return false;
+    const s = t["start-date"] ? new Date(t["start-date"] + "T00:00:00") : null;
+    const e = t["end-date"]   ? new Date(t["end-date"]   + "T00:00:00") : null;
+    return (!s || s <= yearEnd) && (!e || e >= yearStart);
+  }).reduce((sum, t) => sum + (t["residents-count"] != null ? parseFloat(String(t["residents-count"])) : 0), 0) || null;
+
+  const lines: AllocationLine[] = useMemo(() => propertyCosts.map(c => {
+    const et     = expenseTypes.find(e => e.key === c.line);
+    const method = et?.["distribution-method"] ?? "living-area";
+    const total  = typeof c.value === "number" ? c.value : parseFloat(String(c.value));
+    const name   = et ? etName(et) : (c.name || c.line);
+
+    switch (method) {
+      case "living-area":
+        return {
+          line: c.line, name, total,
+          verteiler: propWohnflaeche, schluessel: "Wohnfläche",
+          defaultAnteil: aptWohnflaeche,
+          missingReq: !aptWohnflaeche ? "Wohnfläche (m²)" : !propWohnflaeche ? "Gesamt-Wohnfläche" : null,
+          manual: false,
+        };
+      case "person":
+        return {
+          line: c.line, name, total,
+          verteiler: propResidents, schluessel: "Anzahl Personen",
+          defaultAnteil: aptResidents,
+          missingReq: !aptResidents ? "Anzahl Personen" : !propResidents ? "Gesamt-Personenzahl" : null,
+          manual: false,
+        };
+      case "Wohneinheiten":
+        return {
+          line: c.line, name, total,
+          verteiler: propApts.length, schluessel: "Wohneinheiten",
+          defaultAnteil: 1,
+          missingReq: null, manual: false,
+        };
+      default:
+        return {
+          line: c.line, name, total,
+          verteiler: null, schluessel: "Manuell",
+          defaultAnteil: null, missingReq: null, manual: true,
+        };
+    }
+  }), [propertyCosts, aptWohnflaeche, propWohnflaeche, aptResidents, propResidents, propApts.length]);
+
+  const [anteilInputs, setAnteilInputs] = useState<Record<string, string>>(() =>
+    Object.fromEntries(lines.map(l => [l.line, l.defaultAnteil != null ? String(l.defaultAnteil) : ""]))
+  );
+
+  const getBetrag = (l: AllocationLine): number | null => {
+    if (l.missingReq) return null;
+    const v = parseFloat(anteilInputs[l.line]);
+    if (isNaN(v) || v < 0) return null;
+    if (l.manual || !l.verteiler) return v;
+    return Math.min(l.total * v / l.verteiler, l.total);
+  };
+
+  const fmtEur = (v: number) => "€ " + v.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const missingLines  = lines.filter(l => l.missingReq);
+  const readyLines    = lines.filter(l => !l.missingReq && getBetrag(l) != null);
+  const canSave       = missingLines.length === 0 && readyLines.length > 0;
+  const grandTotal    = lines.reduce((s, l) => { const b = getBetrag(l); return s + (b ?? 0); }, 0);
 
   if (propertyCosts.length === 0) {
     return (
@@ -410,77 +529,201 @@ function AptAllocationModal({ task, targetYear, allCosts, properties, apartments
           <p className="text-sm text-muted-foreground">{task.propertyName} · {task.aptCode}</p>
         </DialogHeader>
         <p className="py-3 text-sm text-muted-foreground">Keine Eigentumskosten für {targetYear} gefunden. Bitte zuerst Kosten beim Objekt hinzufügen.</p>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Schließen</Button>
-        </DialogFooter>
+        <DialogFooter><Button variant="outline" onClick={onClose}>Schließen</Button></DialogFooter>
       </DialogContent>
     );
   }
 
   return (
-    <DialogContent className="max-w-md">
-      <DialogHeader>
+    <DialogContent className="max-w-3xl flex flex-col max-h-[90vh]">
+      <DialogHeader className="shrink-0">
         <DialogTitle>Kostenumlage eingeben</DialogTitle>
         <p className="text-sm text-muted-foreground">{task.propertyName} · {task.aptCode} · {targetYear}</p>
       </DialogHeader>
-      <div className="py-2 space-y-3 max-h-[55vh] overflow-y-auto pr-1">
-        {propertyCosts.map(c => {
-          const et = expenseTypes.find(e => e.key === c.line);
-          const name = et ? etName(et) : (c.name || c.line);
-          const def = defaults[c.line];
-          const total = typeof c.value === "number" ? c.value : parseFloat(c.value);
-          return (
-            <div key={c.line} className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">{name}</span>
-                <span className="text-xs text-muted-foreground">
-                  Gesamt: {total.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                </span>
-              </div>
-              {def.schluessel && (
-                <p className="text-xs text-muted-foreground">
-                  {def.schluessel}: {def.anteil} / {def.verteiler} m²
-                </p>
-              )}
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  className="h-7 text-sm flex-1"
-                  placeholder="0,00"
-                  value={inputs[c.line] ?? ""}
-                  onChange={e => setInputs(prev => ({ ...prev, [c.line]: e.target.value }))}
-                />
-                <span className="text-xs text-muted-foreground shrink-0">€</span>
-              </div>
-            </div>
-          );
-        })}
+
+      <div className="flex-1 overflow-auto min-h-0">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="border-b">
+              <th className="text-left text-xs font-medium text-muted-foreground pb-2 pr-3">Kostenart</th>
+              <th className="text-right text-xs font-medium text-muted-foreground pb-2 px-2">Gesamtkosten</th>
+              <th className="text-right text-xs font-medium text-muted-foreground pb-2 px-2">Verteiler</th>
+              <th className="text-left text-xs font-medium text-muted-foreground pb-2 px-2">Schlüssel</th>
+              <th className="text-right text-xs font-medium text-muted-foreground pb-2 px-2">Anteil</th>
+              <th className="text-right text-xs font-medium text-muted-foreground pb-2 pl-3">Betrag</th>
+              <th className="w-4 pb-2" />
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map(l => {
+              const betrag  = getBetrag(l);
+              const missing = !!l.missingReq;
+              return (
+                <tr key={l.line} className={cn("border-b last:border-b-0", missing && "opacity-50")}>
+                  <td className="py-2.5 pr-3 font-medium">{l.name}</td>
+                  <td className="py-2.5 px-2 text-right text-muted-foreground tabular-nums">
+                    {fmtEur(l.total)}
+                  </td>
+                  <td className="py-2.5 px-2 text-right tabular-nums">
+                    {l.verteiler != null ? l.verteiler : "—"}
+                  </td>
+                  <td className="py-2.5 px-2 text-muted-foreground text-xs max-w-[90px] truncate">
+                    {l.schluessel}
+                  </td>
+                  <td className="py-2.5 px-2">
+                    {missing ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : (
+                      <Input
+                        type="number"
+                        min="0"
+                        max={!l.manual && l.verteiler != null ? l.verteiler : undefined}
+                        step="0.01"
+                        className="h-7 w-20 text-right text-sm ml-auto block"
+                        value={anteilInputs[l.line] ?? ""}
+                        onChange={e => setAnteilInputs(prev => ({ ...prev, [l.line]: e.target.value }))}
+                      />
+                    )}
+                  </td>
+                  <td className="py-2.5 pl-3 text-right font-medium tabular-nums">
+                    {betrag != null ? fmtEur(betrag) : "—"}
+                  </td>
+                  <td className="py-2.5 pl-1 text-muted-foreground/40 text-xs">
+                    {betrag != null && !missing ? "✓" : ""}
+                  </td>
+                </tr>
+              );
+            })}
+            <tr>
+              <td colSpan={5} className="pt-3 text-sm font-medium text-muted-foreground">Gesamt</td>
+              <td className="pt-3 pl-3 text-right font-semibold tabular-nums">{fmtEur(grandTotal)}</td>
+              <td />
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {missingLines.length > 0 && (
+        <div className="shrink-0 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 mt-2">
+          <p className="font-medium text-xs mb-1">Fehlende Voraussetzungen — bitte zuerst ergänzen:</p>
+          <ul className="list-disc list-inside space-y-0.5 text-xs">
+            {missingLines.map(l => (
+              <li key={l.line}><span className="font-medium">{l.name}:</span> {l.missingReq} fehlt</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <DialogFooter className="shrink-0 pt-2 border-t mt-2">
+        <Button variant="outline" onClick={onClose}>Abbrechen</Button>
+        <Button disabled={!canSave} onClick={() => {
+          const items = readyLines.map(l => ({
+            line: l.line,
+            name: l.name,
+            value: getBetrag(l)!,
+            ...(l.verteiler != null && !l.manual ? { verteiler: l.verteiler } : {}),
+            ...(!l.manual && anteilInputs[l.line] ? { anteil: parseFloat(anteilInputs[l.line]) } : {}),
+            ...(l.schluessel && !l.manual ? { schluessel: l.schluessel } : {}),
+          }));
+          onSave(items);
+          onClose();
+        }}>
+          Speichern ({readyLines.length} {readyLines.length === 1 ? "Position" : "Positionen"})
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+const TENANT_FIELD_CONFIG: Record<string, { label: string; inputType: "date" | "number"; unit?: string; dataKey: string }> = {
+  "missing-tenant-startdate":    { label: "Startdatum",           inputType: "date",   dataKey: "startDate" },
+  "missing-tenant-personenzahl": { label: "Personen im Haushalt", inputType: "number", dataKey: "residentsCount" },
+};
+
+function TenantFieldModal({ task, onClose, onSave }: { task: Task; onClose: () => void; onSave: (tenantId: string, data: Record<string, any>) => void }) {
+  const cfg = TENANT_FIELD_CONFIG[task.type];
+  const [value, setValue] = useState("");
+  if (!cfg) return null;
+
+  const isValid = value.trim() !== "" && (cfg.inputType !== "number" || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0));
+
+  return (
+    <DialogContent className="max-w-sm">
+      <DialogHeader>
+        <DialogTitle>{cfg.label} eingeben</DialogTitle>
+        <p className="text-sm text-muted-foreground">
+          {task.tenantName} · {task.propertyName} · {task.aptCode}
+        </p>
+      </DialogHeader>
+      <div className="py-2 space-y-1">
+        <Label className="text-xs">{cfg.label} *</Label>
+        <div className="flex items-center gap-2">
+          <Input
+            type={cfg.inputType}
+            min={cfg.inputType === "number" ? "0" : undefined}
+            step={cfg.inputType === "number" ? (cfg.dataKey === "residentsCount" ? "1" : "0.01") : undefined}
+            value={value}
+            onChange={e => setValue(e.target.value)}
+            placeholder={cfg.inputType === "date" ? "JJJJ-MM-TT" : ""}
+            className="flex-1"
+          />
+          {cfg.unit && <span className="text-sm text-muted-foreground shrink-0">{cfg.unit}</span>}
+        </div>
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>Abbrechen</Button>
-        <Button
-          disabled={filled.length === 0}
-          onClick={() => {
-            const items = filled.map(c => {
-              const et = expenseTypes.find(e => e.key === c.line);
-              const def = defaults[c.line];
-              return {
-                line: c.line,
-                name: et ? etName(et) : (c.name || c.line),
-                value: parseFloat(inputs[c.line].replace(",", ".")),
-                ...(def.verteiler != null ? { verteiler: def.verteiler } : {}),
-                ...(def.anteil    != null ? { anteil:    def.anteil    } : {}),
-                ...(def.schluessel        ? { schluessel: def.schluessel } : {}),
-              };
-            });
-            onSave(items);
-            onClose();
-          }}
-        >
-          Speichern ({filled.length} {filled.length === 1 ? "Position" : "Positionen"})
-        </Button>
+        <Button disabled={!isValid} onClick={() => {
+          const parsed = cfg.inputType === "number" ? parseFloat(value) : value;
+          onSave(task.tenantId!, { [cfg.dataKey]: parsed });
+          onClose();
+        }}>Speichern</Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+function TenantMieteModal({ task, onClose, onSave }: { task: Task; onClose: () => void; onSave: (tenantId: string, data: Record<string, any>) => void }) {
+  const [kaltmiete, setKaltmiete]         = useState("");
+  const [nebenkostenWarm, setNebenkostenWarm] = useState("");
+  const kv = parseFloat(kaltmiete.replace(",", "."));
+  const nv = parseFloat(nebenkostenWarm.replace(",", "."));
+  const valid = !isNaN(kv) && kv >= 0 && !isNaN(nv) && nv >= 0 && (kaltmiete.trim() !== "" || nebenkostenWarm.trim() !== "");
+
+  return (
+    <DialogContent className="max-w-sm">
+      <DialogHeader>
+        <DialogTitle>Mietangaben eingeben</DialogTitle>
+        <p className="text-sm text-muted-foreground">
+          {task.tenantName} · {task.propertyName} · {task.aptCode}
+        </p>
+      </DialogHeader>
+      <div className="py-2 space-y-3">
+        <div className="space-y-1">
+          <Label className="text-xs">Kaltmiete *</Label>
+          <div className="flex items-center gap-2">
+            <Input type="number" min="0" step="0.01" className="flex-1" placeholder="0,00"
+              value={kaltmiete} onChange={e => setKaltmiete(e.target.value)} />
+            <span className="text-sm text-muted-foreground shrink-0">€</span>
+          </div>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Nebenkosten warm *</Label>
+          <div className="flex items-center gap-2">
+            <Input type="number" min="0" step="0.01" className="flex-1" placeholder="0,00"
+              value={nebenkostenWarm} onChange={e => setNebenkostenWarm(e.target.value)} />
+            <span className="text-sm text-muted-foreground shrink-0">€</span>
+          </div>
+        </div>
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>Abbrechen</Button>
+        <Button disabled={!valid} onClick={() => {
+          const data: Record<string, any> = {};
+          if (kaltmiete.trim() !== "" && !isNaN(kv)) data.kaltmiete = kv;
+          if (nebenkostenWarm.trim() !== "" && !isNaN(nv)) data.nebenkostenWarm = nv;
+          onSave(task.tenantId!, data);
+          onClose();
+        }}>Speichern</Button>
       </DialogFooter>
     </DialogContent>
   );
@@ -535,38 +778,151 @@ function TenantModal({ task, onClose, onNavigate, onDeclareVacant }: {
   );
 }
 
-function RentPaymentsModal({ task, year, onClose, onSave }: { task: Task; year: number; onClose: () => void; onSave: (month: number, nk: number) => void }) {
-  const months = task.missingMonths ?? [];
-  const [values, setValues] = useState<Record<number, string>>(() => Object.fromEntries(months.map(m => [m, ""])));
-  const filledCount = Object.values(values).filter(v => v.trim() !== "" && !isNaN(parseFloat(v))).length;
+const MONTH_FULL = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+
+function RentPaymentsModal({ task, year, tenants, allRentPayments, onClose, onSave }: {
+  task: Task;
+  year: number;
+  tenants: any[];
+  allRentPayments: any[];
+  onClose: () => void;
+  onSave: (month: number, kalt: number, nk: number) => void;
+}) {
+  const paidMonths = useMemo(() => new Set(
+    allRentPayments
+      .filter(p => String(p["apartment-id"]) === task.aptId && Number(p.year) === year)
+      .map(p => Number(p.month))
+  ), [allRentPayments, task.aptId, year]);
+
+  const months = (task.missingMonths ?? []).filter(m => !paidMonths.has(m));
+
+  const activeTenant = useMemo(() => {
+    const yearStart = new Date(year, 0, 1);
+    const yearEnd   = new Date(year, 11, 31);
+    return tenants.find(t => {
+      if (String(t["apartment-id"]) !== task.aptId) return false;
+      const s = t["start-date"] ? new Date(t["start-date"] + "T00:00:00") : null;
+      const e = t["end-date"]   ? new Date(t["end-date"]   + "T00:00:00") : null;
+      return (!s || s <= yearEnd) && (!e || e >= yearStart);
+    });
+  }, [tenants, task.aptId, year]);
+
+  const tenantKalt = activeTenant?.kaltmiete != null ? parseFloat(String(activeTenant.kaltmiete)) : 0;
+  const tenantNk   = activeTenant?.["nebenkosten-warm"] != null ? parseFloat(String(activeTenant["nebenkosten-warm"])) : 0;
+  const hasTenantValues = tenantKalt + tenantNk > 0;
+
+  const [inputs, setInputs] = useState<Record<number, { kalt: string; nk: string }>>(() =>
+    Object.fromEntries(months.map(m => [m, { kalt: "", nk: "" }]))
+  );
+
+  const getKalt  = (m: number) => { const v = parseFloat(inputs[m]?.kalt ?? ""); return isNaN(v) ? 0 : v; };
+  const getNk    = (m: number) => { const v = parseFloat(inputs[m]?.nk   ?? ""); return isNaN(v) ? 0 : v; };
+  const getTotal = (m: number) => getKalt(m) + getNk(m);
+
+  const filledMonths  = months.filter(m => getTotal(m) > 0);
+  const grandTotal    = filledMonths.reduce((s, m) => s + getTotal(m), 0);
+
+  const fillAllFromTenant = () =>
+    setInputs(Object.fromEntries(months.map(m => [m, {
+      kalt: tenantKalt > 0 ? tenantKalt.toFixed(2) : "",
+      nk:   tenantNk   > 0 ? tenantNk.toFixed(2)   : "",
+    }])));
+
+  const fmtEur = (v: number) => "€ " + v.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
-    <DialogContent className="max-w-md">
-      <DialogHeader>
-        <DialogTitle>NK-Zahlungen eingeben</DialogTitle>
+    <DialogContent className="max-w-2xl flex flex-col max-h-[85vh] overflow-hidden">
+      <DialogHeader className="shrink-0">
+        <DialogTitle>Mietzahlungen eingeben</DialogTitle>
         <p className="text-sm text-muted-foreground">{task.propertyName} · {task.aptCode} · {year}</p>
       </DialogHeader>
-      <div className="py-2 space-y-2">
-        <p className="text-xs text-muted-foreground">Fehlende Monate — NK-Betrag (€) je Monat eingeben:</p>
-        <div className="grid grid-cols-3 gap-2">
-          {months.map(m => (
-            <div key={m} className="space-y-1">
-              <Label className="text-xs font-medium">{MONTH_DE[m - 1]}</Label>
-              <Input type="number" min="0" step="0.01" className="h-8 text-sm" placeholder="0,00"
-                value={values[m] ?? ""}
-                onChange={e => setValues(prev => ({ ...prev, [m]: e.target.value }))}
-              />
-            </div>
-          ))}
+
+      {hasTenantValues && (
+        <div className="shrink-0 flex items-center justify-between rounded-md border bg-muted/50 px-3 py-2">
+          <span className="text-xs text-muted-foreground">
+            Mietvertrag: Kaltmiete {tenantKalt > 0 ? fmtEur(tenantKalt) : "—"} · NK warm {tenantNk > 0 ? fmtEur(tenantNk) : "—"}
+          </span>
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={fillAllFromTenant}>
+            Alle Monate übernehmen
+          </Button>
         </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto min-h-0 -mx-6 px-6">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="border-b">
+              <th className="text-left text-xs font-medium text-muted-foreground pb-2 pr-3">Monat</th>
+              <th className="text-right text-xs font-medium text-muted-foreground pb-2 px-2">Kaltmiete</th>
+              <th className="text-right text-xs font-medium text-muted-foreground pb-2 px-2">NK warm</th>
+              <th className="text-right text-xs font-medium text-muted-foreground pb-2 pl-3">Gesamt</th>
+              {hasTenantValues && <th className="w-8 pb-2" />}
+              <th className="w-4 pb-2" />
+            </tr>
+          </thead>
+          <tbody>
+            {months.map(m => {
+              const total = getTotal(m);
+              return (
+                <tr key={m} className="border-b last:border-b-0">
+                  <td className="py-2.5 pr-3 font-medium">{MONTH_FULL[m - 1]}</td>
+                  <td className="py-2.5 px-2">
+                    <Input
+                      type="number" min="0" step="0.01"
+                      className="h-7 w-28 text-right text-sm ml-auto block"
+                      placeholder="0,00"
+                      value={inputs[m]?.kalt ?? ""}
+                      onChange={e => setInputs(prev => ({ ...prev, [m]: { ...prev[m], kalt: e.target.value } }))}
+                    />
+                  </td>
+                  <td className="py-2.5 px-2">
+                    <Input
+                      type="number" min="0" step="0.01"
+                      className="h-7 w-28 text-right text-sm ml-auto block"
+                      placeholder="0,00"
+                      value={inputs[m]?.nk ?? ""}
+                      onChange={e => setInputs(prev => ({ ...prev, [m]: { ...prev[m], nk: e.target.value } }))}
+                    />
+                  </td>
+                  <td className="py-2.5 pl-3 text-right font-medium tabular-nums">
+                    {total > 0 ? fmtEur(total) : "—"}
+                  </td>
+                  {hasTenantValues && (
+                    <td className="py-2.5 pl-1">
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                        title="Aus Mietvertrag übernehmen"
+                        disabled={!hasTenantValues}
+                        onClick={() => setInputs(prev => ({ ...prev, [m]: {
+                          kalt: tenantKalt > 0 ? tenantKalt.toFixed(2) : "",
+                          nk:   tenantNk   > 0 ? tenantNk.toFixed(2)   : "",
+                        } }))}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
+                      </Button>
+                    </td>
+                  )}
+                  <td className="py-2.5 pl-1 text-xs text-muted-foreground/40">{total > 0 ? "✓" : ""}</td>
+                </tr>
+              );
+            })}
+            {filledMonths.length > 0 && (
+              <tr>
+                <td colSpan={hasTenantValues ? 3 : 2} className="pt-3 text-sm font-medium text-muted-foreground">Gesamt</td>
+                <td className="pt-3 pl-3 text-right font-semibold tabular-nums">{fmtEur(grandTotal)}</td>
+                {hasTenantValues && <td />}
+                <td />
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
-      <DialogFooter>
+
+      <DialogFooter className="shrink-0 pt-2 border-t">
         <Button variant="outline" onClick={onClose}>Abbrechen</Button>
-        <Button disabled={filledCount === 0} onClick={() => {
-          for (const m of months) { const v = parseFloat(values[m] ?? ""); if (!isNaN(v)) onSave(m, v); }
+        <Button disabled={filledMonths.length === 0} onClick={() => {
+          for (const m of filledMonths) onSave(m, getKalt(m), getNk(m));
           onClose();
         }}>
-          Speichern {filledCount > 0 ? `(${filledCount} ${filledCount === 1 ? "Monat" : "Monate"})` : ""}
+          Speichern ({filledMonths.length} {filledMonths.length === 1 ? "Monat" : "Monate"})
         </Button>
       </DialogFooter>
     </DialogContent>
@@ -657,6 +1013,7 @@ export default function PendingTasksWidget({
   onAddRentPayment,
   onAddCost,
   onAddAptCost,
+  onUpdateTenant,
 }: Props) {
   const { t } = useTranslation("tasks");
   const [showAll, setShowAll]       = useState(false);
@@ -698,9 +1055,9 @@ export default function PendingTasksWidget({
     onUpdateApartment?.(aptId, { leerstand: true });
   };
 
-  const handleAddRentPaymentSave = (month: number, nk: number) => {
+  const handleAddRentPaymentSave = (month: number, kalt: number, nk: number) => {
     if (!activeTask?.aptId) return;
-    onAddRentPayment?.({ apartmentId: activeTask.aptId, year: targetYear, month, nebenkostenWarm: nk });
+    onAddRentPayment?.({ apartmentId: activeTask.aptId, year: targetYear, month, kaltmiete: kalt, nebenkostenWarm: nk });
   };
 
   const handlePropertyCostsSave = (costs: Array<{ line: string; name: string; value: number }>) => {
@@ -715,6 +1072,10 @@ export default function PendingTasksWidget({
     for (const item of items) {
       onAddAptCost?.({ apartmentId: activeTask.aptId, line: item.line, name: item.name, year: targetYear, value: item.value, verteiler: item.verteiler, anteil: item.anteil, schluessel: item.schluessel });
     }
+  };
+
+  const handleTenantFieldSave = (tenantId: string, data: Record<string, any>) => {
+    onUpdateTenant?.(tenantId, data);
   };
 
   return (
@@ -765,7 +1126,7 @@ export default function PendingTasksWidget({
                     </span>
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate leading-tight">
-                        {t(`types.${task.type}`, { property: task.propertyName, apt: task.aptCode ?? "", year: targetYear })}
+                        {t(`types.${task.type}`, { property: task.propertyName, apt: task.aptCode ?? "", tenant: task.tenantName ?? "", year: targetYear })}
                       </p>
                       {task.aptCode && (
                         <p className="text-xs text-muted-foreground truncate">{task.propertyName} · {task.aptCode}</p>
@@ -816,8 +1177,10 @@ export default function PendingTasksWidget({
             task={activeTask}
             targetYear={targetYear}
             allCosts={allCosts}
+            allAptCosts={allAptCosts}
             properties={properties}
             apartments={apartments}
+            tenants={tenants}
             expenseTypes={expenseTypes}
             onClose={() => setActiveTask(null)}
             onSave={handleAptAllocationSave}
@@ -835,10 +1198,16 @@ export default function PendingTasksWidget({
           />
         )}
         {activeTask?.type === "missing-rent-payments" && (
-          <RentPaymentsModal task={activeTask} year={targetYear} onClose={() => setActiveTask(null)} onSave={handleAddRentPaymentSave} />
+          <RentPaymentsModal task={activeTask} year={targetYear} tenants={tenants} allRentPayments={allRentPayments} onClose={() => setActiveTask(null)} onSave={handleAddRentPaymentSave} />
         )}
         {activeTask && PROPERTY_FIELD_CONFIG[activeTask.type] && (
           <PropertyFieldModal task={activeTask} onClose={() => setActiveTask(null)} onSave={handleEditPropertySave} />
+        )}
+        {activeTask?.type === "missing-tenant-miete" && (
+          <TenantMieteModal task={activeTask} onClose={() => setActiveTask(null)} onSave={handleTenantFieldSave} />
+        )}
+        {activeTask && TENANT_FIELD_CONFIG[activeTask.type] && (
+          <TenantFieldModal task={activeTask} onClose={() => setActiveTask(null)} onSave={handleTenantFieldSave} />
         )}
       </Dialog>
     </Card>

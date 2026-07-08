@@ -255,7 +255,10 @@ const resources = {
         "missing-wohnflaeche":      "Add living area (m²) for {{apt}}",
         "missing-tenant":           "Add tenant or declare vacant — {{apt}}",
         "missing-property-costs":   "Add property costs — {{property}}",
-        "missing-apt-allocation":   "Add cost allocation (Verteiler) — {{apt}}",
+        "missing-apt-allocation":         "Add cost allocation (Verteiler) — {{apt}}",
+        "missing-tenant-startdate":    "Start date missing — {{tenant}} ({{apt}})",
+        "missing-tenant-miete":        "Rent amounts missing — {{tenant}} ({{apt}})",
+        "missing-tenant-personenzahl": "Persons in household missing — {{tenant}} ({{apt}})",
       },
     },
     team: {
@@ -1376,7 +1379,10 @@ const resources = {
         "missing-wohnflaeche":      "Wohnfläche (m²) hinzufügen — {{apt}}",
         "missing-tenant":           "Mieter hinzufügen oder Leerstand bestätigen — {{apt}}",
         "missing-property-costs":   "Kosten hinzufügen — {{property}}",
-        "missing-apt-allocation":   "Kostenumlage eingeben (Verteiler) — {{apt}}",
+        "missing-apt-allocation":         "Kostenumlage eingeben (Verteiler) — {{apt}}",
+        "missing-tenant-startdate":    "Startdatum fehlt — {{tenant}} ({{apt}})",
+        "missing-tenant-miete":        "Mietangaben fehlen — {{tenant}} ({{apt}})",
+        "missing-tenant-personenzahl": "Personenzahl fehlt — {{tenant}} ({{apt}})",
       },
     },
     team: {

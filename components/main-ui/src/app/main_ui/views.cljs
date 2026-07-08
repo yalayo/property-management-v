@@ -475,14 +475,17 @@
                                    (re-frame/dispatch [::property-events/delete-property id])))
            :onAddRentPayment   (when can-create?
                                  (fn [data]
-                                   (let [d (js->clj data :keywordize-keys true)]
+                                   (let [d    (js->clj data :keywordize-keys true)
+                                         kalt (or (:kaltmiete d) 0)
+                                         nk   (or (:nebenkostenWarm d) 0)]
                                      (re-frame/dispatch
                                       [::rent-events/create-rent-payment
                                        {:apartment-id     (:apartmentId d)
                                         :year             (:year d)
                                         :month            (:month d)
-                                        :nebenkosten-warm (:nebenkostenWarm d)
-                                        :value            (:nebenkostenWarm d)}]))))
+                                        :kaltmiete        kalt
+                                        :nebenkosten-warm nk
+                                        :value            (+ kalt nk)}]))))
            :onUpdateApartment  (when can-create?
                                  (fn [apt-id data]
                                    (let [d (js->clj data :keywordize-keys true)]
@@ -491,6 +494,16 @@
                                        (cond-> {}
                                          (:wohnflaeche d)          (assoc :wohnflaeche (:wohnflaeche d))
                                          (some? (:leerstand d))    (assoc :leerstand (:leerstand d)))]))))
+           :onUpdateTenant    (when can-create?
+                                (fn [id data]
+                                  (let [d (js->clj data :keywordize-keys true)]
+                                    (re-frame/dispatch
+                                     [::tenant-events/update-tenant id
+                                      (cond-> {}
+                                        (:startDate d)       (assoc :start-date (:startDate d))
+                                        (:kaltmiete d)       (assoc :kaltmiete (:kaltmiete d))
+                                        (:nebenkostenWarm d) (assoc :nebenkosten-warm (:nebenkostenWarm d))
+                                        (:residentsCount d)  (assoc :residents-count (:residentsCount d)))]))))
            :onAddAptCost      (when can-create?
                                 (fn [data]
                                   (let [d (js->clj data :keywordize-keys true)]

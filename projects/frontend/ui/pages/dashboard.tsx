@@ -319,6 +319,7 @@ export default function Dashboard(props) {
                 onUpdateApartment={props.onUpdateApartment}
                 onAddCost={props.onAddCost}
                 onAddAptCost={props.onAddAptCost}
+                onUpdateTenant={props.onUpdateTenant}
               />
             </div>
           )}
