@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { ChevronRight, ChevronDown, Building, Building2, Database } from "lucide-react";
+import { ChevronRight, ChevronDown, Building, Building2, Database, FileText } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 type Props = {
@@ -8,7 +8,9 @@ type Props = {
   allAptCosts: any[];
   allRentPayments: any[];
   selectedApartmentId?: string | null;
+  selectedPropertyId?: string | null;
   onSelectApartment: (aptId: string, year: number) => void;
+  onSelectPropertyStammdaten?: (propertyId: string) => void;
   onSelectStammdaten: () => void;
 };
 
@@ -18,7 +20,9 @@ export default function TreeNav({
   allAptCosts,
   allRentPayments,
   selectedApartmentId,
+  selectedPropertyId,
   onSelectApartment,
+  onSelectPropertyStammdaten,
   onSelectStammdaten,
 }: Props) {
   const currentYear = new Date().getFullYear();
@@ -116,6 +120,17 @@ export default function TreeNav({
               nodeKey={propKey}
               onClick={() => toggle(propKey)}
             />
+
+            {open(propKey) && (
+              <Row
+                depth={2}
+                label="Stammdaten"
+                icon={FileText}
+                isLeaf
+                isActive={String(prop.id) === String(selectedPropertyId)}
+                onClick={() => onSelectPropertyStammdaten?.(String(prop.id))}
+              />
+            )}
 
             {open(propKey) && years.map(year => {
               const yearKey = `${propKey}-y-${year}`;

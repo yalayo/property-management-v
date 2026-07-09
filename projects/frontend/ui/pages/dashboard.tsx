@@ -35,7 +35,9 @@ function SidebarContent({
   allAptCosts = [],
   allRentPayments = [],
   selectedApartmentId = null,
+  selectedPropertyId = null,
   onSelectApartmentInTree,
+  onSelectPropertyStammdaten,
 }) {
   const { t } = useTranslation("nav");
 
@@ -91,7 +93,9 @@ function SidebarContent({
             allAptCosts={allAptCosts}
             allRentPayments={allRentPayments}
             selectedApartmentId={selectedApartmentId}
+            selectedPropertyId={selectedPropertyId}
             onSelectApartment={(aptId, year) => onSelectApartmentInTree?.(aptId, year)}
+            onSelectPropertyStammdaten={onSelectPropertyStammdaten}
             onSelectStammdaten={() => onSelect("properties")}
           />
         </div>
@@ -144,6 +148,16 @@ export default function Dashboard(props) {
     setSidebarOpen(false);
     props.onNavigateToApartment?.(aptId, "tenants");
     props.onSetApartmentYear?.(year);
+  };
+
+  const handleSelectPropertyStammdaten = (propertyId: string) => {
+    const prop = (props.properties ?? []).find((p: any) => String(p.id) === propertyId);
+    if (!prop) return;
+    setSidebarOpen(false);
+    props.onClearSelectedApartment?.();
+    setSelectedProperty(prop);
+    setActiveTab("properties");
+    props.onChangeTab?.("properties");
   };
 
   // When a tenant/garage detail is dismissed (ID goes null) while we have a return target, snap back.
@@ -281,7 +295,9 @@ export default function Dashboard(props) {
           allAptCosts={props.allAptCosts ?? []}
           allRentPayments={props.allRentPayments ?? []}
           selectedApartmentId={props.selectedApartmentId}
+          selectedPropertyId={selectedProperty ? String(selectedProperty.id) : null}
           onSelectApartmentInTree={handleSelectApartmentInTree}
+          onSelectPropertyStammdaten={handleSelectPropertyStammdaten}
         />
       </aside>
 
@@ -305,7 +321,9 @@ export default function Dashboard(props) {
             allAptCosts={props.allAptCosts ?? []}
             allRentPayments={props.allRentPayments ?? []}
             selectedApartmentId={props.selectedApartmentId}
+            selectedPropertyId={selectedProperty ? String(selectedProperty.id) : null}
             onSelectApartmentInTree={handleSelectApartmentInTree}
+            onSelectPropertyStammdaten={handleSelectPropertyStammdaten}
           />
         </SheetContent>
       </Sheet>
