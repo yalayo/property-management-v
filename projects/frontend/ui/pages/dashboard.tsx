@@ -17,6 +17,7 @@ import NebenkostenAbrechnung from "../components/billing/NebenkostenAbrechnung";
 import PendingTasksWidget from "../components/dashboard/PendingTasksWidget";
 import TrialBanner from "../components/trial/TrialBanner";
 import TreeNav from "../components/nav/TreeNav";
+import PropertyNebenkostenPanel from "../components/billing/PropertyNebenkostenPanel";
 
 const PENDING_MIGRATION_KEY = "pm-pending-migration";
 
@@ -36,8 +37,10 @@ function SidebarContent({
   allRentPayments = [],
   selectedApartmentId = null,
   selectedPropertyId = null,
+  selectedNebenkostenKey = null,
   onSelectApartmentInTree,
   onSelectPropertyStammdaten,
+  onSelectPropertyNebenkosten,
 }) {
   const { t } = useTranslation("nav");
 
@@ -94,8 +97,10 @@ function SidebarContent({
             allRentPayments={allRentPayments}
             selectedApartmentId={selectedApartmentId}
             selectedPropertyId={selectedPropertyId}
+            selectedNebenkostenKey={selectedNebenkostenKey}
             onSelectApartment={(aptId, year) => onSelectApartmentInTree?.(aptId, year)}
             onSelectPropertyStammdaten={onSelectPropertyStammdaten}
+            onSelectPropertyNebenkosten={onSelectPropertyNebenkosten}
             onSelectStammdaten={() => onSelect("properties")}
           />
         </div>
@@ -137,6 +142,7 @@ export default function Dashboard(props) {
   const [navMode, setNavMode] = useState<"list" | "tree">(() =>
     (localStorage.getItem("pm-nav-mode") as "list" | "tree") ?? "list"
   );
+  const [propertyNebenkostenView, setPropertyNebenkostenView] = useState<{ property: any; year: number } | null>(null);
 
   const handleToggleNavMode = () => {
     const next = navMode === "list" ? "tree" : "list";
@@ -155,7 +161,19 @@ export default function Dashboard(props) {
     if (!prop) return;
     setSidebarOpen(false);
     props.onClearSelectedApartment?.();
+    setPropertyNebenkostenView(null);
     setSelectedProperty(prop);
+    setActiveTab("properties");
+    props.onChangeTab?.("properties");
+  };
+
+  const handleSelectPropertyNebenkosten = (propertyId: string, year: number) => {
+    const prop = (props.properties ?? []).find((p: any) => String(p.id) === propertyId);
+    if (!prop) return;
+    setSidebarOpen(false);
+    props.onClearSelectedApartment?.();
+    setSelectedProperty(null);
+    setPropertyNebenkostenView({ property: prop, year });
     setActiveTab("properties");
     props.onChangeTab?.("properties");
   };
@@ -218,9 +236,16 @@ export default function Dashboard(props) {
     setSidebarOpen(false);
     if (id !== "properties") {
       setSelectedProperty(null);
+      setPropertyNebenkostenView(null);
       props.onClearSelectedApartment?.();
-    } else if (context?.propertyId) {
-      setSelectedProperty(null); // ensure list view shown so edit dialog can open
+    } else {
+      // Always clear the nebenkosten standalone view when navigating to the properties tab
+      setPropertyNebenkostenView(null);
+      // Clear selected property when no sub-context (e.g. global Stammdaten click or tab click)
+      // Only preserve it when the caller explicitly provides a returnTo context
+      if (!context || context.propertyId != null) {
+        setSelectedProperty(null);
+      }
     }
     if (id === "apartments" && context?.aptId) {
       props.onNavigateToApartment?.(context.aptId, context.aptTab ?? "rent");
@@ -296,8 +321,10 @@ export default function Dashboard(props) {
           allRentPayments={props.allRentPayments ?? []}
           selectedApartmentId={props.selectedApartmentId}
           selectedPropertyId={selectedProperty ? String(selectedProperty.id) : null}
+          selectedNebenkostenKey={propertyNebenkostenView ? `${propertyNebenkostenView.property.id}-${propertyNebenkostenView.year}` : null}
           onSelectApartmentInTree={handleSelectApartmentInTree}
           onSelectPropertyStammdaten={handleSelectPropertyStammdaten}
+          onSelectPropertyNebenkosten={handleSelectPropertyNebenkosten}
         />
       </aside>
 
@@ -322,8 +349,10 @@ export default function Dashboard(props) {
             allRentPayments={props.allRentPayments ?? []}
             selectedApartmentId={props.selectedApartmentId}
             selectedPropertyId={selectedProperty ? String(selectedProperty.id) : null}
+            selectedNebenkostenKey={propertyNebenkostenView ? `${propertyNebenkostenView.property.id}-${propertyNebenkostenView.year}` : null}
             onSelectApartmentInTree={handleSelectApartmentInTree}
             onSelectPropertyStammdaten={handleSelectPropertyStammdaten}
+            onSelectPropertyNebenkosten={handleSelectPropertyNebenkosten}
           />
         </SheetContent>
       </Sheet>
@@ -417,7 +446,35 @@ export default function Dashboard(props) {
             </div>
           )}
 
-          {activeTab === "properties" && (
+          {activeTab === "properties" && propertyNebenkostenView && !selectedProperty && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Button variant="ghost" size="sm" onClick={() => setPropertyNebenkostenView(null)}>
+                  {"← Zurück"}
+                </Button>
+                <h2 className="text-xl font-bold">
+                  {propertyNebenkostenView.property.name} — Nebenkosten {propertyNebenkostenView.year}
+                </h2>
+              </div>
+              <PropertyNebenkostenPanel
+                key={`${propertyNebenkostenView.property.id}-${propertyNebenkostenView.year}`}
+                property={propertyNebenkostenView.property}
+                expenseTypes={props.expenseTypes}
+                costs={props.costs}
+                costsLoading={props.costsLoading}
+                costsSaving={props.costsSaving}
+                isReadOnly={props.isReadOnly}
+                initialYear={propertyNebenkostenView.year}
+                lockYear
+                onLoadCosts={props.onLoadCosts}
+                onAddCost={props.onAddCost}
+                onUpdateCost={props.onUpdateCost}
+                onDeleteCost={props.onDeleteCost}
+              />
+            </div>
+          )}
+
+          {activeTab === "properties" && !propertyNebenkostenView && (
             selectedProperty && (props.selectedApartmentId != null || props.selectedGarageId != null) ? (
               props.apartmentsView
             ) : selectedProperty ? (

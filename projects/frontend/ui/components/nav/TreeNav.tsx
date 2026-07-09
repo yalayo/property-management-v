@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { ChevronRight, ChevronDown, Building, Building2, Database, FileText } from "lucide-react";
+import { ChevronRight, ChevronDown, Building, Building2, Database, FileText, Receipt } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 type Props = {
@@ -9,8 +9,10 @@ type Props = {
   allRentPayments: any[];
   selectedApartmentId?: string | null;
   selectedPropertyId?: string | null;
+  selectedNebenkostenKey?: string | null;
   onSelectApartment: (aptId: string, year: number) => void;
   onSelectPropertyStammdaten?: (propertyId: string) => void;
+  onSelectPropertyNebenkosten?: (propertyId: string, year: number) => void;
   onSelectStammdaten: () => void;
 };
 
@@ -21,8 +23,10 @@ export default function TreeNav({
   allRentPayments,
   selectedApartmentId,
   selectedPropertyId,
+  selectedNebenkostenKey,
   onSelectApartment,
   onSelectPropertyStammdaten,
+  onSelectPropertyNebenkosten,
   onSelectStammdaten,
 }: Props) {
   const currentYear = new Date().getFullYear();
@@ -142,6 +146,17 @@ export default function TreeNav({
                     nodeKey={yearKey}
                     onClick={() => toggle(yearKey)}
                   />
+
+                  {open(yearKey) && (
+                    <Row
+                      depth={3}
+                      label="Nebenkosten"
+                      icon={Receipt}
+                      isLeaf
+                      isActive={selectedNebenkostenKey === `${prop.id}-${year}`}
+                      onClick={() => onSelectPropertyNebenkosten?.(String(prop.id), year)}
+                    />
+                  )}
 
                   {open(yearKey) && propApts.map(apt => (
                     <Row
