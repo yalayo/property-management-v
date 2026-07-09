@@ -1,16 +1,19 @@
 import React, { useState, useMemo } from "react";
-import { ChevronRight, ChevronDown, Building, Building2, Database, FileText, Receipt } from "lucide-react";
+import { ChevronRight, ChevronDown, Building, Building2, Database, FileText, Receipt, Warehouse } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 type Props = {
   properties: any[];
   apartments: any[];
+  garages?: any[];
   allAptCosts: any[];
   allRentPayments: any[];
   selectedApartmentId?: string | null;
   selectedPropertyId?: string | null;
   selectedNebenkostenKey?: string | null;
+  selectedGarageId?: string | null;
   onSelectApartment: (aptId: string, year: number) => void;
+  onSelectGarage?: (garageId: string) => void;
   onSelectPropertyStammdaten?: (propertyId: string) => void;
   onSelectPropertyNebenkosten?: (propertyId: string, year: number) => void;
   onSelectStammdaten: () => void;
@@ -19,12 +22,15 @@ type Props = {
 export default function TreeNav({
   properties,
   apartments,
+  garages = [],
   allAptCosts,
   allRentPayments,
   selectedApartmentId,
   selectedPropertyId,
   selectedNebenkostenKey,
+  selectedGarageId,
   onSelectApartment,
+  onSelectGarage,
   onSelectPropertyStammdaten,
   onSelectPropertyNebenkosten,
   onSelectStammdaten,
@@ -77,30 +83,30 @@ export default function TreeNav({
     isActive?: boolean;
     onClick: () => void;
   }) => (
-    <div
-      style={{ paddingLeft: `${depth * 12 + 8}px` }}
+    <button
+      style={{ paddingLeft: `${depth * 14 + 8}px` }}
       className={cn(
-        "flex items-center gap-1.5 py-1.5 pr-2 rounded cursor-pointer text-sm leading-none select-none",
+        "flex items-center gap-3 w-full rounded-md py-2 pr-3 text-sm font-medium transition-colors text-left select-none",
         isActive
-          ? "bg-primary/10 text-primary font-medium"
-          : "hover:bg-gray-100 text-gray-700"
+          ? "bg-primary text-primary-foreground"
+          : "text-foreground hover:bg-accent hover:text-accent-foreground"
       )}
       onClick={onClick}
     >
       {!isLeaf && nodeKey ? (
         open(nodeKey)
-          ? <ChevronDown className="h-3 w-3 shrink-0 text-gray-400" />
-          : <ChevronRight className="h-3 w-3 shrink-0 text-gray-400" />
+          ? <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+          : <ChevronRight className="h-4 w-4 shrink-0 opacity-50" />
       ) : (
-        <span className="h-3 w-3 shrink-0" />
+        <span className="h-4 w-4 shrink-0" />
       )}
-      {Icon && <Icon className={cn("h-3.5 w-3.5 shrink-0", isActive ? "text-primary" : "text-gray-400")} />}
+      {Icon && <Icon className="h-4 w-4 shrink-0" />}
       <span className="truncate">{label}</span>
-    </div>
+    </button>
   );
 
   return (
-    <div className="py-2">
+    <div className="space-y-0.5">
       {/* Objekte root */}
       <Row
         depth={0}
@@ -113,6 +119,7 @@ export default function TreeNav({
       {open("objekte") && properties.map(prop => {
         const propKey = `p-${prop.id}`;
         const propApts = apartments.filter(a => String(a["property-id"]) === String(prop.id));
+        const propGarages = garages.filter(g => String(g["property-id"]) === String(prop.id));
         const years = yearsByProperty.get(String(prop.id)) ?? [];
 
         return (
@@ -135,6 +142,32 @@ export default function TreeNav({
                 onClick={() => onSelectPropertyStammdaten?.(String(prop.id))}
               />
             )}
+
+            {open(propKey) && propGarages.length > 0 && (() => {
+              const garagesKey = `${propKey}-garages`;
+              return (
+                <React.Fragment key="garages">
+                  <Row
+                    depth={2}
+                    label="Garagen"
+                    icon={Warehouse}
+                    nodeKey={garagesKey}
+                    onClick={() => toggle(garagesKey)}
+                  />
+                  {open(garagesKey) && propGarages.map(g => (
+                    <Row
+                      key={g.id}
+                      depth={3}
+                      label={g.code ?? String(g.id)}
+                      icon={Warehouse}
+                      isLeaf
+                      isActive={String(g.id) === String(selectedGarageId)}
+                      onClick={() => onSelectGarage?.(String(g.id))}
+                    />
+                  ))}
+                </React.Fragment>
+              );
+            })()}
 
             {open(propKey) && years.map(year => {
               const yearKey = `${propKey}-y-${year}`;
@@ -176,7 +209,7 @@ export default function TreeNav({
       })}
 
       {/* Divider */}
-      <div className="my-2 mx-3 border-t border-gray-100" />
+      <div className="my-1 mx-2 border-t border-border" />
 
       {/* Stammdaten */}
       <Row

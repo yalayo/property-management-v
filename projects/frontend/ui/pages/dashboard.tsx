@@ -33,12 +33,15 @@ function SidebarContent({
   // tree mode data
   properties = [],
   apartments = [],
+  garages = [],
   allAptCosts = [],
   allRentPayments = [],
   selectedApartmentId = null,
   selectedPropertyId = null,
   selectedNebenkostenKey = null,
+  selectedGarageId = null,
   onSelectApartmentInTree,
+  onSelectGarageInTree,
   onSelectPropertyStammdaten,
   onSelectPropertyNebenkosten,
 }) {
@@ -89,21 +92,24 @@ function SidebarContent({
       </div>
 
       {navMode === "tree" ? (
-        <div className="flex-1 overflow-y-auto px-1 py-2">
+        <nav className="flex-1 px-2 py-4 overflow-y-auto">
           <TreeNav
             properties={properties}
             apartments={apartments}
+            garages={garages}
             allAptCosts={allAptCosts}
             allRentPayments={allRentPayments}
             selectedApartmentId={selectedApartmentId}
             selectedPropertyId={selectedPropertyId}
             selectedNebenkostenKey={selectedNebenkostenKey}
+            selectedGarageId={selectedGarageId}
             onSelectApartment={(aptId, year) => onSelectApartmentInTree?.(aptId, year)}
+            onSelectGarage={onSelectGarageInTree}
             onSelectPropertyStammdaten={onSelectPropertyStammdaten}
             onSelectPropertyNebenkosten={onSelectPropertyNebenkosten}
             onSelectStammdaten={() => onSelect("properties")}
           />
-        </div>
+        </nav>
       ) : (
         <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
           {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
@@ -165,6 +171,22 @@ export default function Dashboard(props) {
     setSelectedProperty(prop);
     setActiveTab("properties");
     props.onChangeTab?.("properties");
+  };
+
+  const handleSelectGarageInTree = (garageId: string) => {
+    const garage = (props.garages ?? []).find((g: any) => String(g.id) === garageId);
+    const prop = garage
+      ? (props.properties ?? []).find((p: any) => String(p.id) === String(garage["property-id"]))
+      : null;
+    setSidebarOpen(false);
+    setPropertyNebenkostenView(null);
+    if (prop) {
+      setReturnToProperty(prop);
+      setSelectedProperty(prop);
+    }
+    setActiveTab("properties");
+    props.onChangeTab?.("properties");
+    props.onSelectGarageInline?.(garageId);
   };
 
   const handleSelectPropertyNebenkosten = (propertyId: string, year: number) => {
@@ -322,7 +344,10 @@ export default function Dashboard(props) {
           selectedApartmentId={props.selectedApartmentId}
           selectedPropertyId={selectedProperty ? String(selectedProperty.id) : null}
           selectedNebenkostenKey={propertyNebenkostenView ? `${propertyNebenkostenView.property.id}-${propertyNebenkostenView.year}` : null}
+          selectedGarageId={props.selectedGarageId ? String(props.selectedGarageId) : null}
+          garages={props.garages ?? []}
           onSelectApartmentInTree={handleSelectApartmentInTree}
+          onSelectGarageInTree={handleSelectGarageInTree}
           onSelectPropertyStammdaten={handleSelectPropertyStammdaten}
           onSelectPropertyNebenkosten={handleSelectPropertyNebenkosten}
         />
@@ -330,7 +355,7 @@ export default function Dashboard(props) {
 
       {/* Mobile sidebar via Sheet */}
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <SheetContent side="left" className="p-0 w-64">
+        <SheetContent side="left" className="p-0 w-64 [&>button]:text-white [&>button]:top-[22px] [&>button]:right-12">
           <SheetHeader className="sr-only">
             <SheetTitle>{t("navigation")}</SheetTitle>
           </SheetHeader>
@@ -350,7 +375,10 @@ export default function Dashboard(props) {
             selectedApartmentId={props.selectedApartmentId}
             selectedPropertyId={selectedProperty ? String(selectedProperty.id) : null}
             selectedNebenkostenKey={propertyNebenkostenView ? `${propertyNebenkostenView.property.id}-${propertyNebenkostenView.year}` : null}
+            selectedGarageId={props.selectedGarageId ? String(props.selectedGarageId) : null}
+            garages={props.garages ?? []}
             onSelectApartmentInTree={handleSelectApartmentInTree}
+            onSelectGarageInTree={handleSelectGarageInTree}
             onSelectPropertyStammdaten={handleSelectPropertyStammdaten}
             onSelectPropertyNebenkosten={handleSelectPropertyNebenkosten}
           />
