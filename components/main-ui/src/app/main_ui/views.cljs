@@ -610,6 +610,8 @@
            :onNavigateToApartment (fn [apt-id initial-tab]
                                     (re-frame/dispatch [::apartment-events/select-apartment apt-id initial-tab])
                                     (re-frame/dispatch [::events/set-dashboard-tab "apartments"]))
+           :onSetApartmentYear    (fn [year]
+                                    (re-frame/dispatch [::apartment-events/set-apartment-year year]))
            :onNavigateToTenant (fn [tenant-id]
                                  (re-frame/dispatch [::tenant-events/select-tenant tenant-id])
                                  (re-frame/dispatch [::events/set-dashboard-tab "tenants"]))

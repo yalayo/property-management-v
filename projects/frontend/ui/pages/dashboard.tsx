@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect } from "react";
-import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2, Landmark, Receipt, Tags, Download, Lock, ArrowUpRight, Shield, Calculator, UserCog } from "lucide-react";
+import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2, Landmark, Receipt, Tags, Download, Lock, ArrowUpRight, Shield, Calculator, UserCog, List, Network } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../components/ui/sheet";
@@ -16,10 +16,27 @@ import BankStatement from "../components/bank/BankStatement";
 import NebenkostenAbrechnung from "../components/billing/NebenkostenAbrechnung";
 import PendingTasksWidget from "../components/dashboard/PendingTasksWidget";
 import TrialBanner from "../components/trial/TrialBanner";
+import TreeNav from "../components/nav/TreeNav";
 
 const PENDING_MIGRATION_KEY = "pm-pending-migration";
 
-function SidebarContent({ activeTab, onSelect, onLogout, isSuperAdmin = false, userRole = null, userSections = null }) {
+function SidebarContent({
+  activeTab,
+  onSelect,
+  onLogout,
+  isSuperAdmin = false,
+  userRole = null,
+  userSections = null,
+  navMode = "list",
+  onToggleNavMode,
+  // tree mode data
+  properties = [],
+  apartments = [],
+  allAptCosts = [],
+  allRentPayments = [],
+  selectedApartmentId = null,
+  onSelectApartmentInTree,
+}) {
   const { t } = useTranslation("nav");
 
   const allowedSections: Set<string> | null = userSections
@@ -52,22 +69,47 @@ function SidebarContent({ activeTab, onSelect, onLogout, isSuperAdmin = false, u
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
           <polyline points="9 22 9 12 15 12 15 22" />
         </svg>
-        <span className="ml-2 text-xl font-semibold text-white">PropManager</span>
+        <span className="ml-2 text-xl font-semibold text-white flex-1">PropManager</span>
+        {onToggleNavMode && (
+          <button
+            title={navMode === "list" ? "Baumansicht" : "Listenansicht"}
+            className="ml-1 p-1 rounded hover:bg-white/20 text-white/80 hover:text-white transition-colors"
+            onClick={onToggleNavMode}
+          >
+            {navMode === "list"
+              ? <Network className="h-4 w-4" />
+              : <List className="h-4 w-4" />}
+          </button>
+        )}
       </div>
 
-      <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-        {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
-          <Button
-            key={id}
-            variant={activeTab === id ? "default" : "ghost"}
-            className="w-full justify-start"
-            onClick={() => onSelect(id)}
-          >
-            <Icon className="mr-3 h-5 w-5" />
-            {label}
-          </Button>
-        ))}
-      </nav>
+      {navMode === "tree" ? (
+        <div className="flex-1 overflow-y-auto px-1 py-2">
+          <TreeNav
+            properties={properties}
+            apartments={apartments}
+            allAptCosts={allAptCosts}
+            allRentPayments={allRentPayments}
+            selectedApartmentId={selectedApartmentId}
+            onSelectApartment={(aptId, year) => onSelectApartmentInTree?.(aptId, year)}
+            onSelectStammdaten={() => onSelect("properties")}
+          />
+        </div>
+      ) : (
+        <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+          {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
+            <Button
+              key={id}
+              variant={activeTab === id ? "default" : "ghost"}
+              className="w-full justify-start"
+              onClick={() => onSelect(id)}
+            >
+              <Icon className="mr-3 h-5 w-5" />
+              {label}
+            </Button>
+          ))}
+        </nav>
+      )}
 
       <div className="flex-shrink-0 border-t border-gray-200 p-4">
         <Button variant="outline" className="w-full" onClick={onLogout}>
@@ -88,6 +130,22 @@ export default function Dashboard(props) {
   const [pendingMigration, setPendingMigration] = useState<any | null>(null);
   const [navContext, setNavContext] = useState<{ propertyId?: string; aptId?: string; nonce: number } | null>(null);
   const [returnToProperty, setReturnToProperty] = useState<any | null>(null);
+  const [navMode, setNavMode] = useState<"list" | "tree">(() =>
+    (localStorage.getItem("pm-nav-mode") as "list" | "tree") ?? "list"
+  );
+
+  const handleToggleNavMode = () => {
+    const next = navMode === "list" ? "tree" : "list";
+    setNavMode(next);
+    localStorage.setItem("pm-nav-mode", next);
+  };
+
+  const handleSelectApartmentInTree = (aptId: string, year: number) => {
+    setSidebarOpen(false);
+    props.onNavigateToApartment?.(aptId, "nebenkosten");
+    // dispatch a year change if the backend supports it (best-effort)
+    props.onSetApartmentYear?.(year);
+  };
 
   // When a tenant/garage detail is dismissed (ID goes null) while we have a return target, snap back.
   useEffect(() => {
@@ -217,6 +275,14 @@ export default function Dashboard(props) {
           isSuperAdmin={props.isSuperAdmin}
           userRole={props.userRole}
           userSections={props.userSections}
+          navMode={navMode}
+          onToggleNavMode={handleToggleNavMode}
+          properties={props.properties ?? []}
+          apartments={props.apartments ?? []}
+          allAptCosts={props.allAptCosts ?? []}
+          allRentPayments={props.allRentPayments ?? []}
+          selectedApartmentId={props.selectedApartmentId}
+          onSelectApartmentInTree={handleSelectApartmentInTree}
         />
       </aside>
 
@@ -233,6 +299,14 @@ export default function Dashboard(props) {
             isSuperAdmin={props.isSuperAdmin}
             userRole={props.userRole}
             userSections={props.userSections}
+            navMode={navMode}
+            onToggleNavMode={handleToggleNavMode}
+            properties={props.properties ?? []}
+            apartments={props.apartments ?? []}
+            allAptCosts={props.allAptCosts ?? []}
+            allRentPayments={props.allRentPayments ?? []}
+            selectedApartmentId={props.selectedApartmentId}
+            onSelectApartmentInTree={handleSelectApartmentInTree}
           />
         </SheetContent>
       </Sheet>
@@ -306,9 +380,11 @@ export default function Dashboard(props) {
                 onNavigate={(tab, ctx) => handleSelect(tab, ctx)}
                 onEditProperty={props.onEditProperty}
                 onAddRentPayment={props.onAddRentPayment}
+                onAddRentPayments={props.onAddRentPayments}
                 onUpdateApartment={props.onUpdateApartment}
                 onAddCost={props.onAddCost}
                 onAddAptCost={props.onAddAptCost}
+                onUpdateAptCost={props.onUpdateAptCost}
                 onUpdateTenant={props.onUpdateTenant}
               />
               <DashboardSummary
