@@ -297,6 +297,14 @@ export default function ApartmentView({
     if (initialTab) setActiveTabState(initialTab);
   }, [initialTab]);
 
+  // Sync year when parent changes it (e.g. tree-nav click on a specific year)
+  useEffect(() => {
+    if (persistedYear != null && persistedYear !== year) {
+      setYearState(persistedYear);
+      onYearChange?.(persistedYear);
+    }
+  }, [persistedYear]);
+
   useEffect(() => {
     if (!aptCostSaveError) return;
     toast({ title: tCommon("saveError", { defaultValue: "Save failed. Please try again." }), variant: "destructive" });

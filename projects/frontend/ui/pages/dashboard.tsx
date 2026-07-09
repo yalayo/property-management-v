@@ -142,8 +142,7 @@ export default function Dashboard(props) {
 
   const handleSelectApartmentInTree = (aptId: string, year: number) => {
     setSidebarOpen(false);
-    props.onNavigateToApartment?.(aptId, "nebenkosten");
-    // dispatch a year change if the backend supports it (best-effort)
+    props.onNavigateToApartment?.(aptId, "tenants");
     props.onSetApartmentYear?.(year);
   };
 
