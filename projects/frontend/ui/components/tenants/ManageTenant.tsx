@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ArrowLeft, Trash2, Loader2, Plus, X } from "lucide-react";
+import { ArrowLeft, Trash2, Loader2, Plus, X, Check, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useToast } from "../../hooks/use-toast";
 import { Button } from "../ui/button";
@@ -11,6 +11,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 type HouseholdMember = {
   name: string;
   birthday?: string;
+};
+
+type PersonsChange = {
+  id: string;
+  "tenant-id": string;
+  "apartment-id": string;
+  year: number;
+  "from-date": string;
+  count: number;
 };
 
 type Tenant = {
@@ -34,9 +43,12 @@ type Props = {
   tenant?: Tenant | null;
   isSaving?: boolean;
   isReadOnly?: boolean;
+  personsChanges?: PersonsChange[];
   onBack?: () => void;
   onDelete?: (id: number) => void;
   onUpdate?: (id: number, data: Record<string, string>) => void;
+  onAddPersonsChange?: (data: { tenantId: string; apartmentId: string; year: number; fromDate: string; count: number }) => void;
+  onDeletePersonsChange?: (id: string) => void;
 };
 
 function parseMembers(raw?: string): HouseholdMember[] {
@@ -48,9 +60,12 @@ export default function ManageTenant({
   tenant,
   isSaving = false,
   isReadOnly = false,
+  personsChanges = [],
   onBack,
   onDelete,
   onUpdate,
+  onAddPersonsChange,
+  onDeletePersonsChange,
 }: Props) {
   const { t } = useTranslation("tenants");
   const { t: tCommon } = useTranslation("common");
@@ -69,6 +84,7 @@ export default function ManageTenant({
   const [members, setMembers] = useState<HouseholdMember[]>(parseMembers(tenant?.["household-members"]));
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberBirthday, setNewMemberBirthday] = useState("");
+  const [addChangeForm, setAddChangeForm] = useState<{ fromDate: string; count: string } | null>(null);
 
   if (!tenant) {
     return (
@@ -230,15 +246,101 @@ export default function ManageTenant({
 
             <div className="space-y-2">
               <Label htmlFor="residentsCount">{t("household.residentsCount")}</Label>
-              <Input
-                id="residentsCount"
-                type="number"
-                min={1}
-                value={residentsCount}
-                onChange={(e) => setResidentsCount(e.target.value)}
-                placeholder="—"
-                className="w-24"
-              />
+              <div className="flex items-center gap-3">
+                <Input
+                  id="residentsCount"
+                  type="number"
+                  min={1}
+                  value={residentsCount}
+                  onChange={(e) => setResidentsCount(e.target.value)}
+                  placeholder="—"
+                  className="w-24"
+                  disabled={isReadOnly}
+                />
+                {!isReadOnly && onAddPersonsChange && (
+                  <button
+                    type="button"
+                    className="text-xs text-primary underline underline-offset-2 hover:opacity-70 transition-opacity"
+                    onClick={() => setAddChangeForm({ fromDate: "", count: "" })}
+                  >
+                    + Änderung mit Datum erfassen
+                  </button>
+                )}
+              </div>
+
+              {/* Existing changes */}
+              {personsChanges.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {[...personsChanges]
+                    .sort((a, b) => (`${a.year}-${a["from-date"]}`).localeCompare(`${b.year}-${b["from-date"]}`))
+                    .map(ch => (
+                      <div key={ch.id} className="flex items-center justify-between text-sm text-muted-foreground">
+                        <span>ab {ch["from-date"]} ({ch.year}): <span className="font-medium text-foreground">{ch.count} Personen</span></span>
+                        {!isReadOnly && (
+                          <button
+                            type="button"
+                            className="ml-2 hover:text-destructive transition-colors"
+                            onClick={() => onDeletePersonsChange?.(ch.id)}
+                            disabled={isSaving}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              )}
+
+              {/* Add change form */}
+              {addChangeForm && (
+                <div className="mt-2 flex items-end gap-2 rounded-md border p-3 bg-muted/30">
+                  <div className="space-y-1 flex-1">
+                    <Label className="text-xs">Gültig ab</Label>
+                    <Input
+                      type="date"
+                      value={addChangeForm.fromDate}
+                      onChange={e => setAddChangeForm(f => f ? { ...f, fromDate: e.target.value } : f)}
+                      disabled={isSaving}
+                    />
+                  </div>
+                  <div className="space-y-1 w-24">
+                    <Label className="text-xs">Neue Anzahl</Label>
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min="1"
+                      step="1"
+                      value={addChangeForm.count}
+                      onChange={e => setAddChangeForm(f => f ? { ...f, count: e.target.value } : f)}
+                      disabled={isSaving}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={isSaving || !addChangeForm.fromDate || !addChangeForm.count}
+                    onClick={() => {
+                      const count = parseInt(addChangeForm.count, 10);
+                      if (!addChangeForm.fromDate || isNaN(count) || count <= 0) return;
+                      const year = parseInt(addChangeForm.fromDate.split("-")[0], 10);
+                      onAddPersonsChange?.({
+                        tenantId: String(tenant!.id),
+                        apartmentId: String(tenant!["apartment-id"] ?? ""),
+                        year,
+                        fromDate: addChangeForm.fromDate,
+                        count,
+                      });
+                      setAddChangeForm(null);
+                    }}
+                  >
+                    <Check className="h-3.5 w-3.5 mr-1" />
+                    Speichern
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setAddChangeForm(null)}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
             </div>
 
             {members.length > 0 && (

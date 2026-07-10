@@ -13,18 +13,34 @@
 
 (defn component [_]
   (re-frame/dispatch [::events/load-tenants])
+  (re-frame/dispatch [::events/load-residents-count-changes])
   (fn [{:keys [apartments is-read-only?]}]
     (let [tenants          @(re-frame/subscribe [::subs/tenants])
           loading?         @(re-frame/subscribe [::subs/loading?])
           saving?          @(re-frame/subscribe [::subs/saving?])
           add-dialog-open? @(re-frame/subscribe [::subs/add-dialog-open?])
           selected-id      @(re-frame/subscribe [::subs/selected-tenant-id])
+          persons-changes  @(re-frame/subscribe [::subs/persons-changes])
           selected-tenant  (when selected-id (first (filter #(= (:db/id %) selected-id) tenants)))]
       (if selected-id
         [manage-tenant
          {:tenant      (clj->js selected-tenant)
           :isReadOnly  is-read-only?
           :isSaving    saving?
+          :personsChanges (clj->js (filter #(= (str (:persons-change/tenant-id %)) (str selected-id)) persons-changes))
+          :onAddPersonsChange (when-not is-read-only?
+                                (fn [data]
+                                  (let [d (js->clj data :keywordize-keys true)]
+                                    (re-frame/dispatch
+                                     [::events/create-residents-count-change
+                                      {:tenant-id    (:tenantId d)
+                                       :apartment-id (:apartmentId d)
+                                       :year         (:year d)
+                                       :from-date    (:fromDate d)
+                                       :count        (:count d)}]))))
+          :onDeletePersonsChange (when-not is-read-only?
+                                   (fn [id]
+                                     (re-frame/dispatch [::events/delete-residents-count-change id])))
           :onBack   #(re-frame/dispatch [::events/clear-selected-tenant])
           :onDelete (fn [id] (re-frame/dispatch [::events/delete-tenant id]))
           :onUpdate (fn [id data]
