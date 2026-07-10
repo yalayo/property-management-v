@@ -25,3 +25,8 @@
  ::selected-tenant-id
  (fn [db _]
    (get-in db [:tenants :selected-id])))
+
+(re-frame/reg-sub
+ ::persons-changes
+ (fn [db _]
+   (get-in db [:tenants :persons-changes] [])))

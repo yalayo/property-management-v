@@ -798,6 +798,42 @@
                 {:rent-payments rents}))))
 
 ;; ---------------------------------------------------------------------------
+;; Residents-count-change handlers
+;; ---------------------------------------------------------------------------
+
+(defn- handle-get-all-residents-count-changes! [storage user]
+  (with-org user
+    (fn [org-id]
+      (js-await [eids    ((:find-by-attr storage) :persons-change/organization-id org-id)
+                 changes (pull-many+ storage eids '[*])]
+                {:residents-count-changes changes}))))
+
+(defn- handle-create-residents-count-change! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [{:keys [tenant-id apartment-id year from-date count]} data]
+        (js-await [{:keys [tx-id entity-ids]}
+                   ((:transact! storage)
+                    [{:db/type                         "persons-change"
+                      :persons-change/organization-id org-id
+                      :persons-change/tenant-id       tenant-id
+                      :persons-change/apartment-id    apartment-id
+                      :persons-change/year            year
+                      :persons-change/from-date       from-date
+                      :persons-change/count           count}] nil)]
+                  {:tx-id tx-id :change-id (first entity-ids)})))))
+
+(defn- handle-delete-residents-count-change! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:persons-change/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [_ ((:excise! storage) eid nil)]
+                              {:ok true})))))))
+
+;; ---------------------------------------------------------------------------
 ;; Tenant-Miete handlers
 ;; ---------------------------------------------------------------------------
 
@@ -1521,6 +1557,9 @@
     :get-all-costs                   (handle-get-all-costs! storage user)
     :get-all-apartment-costs         (handle-get-all-apartment-costs! storage user)
     :get-all-rent-payments           (handle-get-all-rent-payments! storage user)
+    :get-all-residents-count-changes  (handle-get-all-residents-count-changes! storage user)
+    :create-residents-count-change   (handle-create-residents-count-change! storage data user)
+    :delete-residents-count-change   (handle-delete-residents-count-change! storage data user)
     :get-all-tenant-mieten           (handle-get-all-tenant-mieten! storage user)
     :upsert-tenant-miete             (handle-upsert-tenant-miete! storage data user)
     :delete-tenant-miete             (handle-delete-tenant-miete! storage data user)

@@ -74,6 +74,7 @@
         tenants              @(re-frame/subscribe [::tenant-subs/tenants])
         tenants-loading?     @(re-frame/subscribe [::tenant-subs/loading?])
         tenants-saving?      @(re-frame/subscribe [::tenant-subs/saving?])
+        persons-changes      @(re-frame/subscribe [::tenant-subs/persons-changes])
         available-apartments (filter #(not (:apartment/occupied %)) all-apartments)
         costs                @(re-frame/subscribe [::cost-subs/costs])
         costs-loading?       @(re-frame/subscribe [::cost-subs/loading?])
@@ -188,6 +189,7 @@
                                  (re-frame/dispatch [::apartment-events/load-garages])
                                  (re-frame/dispatch [::tax-events/load-tax-data])
                                  (re-frame/dispatch [::cost-events/load-bank-accounts])
+                                 (re-frame/dispatch [::tenant-events/load-residents-count-changes])
                                  (when-let [tier (js/localStorage.getItem "pm-pending-plan")]
                                    (js/localStorage.removeItem "pm-pending-plan")
                                    (re-frame/dispatch [::events/change-active-section "payment"])
@@ -323,7 +325,22 @@
                                                                                      :landlord-name        (:landlordName d)
                                                                                      :landlord-street      (:landlordStreet d)
                                                                                      :landlord-postal-city (:landlordPostalCity d)}]))))
-                                               :prop-saving?                prop-saving?}])
+                                               :prop-saving?                prop-saving?
+                                               :persons-changes             persons-changes
+                                               :on-add-persons-change       (when can-create?
+                                                                              (fn [data]
+                                                                                (let [d (js->clj data :keywordize-keys true)]
+                                                                                  (re-frame/dispatch
+                                                                                   [::tenant-events/create-residents-count-change
+                                                                                    {:tenant-id    (:tenantId d)
+                                                                                     :apartment-id (:apartmentId d)
+                                                                                     :year         (:year d)
+                                                                                     :from-date    (:fromDate d)
+                                                                                     :count        (:count d)}]))))
+                                               :on-delete-persons-change    (when can-create?
+                                                                              (fn [id]
+                                                                                (re-frame/dispatch
+                                                                                 [::tenant-events/delete-residents-count-change id])))}])
            :rentSaving         rent-saving?
            :bankAccounts       (clj->js bank-accounts)
            :onSaveBankAccount  (when can-create?
@@ -560,6 +577,21 @@
                                                :missing (vec (:missing r))}))))
            :aptsSaving              apts-saving?
            :tenantsSaving           tenants-saving?
+           :personsChanges          (clj->js persons-changes)
+           :onAddPersonsChange      (when can-create?
+                                      (fn [data]
+                                        (let [d (js->clj data :keywordize-keys true)]
+                                          (re-frame/dispatch
+                                           [::tenant-events/create-residents-count-change
+                                            {:tenant-id    (:tenantId d)
+                                             :apartment-id (:apartmentId d)
+                                             :year         (:year d)
+                                             :from-date    (:fromDate d)
+                                             :count        (:count d)}]))))
+           :onDeletePersonsChange   (when can-create?
+                                      (fn [id]
+                                        (re-frame/dispatch
+                                         [::tenant-events/delete-residents-count-change id])))
            :selectedApartmentId     selected-apt-id
            :selectedGarageId        selected-garage-id
            :selectedTenantId        selected-tenant-id

@@ -85,6 +85,15 @@ type CostEditFields = {
   fixedValue: boolean;
 };
 
+type PersonsChange = {
+  id: string;
+  "tenant-id": string;
+  "apartment-id": string;
+  year: number;
+  "from-date": string;
+  count: number;
+};
+
 type Props = {
   apartment?: Apartment | null;
   apartments?: Apartment[];
@@ -134,6 +143,9 @@ type Props = {
   onLoadCosts?: (propertyId: string) => void;
   onEditProperty?: (id: string, data: any) => void;
   propertySaving?: boolean;
+  personsChanges?: PersonsChange[];
+  onAddPersonsChange?: (data: { tenantId: string; apartmentId: string; year: number; fromDate: string; count: number }) => void;
+  onDeletePersonsChange?: (id: string) => void;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -201,6 +213,53 @@ function tenantDaysInYear(tenant: Tenant, year: number): number {
   return Math.round((effEnd.getTime() - effStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 }
 
+function dateStrDays(a: string, b: string): number {
+  return Math.round((new Date(b + "T00:00:00").getTime() - new Date(a + "T00:00:00").getTime()) / 86400000) + 1;
+}
+
+function previousDateStr(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().split("T")[0];
+}
+
+function tenantPersonDaysWithChanges(tenant: Tenant, year: number, changes: PersonsChange[]): number {
+  const yearStart = new Date(year, 0, 1);
+  const yearEnd   = new Date(year, 11, 31);
+  const rawStart  = tenant["start-date"] ? new Date(tenant["start-date"] + "T00:00:00") : yearStart;
+  const rawEnd    = tenant["end-date"]   ? new Date(tenant["end-date"]   + "T00:00:00") : yearEnd;
+  const effStart  = rawStart > yearStart ? rawStart : yearStart;
+  const effEnd    = rawEnd   < yearEnd   ? rawEnd   : yearEnd;
+  if (effStart > effEnd) return 0;
+
+  const effStartStr = effStart.toISOString().split("T")[0];
+  const effEndStr   = effEnd.toISOString().split("T")[0];
+  const baseCount   = tenant["residents-count"] != null && !isNaN(Number(tenant["residents-count"]))
+    ? Number(tenant["residents-count"]) : 0;
+
+  const relevant = changes
+    .filter(c =>
+      String(c["tenant-id"]) === String(tenant.id) &&
+      Number(c.year) === year &&
+      c["from-date"] > effStartStr &&
+      c["from-date"] <= effEndStr
+    )
+    .sort((a, b) => a["from-date"].localeCompare(b["from-date"]));
+
+  if (relevant.length === 0) return baseCount * dateStrDays(effStartStr, effEndStr);
+
+  let total = 0;
+  let cursor = effStartStr;
+  let curCount = baseCount;
+  for (const ch of relevant) {
+    total += curCount * dateStrDays(cursor, previousDateStr(ch["from-date"]));
+    cursor   = ch["from-date"];
+    curCount = Number(ch.count);
+  }
+  total += curCount * dateStrDays(cursor, effEndStr);
+  return total;
+}
+
 function tenantDateRange(tn: Tenant, openLabel: string): string {
   const sd = tn["start-date"];
   const ed = tn["end-date"];
@@ -260,6 +319,9 @@ export default function ApartmentView({
   onLoadCosts,
   onEditProperty,
   propertySaving,
+  personsChanges = [],
+  onAddPersonsChange,
+  onDeletePersonsChange,
 }: Props) {
   const { t }         = useTranslation("apartments");
   const { t: tCosts } = useTranslation("costs");
@@ -315,6 +377,7 @@ export default function ApartmentView({
   const [mgmtTenantTab,    setMgmtTenantTab]    = useState<string | null>(null);
   const [editingTenantId,  setEditingTenantId]  = useState<string | null>(null);
   const [editForm,         setEditForm]         = useState<TenantUpdateData>({});
+  const [addChangeForm,    setAddChangeForm]    = useState<{ fromDate: string; count: string } | null>(null);
   const [onboardingMode,   setOnboardingMode]   = useState<"create" | "assign">("create");
   const [tenantSearch,     setTenantSearch]     = useState("");
   const [tenantEmail,      setTenantEmail]      = useState("");
@@ -461,11 +524,7 @@ export default function ApartmentView({
   const aptPersonDaysForApt = (aptId: number | string): number =>
     tenants
       .filter((tn: Tenant) => String(tn["apartment-id"]) === String(aptId) && tenantActiveInYear(tn, year))
-      .reduce((sum, tn) => {
-        const rc = tn["residents-count"];
-        const count = rc != null && !isNaN(Number(rc)) ? Number(rc) : 0;
-        return sum + count * tenantDaysInYear(tn, year);
-      }, 0);
+      .reduce((sum, tn) => sum + tenantPersonDaysWithChanges(tn, year, personsChanges), 0);
   const aptPersonDays    = aptPersonDaysForApt(apartment.id);
   const aptPersonDaysStr = aptPersonDays > 0 ? String(aptPersonDays) : "";
   const propertyPersonDays = apartments
@@ -524,14 +583,9 @@ export default function ApartmentView({
   const defaultsForSchluessel = (schl: string): { verteiler: string; anteil: string } => {
     if (schl === "Wohnfläche")      return { verteiler: property?.["living-area-m2"] != null ? String(property["living-area-m2"]) : propertyWohnflaecheStr, anteil: apartment["wohnflaeche"] != null ? String(apartment["wohnflaeche"]) : "" };
     if (schl === "Anzahl Personen") {
-      const tenantPersonDays = (() => {
-        if (dataSelectedTenant) {
-          const rc = dataSelectedTenant["residents-count"];
-          const count = rc != null && !isNaN(Number(rc)) ? Number(rc) : 0;
-          return count * tenantDaysInYear(dataSelectedTenant, year);
-        }
-        return aptPersonDays;
-      })();
+      const tenantPersonDays = dataSelectedTenant
+        ? tenantPersonDaysWithChanges(dataSelectedTenant, year, personsChanges)
+        : aptPersonDays;
       return { verteiler: propertyPersonDaysStr, anteil: tenantPersonDays > 0 ? String(tenantPersonDays) : aptPersonDaysStr };
     }
     if (schl === "Wohneinheiten")   return { verteiler: propertyApartmentCountStr,  anteil: "1" };
@@ -1525,6 +1579,102 @@ export default function ApartmentView({
                         {tCommon("edit")}
                       </Button>
                     )}
+
+                  {/* Person-count history for the selected year */}
+                  {editingTenantId !== mgmtTenant.id && (() => {
+                    const tenantChanges = personsChanges
+                      .filter(c => String(c["tenant-id"]) === String(mgmtTenant.id) && Number(c.year) === year)
+                      .sort((a, b) => a["from-date"].localeCompare(b["from-date"]));
+                    const baseCount = mgmtTenant["residents-count"] != null && !isNaN(Number(mgmtTenant["residents-count"]))
+                      ? Number(mgmtTenant["residents-count"]) : 0;
+                    const totalPersonDays = tenantPersonDaysWithChanges(mgmtTenant, year, personsChanges);
+                    return (
+                      <div className="border-t pt-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium">Personenzahl {year}</p>
+                          <span className="text-xs text-muted-foreground">{totalPersonDays} Personentage</span>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-sm px-1">
+                            <span className="text-muted-foreground">Basis (bei Einzug / Jahresbeginn)</span>
+                            <span className="font-medium">{baseCount} Personen</span>
+                          </div>
+                          {tenantChanges.map(ch => (
+                            <div key={ch.id} className="flex items-center justify-between text-sm px-1">
+                              <span className="text-muted-foreground">ab {ch["from-date"]}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{ch.count} Personen</span>
+                                {!isReadOnly && (
+                                  <button
+                                    className="text-muted-foreground hover:text-destructive transition-colors"
+                                    onClick={() => onDeletePersonsChange?.(ch.id)}
+                                    disabled={tenantsSaving}
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        {!isReadOnly && (
+                          addChangeForm ? (
+                            <div className="flex items-end gap-2">
+                              <div className="space-y-1 flex-1">
+                                <Label className="text-xs">Datum der Änderung</Label>
+                                <Input
+                                  type="date"
+                                  value={addChangeForm.fromDate}
+                                  onChange={e => setAddChangeForm(f => f ? { ...f, fromDate: e.target.value } : f)}
+                                  disabled={tenantsSaving}
+                                />
+                              </div>
+                              <div className="space-y-1 w-24">
+                                <Label className="text-xs">Personen</Label>
+                                <Input
+                                  type="number" inputMode="numeric" min="1" step="1"
+                                  value={addChangeForm.count}
+                                  onChange={e => setAddChangeForm(f => f ? { ...f, count: e.target.value } : f)}
+                                  disabled={tenantsSaving}
+                                />
+                              </div>
+                              <Button
+                                size="sm"
+                                disabled={tenantsSaving || !addChangeForm.fromDate || !addChangeForm.count}
+                                onClick={() => {
+                                  const count = parseInt(addChangeForm.count, 10);
+                                  if (!addChangeForm.fromDate || isNaN(count) || count <= 0) return;
+                                  onAddPersonsChange?.({
+                                    tenantId: String(mgmtTenant.id),
+                                    apartmentId: String(apartment!.id),
+                                    year,
+                                    fromDate: addChangeForm.fromDate,
+                                    count,
+                                  });
+                                  setAddChangeForm(null);
+                                }}
+                              >
+                                <Check className="h-3.5 w-3.5 mr-1" />
+                                {tCommon("save")}
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => setAddChangeForm(null)}>
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              variant="outline" size="sm"
+                              className="w-full border-dashed"
+                              onClick={() => setAddChangeForm({ fromDate: "", count: "" })}
+                            >
+                              <Plus className="h-3.5 w-3.5 mr-1.5" />
+                              Personenzahl-Änderung hinzufügen
+                            </Button>
+                          )
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Onboarding — only for active tenant */}
                   {isActiveTenant(mgmtTenant) && editingTenantId !== mgmtTenant.id && (

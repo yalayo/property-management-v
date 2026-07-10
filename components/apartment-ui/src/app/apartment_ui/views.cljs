@@ -28,6 +28,7 @@
                on-load-rent-payments on-add-rent-payment on-update-rent-payment on-delete-rent-payment
                tenant-mieten miete-saving? on-upsert-tenant-miete on-delete-tenant-miete
                on-update-apartment on-load-costs on-edit-property prop-saving?
+               persons-changes on-add-persons-change on-delete-persons-change
                is-read-only? _on-go-back]}]
     (let [apartments           @(re-frame/subscribe [::subs/apartments])
           loading?             @(re-frame/subscribe [::subs/loading?])
@@ -98,6 +99,9 @@
           :propertySaving          prop-saving?
           :isSaving                saving?
           :tenantsSaving           tenants-saving?
+          :personsChanges          (clj->js (or persons-changes []))
+          :onAddPersonsChange      on-add-persons-change
+          :onDeletePersonsChange   on-delete-persons-change
           :isOnboarding            onboarding?
           :onboardingStatus        (clj->js onboarding-status)
           :onBack                  #(re-frame/dispatch [::events/clear-selected-apartment])
