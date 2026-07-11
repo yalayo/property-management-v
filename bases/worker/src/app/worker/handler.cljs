@@ -35,6 +35,7 @@
    :bank-account          :get-bank-accounts
    :persons-change        :get-all-residents-count-changes
    :nk-settlement         :get-all-nebenkosten-settlements
+   :nk-outstanding        :get-all-nk-outstandings
    :tax-income            :get-all-tax-incomes
    :tax-expense           :get-all-tax-expenses
    :journal-entry         :get-all-journal-entries})

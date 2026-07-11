@@ -44,6 +44,9 @@ type Props = {
   onEditProperty?: (id: string, data: any) => void;
   onAddNebenkostenSettlement?: (data: any) => void;
   onDeleteNebenkostenSettlement?: (id: string) => void;
+  nkOutstandings?: any[];
+  onMarkNkOutstanding?: (data: any) => void;
+  onUnmarkNkOutstanding?: (id: string) => void;
   navContext?: { propertyId?: string; aptId?: string; nonce?: number } | null;
 };
 
@@ -129,6 +132,9 @@ export default function NebenkostenAbrechnung({
   onEditProperty,
   onAddNebenkostenSettlement,
   onDeleteNebenkostenSettlement,
+  nkOutstandings = [],
+  onMarkNkOutstanding,
+  onUnmarkNkOutstanding,
   navContext,
 }: Props) {
   const { t, i18n } = useTranslation("abrechnung");
@@ -349,6 +355,84 @@ export default function NebenkostenAbrechnung({
       return { tenant, days, ratio, months, missingMonths, costBreakdown, proratedTotal, prepayment, net, canGenerate };
     });
   }, [focusedTenants, year, paidMonths, rentPayments, activeCostLines, aptCosts, hasIban, missingCostLines, expenseTypeMethodMap]);
+
+  // ── Pending Nachzahlungen from previous years ─────────────────────────────
+  // Recomputes each prior year's net (same share logic as perTenantInfo) and
+  // subtracts recorded settlement payments; only positive remainders count.
+
+  const computeTenantNetForYear = (tenant: any, y: number): number | null => {
+    const days = tenantDaysInYear(tenant, y);
+    if (days <= 0) return null;
+    const yearDays = isLeapYear(y) ? 366 : 365;
+    const ratio = days / yearDays;
+    const tenantId = String(tenant.id);
+
+    const lineKeys = new Set<string>();
+    propertyCosts.forEach((c: any) => { if (Number(c.year) <= y) lineKeys.add(c.line); });
+    if (lineKeys.size === 0) return null;
+
+    let prorated = 0;
+    for (const key of lineKeys) {
+      const tenantEntry = aptCosts.find((c: any) => c.line === key && Number(c.year) === y && String(c["tenant-id"]) === tenantId) ?? null;
+      const baseEntry   = aptCosts.find((c: any) => c.line === key && Number(c.year) === y && c["tenant-id"] == null) ?? null;
+      const entry       = tenantEntry ?? baseEntry ?? null;
+      const value     = Number(entry?.value ?? 0);
+      const method    = lineMethod(key);
+      const propTotal = effectiveCostValue(propertyCosts, key, y) ?? 0;
+      const verteiler = Number(tenantEntry?.verteiler ?? baseEntry?.verteiler ?? 0);
+      const anteil    = Number(tenantEntry?.anteil    ?? baseEntry?.anteil    ?? 0);
+      if (method === "consumed") prorated += value;
+      else if (propTotal > 0 && verteiler > 0 && anteil > 0) prorated += Math.min(propTotal * anteil / verteiler, propTotal) * ratio;
+      else prorated += value * ratio;
+    }
+
+    const paidInY = new Set(
+      rentPayments
+        .filter((r: any) => Number(r.year) === y && (!selectedAptId || String(r["apartment-id"]) === selectedAptId))
+        .map((r: any) => Number(r.month))
+    );
+    const prepayment = tenantActiveMonthsFor(tenant, y)
+      .filter(m => paidInY.has(m))
+      .reduce((sum, m) => {
+        const pmt = rentPayments.find((r: any) => Number(r.year) === y && Number(r.month) === m);
+        return sum + Number(pmt?.["nebenkosten-warm"] ?? 0);
+      }, 0);
+    return prorated - prepayment;
+  };
+
+  /** tenantId → [{year, pending}] for prior years with an unpaid Nachzahlung.
+   *  An explicit nk-outstanding marker fixes the amount at marking time and
+   *  takes precedence over the recomputed net. */
+  const pendingPriorByTenant = useMemo(() => {
+    const result = new Map<string, { year: number; pending: number }[]>();
+    if (!selectedAptId) return result;
+    for (const tenant of focusedTenants) {
+      const tenantId = String(tenant.id);
+      const markerYears = nkOutstandings
+        .filter(o => String(o["apartment-id"]) === selectedAptId && String(o["tenant-id"]) === tenantId)
+        .map(o => Number(o.year));
+      const priorYears = [...new Set([
+        ...propertyCosts.map((c: any) => Number(c.year)),
+        ...markerYears,
+      ])]
+        .filter(y => y >= year - 5 && y < year)
+        .sort((a, b) => a - b);
+      const pendings: { year: number; pending: number }[] = [];
+      for (const py of priorYears) {
+        const marker = nkOutstandings.find(o =>
+          String(o["apartment-id"]) === selectedAptId && String(o["tenant-id"]) === tenantId && Number(o.year) === py);
+        const base = marker != null ? Number(marker.amount ?? 0) : computeTenantNetForYear(tenant, py);
+        if (base == null || base <= 0.005) continue;
+        const settled = nebenkostenSettlements
+          .filter(s => String(s["apartment-id"]) === selectedAptId && String(s["tenant-id"]) === tenantId && Number(s.year) === py)
+          .reduce((sum, s) => sum + Number(s.amount ?? 0), 0);
+        const pending = base - settled;
+        if (pending > 0.005) pendings.push({ year: py, pending });
+      }
+      if (pendings.length > 0) result.set(tenantId, pendings);
+    }
+    return result;
+  }, [focusedTenants, selectedAptId, year, propertyCosts, aptCosts, rentPayments, nebenkostenSettlements, nkOutstandings, expenseTypeMethodMap]);
 
   // ── Bank info save ────────────────────────────────────────────────────────
 
@@ -923,6 +1007,8 @@ export default function NebenkostenAbrechnung({
                   const totalSettled = tenantSettlements.reduce((sum, s) => sum + Number(s.amount ?? 0), 0);
                   const remaining    = info.net > 0 ? Math.max(0, info.net - totalSettled) : 0;
                   const settlementForm = settlementForms[rowKey] ?? null;
+                  const outstandingMarker = nkOutstandings.find(o =>
+                    String(o["apartment-id"]) === aptId && String(o["tenant-id"]) === tenantId && Number(o.year) === year) ?? null;
 
                   return (
                     <div key={i} className="border-b last:border-b-0">
@@ -980,15 +1066,45 @@ export default function NebenkostenAbrechnung({
                               {remaining === 0 && <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />}
                             </div>
                           )}
-                          {!settlementForm && onAddNebenkostenSettlement && (
-                            <button
-                              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mt-1"
-                              onClick={() => setSettlementForms(prev => ({ ...prev, [rowKey]: { date: new Date().toISOString().split("T")[0], amount: formatEur(remaining || info.net).replace(".", "").replace(",", "."), notes: "" } }))}
-                            >
-                              <CalendarClock className="h-3.5 w-3.5" />
-                              {t("settlement.add")}
-                            </button>
-                          )}
+                          <div className="flex flex-wrap items-center gap-3 mt-1">
+                            {!settlementForm && onAddNebenkostenSettlement && (
+                              <button
+                                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                                onClick={() => setSettlementForms(prev => ({ ...prev, [rowKey]: { date: new Date().toISOString().split("T")[0], amount: formatEur(remaining || info.net).replace(".", "").replace(",", "."), notes: "" } }))}
+                              >
+                                <CalendarClock className="h-3.5 w-3.5" />
+                                {t("settlement.add")}
+                              </button>
+                            )}
+                            {outstandingMarker ? (
+                              <span className="flex items-center gap-1.5 text-xs text-amber-700">
+                                <CalendarClock className="h-3.5 w-3.5" />
+                                {t("settlement.markedUnpaid", { amount: formatEur(Number(outstandingMarker.amount ?? 0)) })}
+                                {onUnmarkNkOutstanding && (
+                                  <button className="underline hover:no-underline"
+                                    onClick={() => onUnmarkNkOutstanding(String(outstandingMarker.id))}>
+                                    {t("settlement.unmark")}
+                                  </button>
+                                )}
+                              </span>
+                            ) : (
+                              remaining > 0.005 && onMarkNkOutstanding && (
+                                <button
+                                  className="flex items-center gap-1 text-xs text-amber-700 hover:text-amber-900 font-medium"
+                                  onClick={() => onMarkNkOutstanding({
+                                    apartmentId: aptId,
+                                    tenantId,
+                                    year,
+                                    amount: remaining,
+                                    date: new Date().toISOString().split("T")[0],
+                                  })}
+                                >
+                                  <XCircle className="h-3.5 w-3.5" />
+                                  {t("settlement.markUnpaid")}
+                                </button>
+                              )
+                            )}
+                          </div>
                           {settlementForm && (
                             <div className="flex flex-wrap items-end gap-2 pt-1">
                               <div className="space-y-0.5">
@@ -1032,6 +1148,72 @@ export default function NebenkostenAbrechnung({
                           )}
                         </div>
                       )}
+
+                      {/* Pending Nachzahlungen from previous years */}
+                      {(pendingPriorByTenant.get(tenantId) ?? []).map(p => {
+                        const pKey = `${tenantId}-${p.year}`;
+                        const pForm = settlementForms[pKey] ?? null;
+                        return (
+                          <div key={p.year} className="px-4 pb-3 space-y-1.5">
+                            <div className="flex items-center gap-2 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
+                              <CalendarClock className="h-3.5 w-3.5 shrink-0" />
+                              <span className="flex-1">
+                                {t("settlement.pendingFrom", { year: p.year })}
+                              </span>
+                              <span className="font-semibold tabular-nums">€ {formatEur(p.pending)}</span>
+                              {!pForm && onAddNebenkostenSettlement && (
+                                <button
+                                  className="ml-1 font-medium underline hover:no-underline"
+                                  onClick={() => setSettlementForms(prev => ({ ...prev, [pKey]: { date: new Date().toISOString().split("T")[0], amount: p.pending.toFixed(2), notes: "" } }))}
+                                >
+                                  {t("settlement.add")}
+                                </button>
+                              )}
+                            </div>
+                            {pForm && (
+                              <div className="flex flex-wrap items-end gap-2 pt-1">
+                                <div className="space-y-0.5">
+                                  <p className="text-[10px] text-muted-foreground">{t("settlement.date")}</p>
+                                  <Input className="h-7 text-xs w-32" type="date"
+                                    value={pForm.date}
+                                    onChange={e => setSettlementForms(prev => ({ ...prev, [pKey]: { ...prev[pKey]!, date: e.target.value } }))} />
+                                </div>
+                                <div className="space-y-0.5">
+                                  <p className="text-[10px] text-muted-foreground">{t("settlement.amount")}</p>
+                                  <Input className="h-7 text-xs w-24" type="number" step="0.01" min="0"
+                                    value={pForm.amount}
+                                    onChange={e => setSettlementForms(prev => ({ ...prev, [pKey]: { ...prev[pKey]!, amount: e.target.value } }))} />
+                                </div>
+                                <div className="space-y-0.5 flex-1 min-w-[100px]">
+                                  <p className="text-[10px] text-muted-foreground">{t("settlement.notes")}</p>
+                                  <Input className="h-7 text-xs" placeholder="optional"
+                                    value={pForm.notes}
+                                    onChange={e => setSettlementForms(prev => ({ ...prev, [pKey]: { ...prev[pKey]!, notes: e.target.value } }))} />
+                                </div>
+                                <Button size="sm" className="h-7 text-xs"
+                                  disabled={!pForm.date || !pForm.amount}
+                                  onClick={() => {
+                                    onAddNebenkostenSettlement?.({
+                                      apartmentId: aptId,
+                                      tenantId,
+                                      year: p.year,
+                                      amount: parseFloat(pForm.amount),
+                                      date: pForm.date,
+                                      notes: pForm.notes || undefined,
+                                    });
+                                    setSettlementForms(prev => ({ ...prev, [pKey]: null }));
+                                  }}>
+                                  {t("settlement.save")}
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-7 text-xs"
+                                  onClick={() => setSettlementForms(prev => ({ ...prev, [pKey]: null }))}>
+                                  {t("settlement.cancel")}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}

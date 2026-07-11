@@ -146,6 +146,8 @@ type Props = {
   personsChanges?: PersonsChange[];
   onAddPersonsChange?: (data: { tenantId: string; apartmentId: string; year: number; fromDate: string; count: number }) => void;
   onDeletePersonsChange?: (id: string) => void;
+  nkSettlements?: any[];
+  onDeleteNkSettlement?: (id: string) => void;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -322,6 +324,8 @@ export default function ApartmentView({
   personsChanges = [],
   onAddPersonsChange,
   onDeletePersonsChange,
+  nkSettlements = [],
+  onDeleteNkSettlement,
 }: Props) {
   const { t }         = useTranslation("apartments");
   const { t: tCosts } = useTranslation("costs");
@@ -1907,6 +1911,51 @@ export default function ApartmentView({
                   </Card>
                 )}
               </div>
+
+              {/* NK-Nachzahlungen received in this year (settling previous Abrechnungsjahre) */}
+              {(() => {
+                const aptNkSettlements = nkSettlements
+                  .filter((s: any) =>
+                    String(s["apartment-id"]) === String(apartment.id) &&
+                    typeof s.date === "string" && s.date.startsWith(`${year}-`))
+                  .sort((a: any, b: any) => (a.date < b.date ? -1 : 1));
+                if (aptNkSettlements.length === 0) return null;
+                return (
+                  <div className="space-y-3">
+                    <h3 className="text-base font-semibold">{tCosts("nkSettlements")}</h3>
+                    <Card className="overflow-hidden">
+                      <CardContent className="p-0">
+                        {aptNkSettlements.map((s: any) => {
+                          const tn = tenants.find((x: any) => String(x.id) === String(s["tenant-id"]));
+                          return (
+                            <div key={s.id} className="flex items-center justify-between px-4 py-3 border-b last:border-b-0 gap-2">
+                              <div className="min-w-0">
+                                <p className="text-sm">
+                                  {tCosts("nkSettlementRow", { year: s.year, date: s.date })}
+                                </p>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {tn ? tenantDisplayName(tn) : ""}{s.notes ? ` — ${s.notes}` : ""}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="tabular-nums text-sm font-medium text-green-600">
+                                  € {formatEur(Number(s.amount ?? 0))}
+                                </span>
+                                {!isReadOnly && onDeleteNkSettlement && (
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                    onClick={() => onDeleteNkSettlement(String(s.id))}>
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </CardContent>
+                    </Card>
+                  </div>
+                );
+              })()}
             </>
           )}
       </div>)}

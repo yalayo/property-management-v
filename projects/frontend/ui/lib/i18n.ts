@@ -625,6 +625,8 @@ const resources = {
         nebenkostenWarm: "Nebenkosten warm",
         total: "Total",
       },
+      nkSettlements: "NK back payments (previous years)",
+      nkSettlementRow: "Back payment for {{year}} statement — paid {{date}}",
     },
     abrechnung: {
       title: "Nebenkostenabrechnung",
@@ -704,6 +706,10 @@ const resources = {
         paid: "Paid",
         open: "Open",
         empty: "No payments recorded yet.",
+        pendingFrom: "Outstanding back payment from the {{year}} statement",
+        markUnpaid: "Mark as unpaid (carry into next year)",
+        markedUnpaid: "Marked as unpaid — € {{amount}} will appear as outstanding in following years",
+        unmark: "Undo",
       },
     },
     finances: {
@@ -1881,6 +1887,8 @@ const resources = {
         nebenkostenWarm: "Nebenkosten warm",
         total: "Gesamt",
       },
+      nkSettlements: "NK-Nachzahlungen (Vorjahre)",
+      nkSettlementRow: "Nachzahlung Abrechnung {{year}} — bezahlt am {{date}}",
     },
     abrechnung: {
       title: "Nebenkostenabrechnung",
@@ -1960,6 +1968,10 @@ const resources = {
         paid: "Bezahlt",
         open: "Offen",
         empty: "Noch keine Zahlungen erfasst.",
+        pendingFrom: "Offene Nachzahlung aus Abrechnung {{year}}",
+        markUnpaid: "Als offen vormerken (ins Folgejahr übernehmen)",
+        markedUnpaid: "Als offen vorgemerkt — € {{amount}} wird in Folgejahren als offener Posten angezeigt",
+        unmark: "Rückgängig",
       },
     },
     finances: {

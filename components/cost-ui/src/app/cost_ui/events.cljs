@@ -406,3 +406,54 @@
  ::nk-settlement-error
  (fn [db _]
    (assoc-in db [:nk-settlements :saving?] false)))
+
+;; ── NK outstanding markers (Nachzahlung als offen vorgemerkt) ─────────────
+
+(re-frame/reg-event-fx
+ ::load-nk-outstandings
+ (fn [_ _]
+   {:dispatch [:app.core-ui.events/query
+               {:entity :nk-outstanding}
+               [::nk-outstandings-loaded]
+               [::nk-outstandings-error]]}))
+
+(re-frame/reg-event-db
+ ::nk-outstandings-loaded
+ (fn [db [_ {:keys [nk-outstandings]}]]
+   (assoc-in db [:nk-outstandings :list] (or nk-outstandings []))))
+
+(re-frame/reg-event-db
+ ::nk-outstandings-error
+ (fn [db _]
+   db))
+
+(re-frame/reg-event-fx
+ ::upsert-nk-outstanding
+ (fn [{:keys [db]} [_ data]]
+   {:db       (assoc-in db [:nk-outstandings :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :upsert-nk-outstanding
+               data
+               [::nk-outstanding-mutated]
+               [::nk-outstanding-error]]}))
+
+(re-frame/reg-event-fx
+ ::delete-nk-outstanding
+ (fn [{:keys [db]} [_ id]]
+   {:db       (assoc-in db [:nk-outstandings :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :delete-nk-outstanding
+               {:id id}
+               [::nk-outstanding-mutated]
+               [::nk-outstanding-error]]}))
+
+(re-frame/reg-event-fx
+ ::nk-outstanding-mutated
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:nk-outstandings :saving?] false)
+    :dispatch [::load-nk-outstandings]}))
+
+(re-frame/reg-event-db
+ ::nk-outstanding-error
+ (fn [db _]
+   (assoc-in db [:nk-outstandings :saving?] false)))

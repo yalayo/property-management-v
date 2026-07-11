@@ -597,6 +597,9 @@ export default function Dashboard(props) {
               onEditProperty={props.onEditProperty}
               onAddNebenkostenSettlement={props.onAddNebenkostenSettlement}
               onDeleteNebenkostenSettlement={props.onDeleteNebenkostenSettlement}
+              nkOutstandings={props.nkOutstandings}
+              onMarkNkOutstanding={props.onMarkNkOutstanding}
+              onUnmarkNkOutstanding={props.onUnmarkNkOutstanding}
               navContext={navContext}
             />
           )}

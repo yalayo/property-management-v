@@ -122,6 +122,7 @@
         bank-accounts-saving?  @(re-frame/subscribe [::cost-subs/bank-accounts-saving?])
         nk-settlements       @(re-frame/subscribe [::cost-subs/nebenkosten-settlements])
         nk-settlements-saving? @(re-frame/subscribe [::cost-subs/nk-settlements-saving?])
+        nk-outstandings      @(re-frame/subscribe [::cost-subs/nk-outstandings])
         tax-incomes          @(re-frame/subscribe [::tax-subs/tax-incomes])
         tax-expenses         @(re-frame/subscribe [::tax-subs/tax-expenses])
         tax-maintenances     @(re-frame/subscribe [::tax-subs/maintenances])
@@ -203,6 +204,7 @@
                                  (re-frame/dispatch [::cost-events/load-bank-accounts])
                                  (re-frame/dispatch [::tenant-events/load-residents-count-changes])
                                  (re-frame/dispatch [::cost-events/load-nebenkosten-settlements])
+                                 (re-frame/dispatch [::cost-events/load-nk-outstandings])
                                  (re-frame/dispatch [::tax-events/load-tax-incomes])
                                  (re-frame/dispatch [::tax-events/load-tax-expenses])
                                  (re-frame/dispatch [::accounting-events/load-journal-entries])
@@ -357,7 +359,12 @@
                                                :on-delete-persons-change    (when can-create?
                                                                               (fn [id]
                                                                                 (re-frame/dispatch
-                                                                                 [::tenant-events/delete-residents-count-change id])))}])
+                                                                                 [::tenant-events/delete-residents-count-change id])))
+                                               :nk-settlements              nk-settlements
+                                               :on-delete-nk-settlement     (when can-create?
+                                                                              (fn [id]
+                                                                                (re-frame/dispatch
+                                                                                 [::cost-events/delete-nebenkosten-settlement id])))}])
            :rentSaving         rent-saving?
            :bankAccounts       (clj->js bank-accounts)
            :onSaveBankAccount  (when can-create?
@@ -738,6 +745,22 @@
              (when can-create?
                (fn [id]
                  (re-frame/dispatch [::cost-events/delete-nebenkosten-settlement id])))
+           :nkOutstandings nk-outstandings
+           :onMarkNkOutstanding
+             (when can-create?
+               (fn [data]
+                 (let [d (js->clj data :keywordize-keys true)]
+                   (re-frame/dispatch
+                    [::cost-events/upsert-nk-outstanding
+                     {:apartment-id (:apartmentId d)
+                      :tenant-id    (:tenantId d)
+                      :year         (:year d)
+                      :amount       (:amount d)
+                      :date         (:date d)}]))))
+           :onUnmarkNkOutstanding
+             (when can-create?
+               (fn [id]
+                 (re-frame/dispatch [::cost-events/delete-nk-outstanding id])))
            :taxIncomes    (clj->js tax-incomes)
            :taxExpenses   (clj->js tax-expenses)
            :onAddTaxIncome

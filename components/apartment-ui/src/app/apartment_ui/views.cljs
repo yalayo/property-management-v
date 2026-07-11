@@ -29,6 +29,7 @@
                tenant-mieten miete-saving? on-upsert-tenant-miete on-delete-tenant-miete
                on-update-apartment on-load-costs on-edit-property prop-saving?
                persons-changes on-add-persons-change on-delete-persons-change
+               nk-settlements on-delete-nk-settlement
                is-read-only? _on-go-back]}]
     (let [apartments           @(re-frame/subscribe [::subs/apartments])
           loading?             @(re-frame/subscribe [::subs/loading?])
@@ -102,6 +103,8 @@
           :personsChanges          (clj->js (or persons-changes []))
           :onAddPersonsChange      on-add-persons-change
           :onDeletePersonsChange   on-delete-persons-change
+          :nkSettlements           (clj->js (or nk-settlements []))
+          :onDeleteNkSettlement    on-delete-nk-settlement
           :isOnboarding            onboarding?
           :onboardingStatus        (clj->js onboarding-status)
           :onBack                  #(re-frame/dispatch [::events/clear-selected-apartment])

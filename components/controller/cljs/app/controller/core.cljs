@@ -1019,6 +1019,52 @@
                               {:ok true})))))))
 
 ;; ---------------------------------------------------------------------------
+;; NK-Outstanding handlers (Nachzahlung als offen vorgemerkt)
+;;
+;; Expliziter Vermerk, dass die Nachzahlung eines Abrechnungsjahres offen ist.
+;; Der Betrag wird beim Vermerken festgeschrieben und im Folgejahr als offener
+;; Posten angezeigt (abzüglich erfasster Zahlungen). Upsert je Whg/Mieter/Jahr.
+;; ---------------------------------------------------------------------------
+
+(defn- handle-get-all-nk-outstandings! [storage user]
+  (with-org user
+    (fn [org-id]
+      (js-await [eids        ((:find-by-attr storage) :nk-outstanding/organization-id org-id)
+                 outstandings (pull-many+ storage eids '[*])]
+                {:nk-outstandings outstandings}))))
+
+(defn- handle-upsert-nk-outstanding! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [{:keys [apartment-id tenant-id year amount date]} data]
+        (js-await [eids ((:q storage) {:where [['?e :nk-outstanding/apartment-id apartment-id]
+                                               ['?e :nk-outstanding/tenant-id tenant-id]
+                                               ['?e :nk-outstanding/year year]
+                                               ['?e :nk-outstanding/organization-id org-id]]})]
+                  (let [eid (or (first eids) (str (random-uuid)))]
+                    (js-await [{:keys [tx-id]}
+                               ((:transact! storage)
+                                [{:db/id                          eid
+                                  :db/type                        "nk-outstanding"
+                                  :nk-outstanding/organization-id org-id
+                                  :nk-outstanding/apartment-id    apartment-id
+                                  :nk-outstanding/tenant-id       tenant-id
+                                  :nk-outstanding/year            year
+                                  :nk-outstanding/amount          amount
+                                  :nk-outstanding/date            date}] nil)]
+                              {:tx-id tx-id})))))))
+
+(defn- handle-delete-nk-outstanding! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:nk-outstanding/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [_ ((:excise! storage) eid nil)]
+                              {:ok true})))))))
+
+;; ---------------------------------------------------------------------------
 ;; Tax-income / tax-expense handlers (Anlage V supplemental)
 ;; ---------------------------------------------------------------------------
 
@@ -1818,6 +1864,9 @@
     :get-all-nebenkosten-settlements (handle-get-all-nebenkosten-settlements! storage user)
     :create-nebenkosten-settlement   (handle-create-nebenkosten-settlement! storage data user)
     :delete-nebenkosten-settlement   (handle-delete-nebenkosten-settlement! storage data user)
+    :get-all-nk-outstandings         (handle-get-all-nk-outstandings! storage user)
+    :upsert-nk-outstanding           (handle-upsert-nk-outstanding! storage data user)
+    :delete-nk-outstanding           (handle-delete-nk-outstanding! storage data user)
     :get-all-tax-incomes             (handle-get-all-tax-incomes! storage user)
     :create-tax-income               (handle-create-tax-income! storage data user)
     :delete-tax-income               (handle-delete-tax-income! storage data user)

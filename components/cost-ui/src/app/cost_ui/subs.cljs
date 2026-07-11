@@ -95,3 +95,8 @@
  ::nk-settlements-saving?
  (fn [db _]
    (get-in db [:nk-settlements :saving?] false)))
+
+(re-frame/reg-sub
+ ::nk-outstandings
+ (fn [db _]
+   (get-in db [:nk-outstandings :list] [])))
