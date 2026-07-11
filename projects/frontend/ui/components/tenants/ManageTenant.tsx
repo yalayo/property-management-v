@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
+import { markCostSyncYear, markCostSyncYearsForDateChange } from "../../lib/aptCostSync";
 
 type HouseholdMember = {
   name: string;
@@ -137,6 +138,9 @@ export default function ManageTenant({
     if (curMembers       !== origMembers)        changed.householdMembers = curMembers;
 
     if (Object.keys(changed).length === 0) return;
+    // Date corrections re-target the affected years' cost allocations
+    if (changed.startDate !== undefined) markCostSyncYearsForDateChange(origStartDate, startDate);
+    if (changed.endDate   !== undefined) markCostSyncYearsForDateChange(origEndDate, endDate);
     onUpdate?.(tenant.id, changed);
     toast({ title: tCommon("saved") });
   };
@@ -280,7 +284,10 @@ export default function ManageTenant({
                           <button
                             type="button"
                             className="ml-2 hover:text-destructive transition-colors"
-                            onClick={() => onDeletePersonsChange?.(ch.id)}
+                            onClick={() => {
+                              markCostSyncYear(Number(ch.year), "Anzahl Personen");
+                              onDeletePersonsChange?.(ch.id);
+                            }}
                             disabled={isSaving}
                           >
                             <X className="h-3.5 w-3.5" />
@@ -323,6 +330,7 @@ export default function ManageTenant({
                       const count = parseInt(addChangeForm.count, 10);
                       if (!addChangeForm.fromDate || isNaN(count) || count <= 0) return;
                       const year = parseInt(addChangeForm.fromDate.split("-")[0], 10);
+                      markCostSyncYear(year, "Anzahl Personen");
                       onAddPersonsChange?.({
                         tenantId: String(tenant!.id),
                         apartmentId: String(tenant!["apartment-id"] ?? ""),

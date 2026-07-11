@@ -18,6 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import ApartmentBillingPanel from "../billing/ApartmentBillingPanel";
+import { markCostSyncYear, markCostSyncYearsForDateChange } from "../../lib/aptCostSync";
 
 const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 const SCHLUESSEL_OPTIONS = ["Wohnfläche", "Verbraucht", "Anzahl Personen", "MEA", "Wohneinheiten"];
@@ -964,6 +965,9 @@ export default function ApartmentView({
     const origRcNum = origRc != null && !isNaN(Number(origRc)) ? Number(origRc) : undefined;
     if ((editForm.residentsCount ?? undefined) !== origRcNum)                      changed.residentsCount = editForm.residentsCount;
     if (Object.keys(changed).length > 0) {
+      // Date corrections re-target the affected years' cost allocations
+      if (changed.startDate !== undefined) markCostSyncYearsForDateChange(orig?.["start-date"], editForm.startDate);
+      if (changed.endDate   !== undefined) markCostSyncYearsForDateChange(orig?.["end-date"], editForm.endDate);
       onUpdateTenant?.(tenantId, changed);
       toast({ title: tCommon("saved"), duration: 2000 });
     }
@@ -1611,7 +1615,10 @@ export default function ApartmentView({
                                 {!isReadOnly && (
                                   <button
                                     className="text-muted-foreground hover:text-destructive transition-colors"
-                                    onClick={() => onDeletePersonsChange?.(ch.id)}
+                                    onClick={() => {
+                                      markCostSyncYear(Number(ch.year), "Anzahl Personen");
+                                      onDeletePersonsChange?.(ch.id);
+                                    }}
                                     disabled={tenantsSaving}
                                   >
                                     <X className="h-3.5 w-3.5" />
@@ -1648,6 +1655,7 @@ export default function ApartmentView({
                                 onClick={() => {
                                   const count = parseInt(addChangeForm.count, 10);
                                   if (!addChangeForm.fromDate || isNaN(count) || count <= 0) return;
+                                  markCostSyncYear(year, "Anzahl Personen");
                                   onAddPersonsChange?.({
                                     tenantId: String(mgmtTenant.id),
                                     apartmentId: String(apartment!.id),
@@ -2375,7 +2383,11 @@ export default function ApartmentView({
                       const data: { code?: string; wohnflaeche?: number; marketRent?: number; stromZaehlerNr?: string | null; wasserZaehlerNrn?: string[] } = {};
                       if (aptEdit.code.trim()) data.code = aptEdit.code.trim();
                       const w = parseFloat(aptEdit.wohnflaeche);
-                      if (!isNaN(w)) data.wohnflaeche = w;
+                      if (!isNaN(w)) {
+                        data.wohnflaeche = w;
+                        // Editing while viewing a past year targets that year's allocations
+                        if (w !== Number(apartment?.wohnflaeche)) markCostSyncYear(year, "Wohnfläche");
+                      }
                       const mr = parseFloat(aptEdit.marketRent);
                       if (!isNaN(mr)) data.marketRent = mr;
                       data.stromZaehlerNr = aptEdit.stromZaehlerNr.trim();

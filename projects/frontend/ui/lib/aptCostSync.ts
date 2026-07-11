@@ -10,11 +10,54 @@
 // values for every derived entry and returns updates for entries that differ,
 // mirroring the exact formulas used in ApartmentView when entries are created.
 // "Verbraucht" (consumed) and fixed-value entries are never touched.
+//
+// Year scoping: entries of the current or future years are always kept in
+// sync. Entries of PAST years stay frozen unless the mutation explicitly
+// targeted that year — components register such targeted edits via
+// markCostSyncYear(year, schluessel?) (e.g. a Personenzahl-Änderung dated in
+// 2023, or a Wohnfläche edit made while viewing 2023). Marks expire after a
+// few minutes; they only need to survive until the store reloads.
 
 type Tenant = any;
 type PersonsChange = any;
 
 const EPS = 0.005;
+
+// ── Explicit past-year sync targets ─────────────────────────────────────────
+
+const MARK_TTL_MS = 5 * 60 * 1000;
+const dirtyMarks: { year: number; schluessel: string | null; at: number }[] = [];
+
+/** Register that the user deliberately edited data for a (possibly past) year.
+ *  Optional schluessel narrows the sync to entries using that key. */
+export function markCostSyncYear(year: number, schluessel?: string) {
+  if (!year || isNaN(year)) return;
+  dirtyMarks.push({ year, schluessel: schluessel ?? null, at: Date.now() });
+}
+
+function isYearMarked(year: number, schluessel: string): boolean {
+  const now = Date.now();
+  for (let i = dirtyMarks.length - 1; i >= 0; i--) {
+    if (now - dirtyMarks[i].at > MARK_TTL_MS) { dirtyMarks.splice(i, 1); continue; }
+    const m = dirtyMarks[i];
+    if (m.year === year && (m.schluessel === null || m.schluessel === schluessel)) return true;
+  }
+  return false;
+}
+
+/** Mark every year spanned by a tenant date correction (old ↔ new value).
+ *  Date changes shift person-days and day-proration for all years between the
+ *  two values, affecting every tenant of the property (shared Verteiler) — so
+ *  the marks carry no Schlüssel restriction. An empty date means "open-ended"
+ *  and is bounded by the current year. */
+export function markCostSyncYearsForDateChange(oldDate?: string | null, newDate?: string | null) {
+  const currentYear = new Date().getFullYear();
+  const oy = parseYear(oldDate) ?? currentYear;
+  const ny = parseYear(newDate) ?? currentYear;
+  const from = Math.max(Math.min(oy, ny), currentYear - 10);
+  const to   = Math.min(Math.max(oy, ny), currentYear);
+  for (let y = from; y <= to; y++) markCostSyncYear(y);
+}
 
 function parseYear(dateStr?: string | null): number | null {
   if (!dateStr) return null;
@@ -128,6 +171,7 @@ function propertyCostTotal(propertyCosts: any[], lineKey: string, year: number):
 export function computeAptCostSyncUpdates(input: AptCostSyncInput): AptCostUpdate[] {
   const { properties, apartments, tenants, personsChanges, allAptCosts, allCosts, expenseTypes } = input;
   const updates: AptCostUpdate[] = [];
+  const currentYear = new Date().getFullYear();
 
   const aptById = new Map(apartments.map((a: any) => [String(a.id), a]));
   const methodByLine = new Map(expenseTypes.map((e: any) => [e.key, e["distribution-method"] ?? "living-area"]));
@@ -162,6 +206,9 @@ export function computeAptCostSyncUpdates(input: AptCostSyncInput): AptCostUpdat
     const property = properties.find((p: any) => String(p.id) === propertyId);
     const year = Number(entry.year);
     if (!year) continue;
+
+    // Closed years stay frozen unless the edit explicitly targeted this year
+    if (year < currentYear && !isYearMarked(year, schl)) continue;
 
     // ── Expected Verteiler / Anteil per Schlüssel ─────────────────────────
     let newVerteiler: number;
