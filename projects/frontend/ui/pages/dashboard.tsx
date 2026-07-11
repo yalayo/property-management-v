@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2, Landmark, Receipt, Tags, Download, Lock, ArrowUpRight, Shield, Calculator, UserCog, List, Network, Wallet, BookOpen } from "lucide-react";
 import OtherFinancesView from "../components/finances/OtherFinancesView";
 import Accounting from "../components/accounting/Accounting";
+import { computeAptCostSyncUpdates } from "../lib/aptCostSync";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../components/ui/sheet";
@@ -239,6 +240,33 @@ export default function Dashboard(props) {
       setActiveTab(props.activeTab);
     }
   }, [props.activeTab]);
+
+  // ── Auto-sync stored cost allocations with their source attributes ────────
+  // Wohnfläche, Personenzahl (incl. dated changes), and tenant periods drive
+  // Verteiler/Anteil of saved apartment-cost entries. Whenever those inputs
+  // change, stale entries are recomputed and persisted. Each dispatched update
+  // is remembered by its target values so it fires only once; once the reload
+  // returns matching data the diff is empty and the loop settles.
+  const aptCostSyncDispatched = React.useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (props.isReadOnly || !props.onUpdateAptCost) return;
+    if (!(props.allAptCosts?.length > 0)) return;
+    const updates = computeAptCostSyncUpdates({
+      properties:     props.properties ?? [],
+      apartments:     props.apartments ?? [],
+      tenants:        props.tenants ?? [],
+      personsChanges: props.personsChanges ?? [],
+      allAptCosts:    props.allAptCosts ?? [],
+      allCosts:       props.allCosts ?? [],
+      expenseTypes:   props.expenseTypes ?? [],
+    });
+    for (const u of updates) {
+      if (aptCostSyncDispatched.current.has(u.key)) continue;
+      aptCostSyncDispatched.current.add(u.key);
+      props.onUpdateAptCost({ id: u.id, value: u.value, verteiler: u.verteiler, anteil: u.anteil });
+    }
+  }, [props.properties, props.apartments, props.tenants, props.personsChanges,
+      props.allAptCosts, props.allCosts, props.expenseTypes, props.isReadOnly]);
 
   const NAV_LABELS: Record<string, string> = {
     overview:   t("overview"),

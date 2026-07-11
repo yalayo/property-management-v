@@ -134,8 +134,10 @@
      {:db         (-> db
                       (assoc-in [:apartment-costs :saving?]    false)
                       (assoc-in [:apartment-costs :save-error?] false))
-      :dispatch-n [[::load-apartment-costs apartment-id]
-                   [::load-all-apt-costs]]})))
+      ;; Without a selected apartment, ::load-apartment-costs would fall back
+      ;; to the org-wide query and pollute the per-apartment list.
+      :dispatch-n (cond-> [[::load-all-apt-costs]]
+                    apartment-id (conj [::load-apartment-costs apartment-id]))})))
 
 (re-frame/reg-event-db
  ::apt-cost-error

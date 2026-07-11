@@ -580,8 +580,10 @@
                                   (let [d (js->clj data :keywordize-keys true)]
                                     (re-frame/dispatch
                                      [::cost-events/update-apartment-cost
-                                      {:id        (:id d)
-                                       :verteiler (:verteiler d)}]))))
+                                      (cond-> {:id (:id d)}
+                                        (some? (:verteiler d)) (assoc :verteiler (:verteiler d))
+                                        (some? (:anteil d))    (assoc :anteil (:anteil d))
+                                        (some? (:value d))     (assoc :value (:value d)))]))))
            :aptCosts           (clj->js apt-costs)
            :aptCostsLoading    apt-costs-loading?
            :rentPayments       (clj->js rent-payments)
