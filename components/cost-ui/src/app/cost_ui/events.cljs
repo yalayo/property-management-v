@@ -352,3 +352,57 @@
  ::bank-account-error
  (fn [db _]
    (assoc-in db [:bank-accounts :saving?] false)))
+
+;; ── Nebenkosten settlements ───────────────────────────────────────────────
+
+(re-frame/reg-event-fx
+ ::load-nebenkosten-settlements
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:nk-settlements :loading?] true)
+    :dispatch [:app.core-ui.events/query
+               {:entity :nk-settlement}
+               [::nk-settlements-loaded]
+               [::nk-settlements-error]]}))
+
+(re-frame/reg-event-db
+ ::nk-settlements-loaded
+ (fn [db [_ {:keys [nebenkosten-settlements]}]]
+   (-> db
+       (assoc-in [:nk-settlements :list] (or nebenkosten-settlements []))
+       (assoc-in [:nk-settlements :loading?] false))))
+
+(re-frame/reg-event-db
+ ::nk-settlements-error
+ (fn [db _]
+   (assoc-in db [:nk-settlements :loading?] false)))
+
+(re-frame/reg-event-fx
+ ::create-nebenkosten-settlement
+ (fn [{:keys [db]} [_ data]]
+   {:db       (assoc-in db [:nk-settlements :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :create-nebenkosten-settlement
+               data
+               [::nk-settlement-mutated]
+               [::nk-settlement-error]]}))
+
+(re-frame/reg-event-fx
+ ::delete-nebenkosten-settlement
+ (fn [{:keys [db]} [_ id]]
+   {:db       (assoc-in db [:nk-settlements :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :delete-nebenkosten-settlement
+               {:id id}
+               [::nk-settlement-mutated]
+               [::nk-settlement-error]]}))
+
+(re-frame/reg-event-fx
+ ::nk-settlement-mutated
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:nk-settlements :saving?] false)
+    :dispatch [::load-nebenkosten-settlements]}))
+
+(re-frame/reg-event-db
+ ::nk-settlement-error
+ (fn [db _]
+   (assoc-in db [:nk-settlements :saving?] false)))

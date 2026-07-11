@@ -9,6 +9,16 @@ import type { CostLineItem } from "./pdfGenerator";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+type NkSettlement = {
+  id: string;
+  "apartment-id": string;
+  "tenant-id": string;
+  year: number;
+  amount: number | string;
+  date: string;
+  notes?: string;
+};
+
 type Props = {
   properties?: any[];
   apartments?: any[];
@@ -17,6 +27,7 @@ type Props = {
   aptCosts?: any[];
   rentPayments?: any[];
   expenseTypes?: any[];
+  nebenkostenSettlements?: NkSettlement[];
   costsLoading?: boolean;
   aptCostsLoading?: boolean;
   rentLoading?: boolean;
@@ -31,6 +42,8 @@ type Props = {
   onLoadAptCosts?: (aptId: string) => void;
   onLoadRentPayments?: (aptId: string) => void;
   onEditProperty?: (id: string, data: any) => void;
+  onAddNebenkostenSettlement?: (data: any) => void;
+  onDeleteNebenkostenSettlement?: (id: string) => void;
   navContext?: { propertyId?: string; aptId?: string; nonce?: number } | null;
 };
 
@@ -105,6 +118,7 @@ export default function NebenkostenAbrechnung({
   aptCosts = [],
   rentPayments = [],
   expenseTypes = [],
+  nebenkostenSettlements = [],
   costsLoading,
   aptCostsLoading,
   rentLoading,
@@ -113,6 +127,8 @@ export default function NebenkostenAbrechnung({
   onLoadAptCosts,
   onLoadRentPayments,
   onEditProperty,
+  onAddNebenkostenSettlement,
+  onDeleteNebenkostenSettlement,
   navContext,
 }: Props) {
   const { t, i18n } = useTranslation("abrechnung");
@@ -130,6 +146,7 @@ export default function NebenkostenAbrechnung({
   const [landlordPostalCityInput, setLandlordPostalCityInput] = useState("");
   const [generating, setGenerating] = useState(false);
   const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null);
+  const [settlementForms, setSettlementForms] = useState<Record<string, { date: string; amount: string; notes: string } | null>>({});
 
   const selectedProperty = properties.find((p: any) => String(p.id) === selectedPropertyId);
   const propertyApts     = apartments.filter((a: any) => String(a["property-id"]) === selectedPropertyId);
@@ -896,40 +913,128 @@ export default function NebenkostenAbrechnung({
                   <span className="text-right">{t("netPayment")}</span>
                   <span />
                 </div>
-                {perTenantInfo.map((info, i) => (
-                  <div
-                    key={i}
-                    className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] items-center px-4 py-3 border-b last:border-b-0 gap-2"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{tenantDisplayName(info.tenant)}</p>
-                      <p className="text-xs text-muted-foreground tabular-nums">{info.days} Tage ({Math.round(info.ratio * 100)}%)</p>
+                {perTenantInfo.map((info, i) => {
+                  const tenantId   = String(info.tenant.id ?? info.tenant["db/id"] ?? "");
+                  const aptId      = String(selectedAptId ?? "");
+                  const rowKey     = `${tenantId}-${year}`;
+                  const tenantSettlements = nebenkostenSettlements.filter(
+                    s => String(s["apartment-id"]) === aptId && String(s["tenant-id"]) === tenantId && Number(s.year) === year
+                  );
+                  const totalSettled = tenantSettlements.reduce((sum, s) => sum + Number(s.amount ?? 0), 0);
+                  const remaining    = info.net > 0 ? Math.max(0, info.net - totalSettled) : 0;
+                  const settlementForm = settlementForms[rowKey] ?? null;
+
+                  return (
+                    <div key={i} className="border-b last:border-b-0">
+                      <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] items-center px-4 py-3 gap-2">
+                        <div>
+                          <p className="text-sm font-medium">{tenantDisplayName(info.tenant)}</p>
+                          <p className="text-xs text-muted-foreground tabular-nums">{info.days} Tage ({Math.round(info.ratio * 100)}%)</p>
+                        </div>
+                        <span className="text-right tabular-nums text-sm">
+                          € {formatEur(info.proratedTotal)}
+                        </span>
+                        <span className="text-right tabular-nums text-sm text-muted-foreground">
+                          − € {formatEur(info.prepayment)}
+                        </span>
+                        <div className="text-right">
+                          <span className={`tabular-nums text-sm font-semibold ${info.net >= 0 ? "text-destructive" : "text-green-600"}`}>
+                            € {formatEur(Math.abs(info.net))}
+                          </span>
+                          <p className={`text-xs ${info.net >= 0 ? "text-muted-foreground" : "text-green-600"}`}>
+                            {info.net < 0 ? "Gutschrift" : "Nachzahlung"}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          disabled={!info.canGenerate || generating}
+                          onClick={() => handleGenerateForTenant(info)}
+                          className="h-7 gap-1.5 shrink-0"
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                          {generating ? t("generating") : t("generate")}
+                        </Button>
+                      </div>
+
+                      {/* Settlement tracking — only shown when there's a Nachzahlung */}
+                      {info.net > 0 && (
+                        <div className="px-4 pb-3 space-y-1.5">
+                          {tenantSettlements.map(s => (
+                            <div key={s.id} className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 rounded px-2 py-1">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0" />
+                              <span className="flex-1">{t("settlement.paid")} {s.date}: <span className="font-medium tabular-nums text-foreground">€ {formatEur(Number(s.amount))}</span></span>
+                              {s.notes && <span className="truncate max-w-[120px]">{s.notes}</span>}
+                              {onDeleteNebenkostenSettlement && (
+                                <button className="ml-1 hover:text-destructive" onClick={() => onDeleteNebenkostenSettlement(String(s.id))}>
+                                  <XCircle className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                          {totalSettled > 0 && (
+                            <div className="flex items-center gap-2 text-xs px-2">
+                              <span className="text-muted-foreground">{t("settlement.remaining")}:</span>
+                              <span className={`font-semibold tabular-nums ${remaining === 0 ? "text-green-600" : "text-destructive"}`}>
+                                € {formatEur(remaining)}
+                              </span>
+                              {remaining === 0 && <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />}
+                            </div>
+                          )}
+                          {!settlementForm && onAddNebenkostenSettlement && (
+                            <button
+                              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mt-1"
+                              onClick={() => setSettlementForms(prev => ({ ...prev, [rowKey]: { date: new Date().toISOString().split("T")[0], amount: formatEur(remaining || info.net).replace(".", "").replace(",", "."), notes: "" } }))}
+                            >
+                              <CalendarClock className="h-3.5 w-3.5" />
+                              {t("settlement.add")}
+                            </button>
+                          )}
+                          {settlementForm && (
+                            <div className="flex flex-wrap items-end gap-2 pt-1">
+                              <div className="space-y-0.5">
+                                <p className="text-[10px] text-muted-foreground">{t("settlement.date")}</p>
+                                <Input className="h-7 text-xs w-32" type="date"
+                                  value={settlementForm.date}
+                                  onChange={e => setSettlementForms(prev => ({ ...prev, [rowKey]: { ...prev[rowKey]!, date: e.target.value } }))} />
+                              </div>
+                              <div className="space-y-0.5">
+                                <p className="text-[10px] text-muted-foreground">{t("settlement.amount")}</p>
+                                <Input className="h-7 text-xs w-24" type="number" step="0.01" min="0"
+                                  value={settlementForm.amount}
+                                  onChange={e => setSettlementForms(prev => ({ ...prev, [rowKey]: { ...prev[rowKey]!, amount: e.target.value } }))} />
+                              </div>
+                              <div className="space-y-0.5 flex-1 min-w-[100px]">
+                                <p className="text-[10px] text-muted-foreground">{t("settlement.notes")}</p>
+                                <Input className="h-7 text-xs" placeholder="optional"
+                                  value={settlementForm.notes}
+                                  onChange={e => setSettlementForms(prev => ({ ...prev, [rowKey]: { ...prev[rowKey]!, notes: e.target.value } }))} />
+                              </div>
+                              <Button size="sm" className="h-7 text-xs"
+                                disabled={!settlementForm.date || !settlementForm.amount}
+                                onClick={() => {
+                                  onAddNebenkostenSettlement?.({
+                                    apartmentId: aptId,
+                                    tenantId,
+                                    year,
+                                    amount: parseFloat(settlementForm.amount),
+                                    date: settlementForm.date,
+                                    notes: settlementForm.notes || undefined,
+                                  });
+                                  setSettlementForms(prev => ({ ...prev, [rowKey]: null }));
+                                }}>
+                                {t("settlement.save")}
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 text-xs"
+                                onClick={() => setSettlementForms(prev => ({ ...prev, [rowKey]: null }))}>
+                                {t("settlement.cancel")}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <span className="text-right tabular-nums text-sm">
-                      € {formatEur(info.proratedTotal)}
-                    </span>
-                    <span className="text-right tabular-nums text-sm text-muted-foreground">
-                      − € {formatEur(info.prepayment)}
-                    </span>
-                    <div className="text-right">
-                      <span className={`tabular-nums text-sm font-semibold ${info.net >= 0 ? "text-destructive" : "text-green-600"}`}>
-                        € {formatEur(Math.abs(info.net))}
-                      </span>
-                      <p className={`text-xs ${info.net >= 0 ? "text-muted-foreground" : "text-green-600"}`}>
-                        {info.net < 0 ? "Gutschrift" : "Nachzahlung"}
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      disabled={!info.canGenerate || generating}
-                      onClick={() => handleGenerateForTenant(info)}
-                      className="h-7 gap-1.5 shrink-0"
-                    >
-                      <FileText className="h-3.5 w-3.5" />
-                      {generating ? t("generating") : t("generate")}
-                    </Button>
-                  </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
           )}

@@ -1,6 +1,8 @@
 import React from "react";
 import { useState, useEffect } from "react";
-import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2, Landmark, Receipt, Tags, Download, Lock, ArrowUpRight, Shield, Calculator, UserCog, List, Network } from "lucide-react";
+import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2, Landmark, Receipt, Tags, Download, Lock, ArrowUpRight, Shield, Calculator, UserCog, List, Network, Wallet, BookOpen } from "lucide-react";
+import OtherFinancesView from "../components/finances/OtherFinancesView";
+import Accounting from "../components/accounting/Accounting";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../components/ui/sheet";
@@ -62,6 +64,8 @@ function SidebarContent({
     { id: "documents",   label: t("documents"),   icon: FileText },
     { id: "analytics",   label: t("analytics"),   icon: BarChart2 },
     { id: "tax",         label: t("tax"),         icon: Calculator },
+    { id: "finances",    label: t("finances"),    icon: Wallet },
+    { id: "accounting",  label: t("accounting"),  icon: BookOpen },
     ...(userRole === "admin" ? [{ id: "team", label: t("team"), icon: UserCog }] : []),
     ...(isSuperAdmin ? [{ id: "admin", label: "Admin", icon: Shield }] : []),
   ];
@@ -247,6 +251,8 @@ export default function Dashboard(props) {
     documents:  t("documents"),
     analytics:  t("analytics"),
     tax:        t("tax"),
+    finances:   t("finances"),
+    accounting: t("accounting"),
     team:       t("team"),
     admin:      "Admin",
   };
@@ -579,6 +585,7 @@ export default function Dashboard(props) {
               aptCosts={props.aptCosts}
               rentPayments={props.rentPayments}
               expenseTypes={props.expenseTypes}
+              nebenkostenSettlements={props.nebenkostenSettlements}
               costsLoading={props.costsLoading}
               aptCostsLoading={props.aptCostsLoading}
               rentLoading={props.rentLoading}
@@ -588,6 +595,8 @@ export default function Dashboard(props) {
               onLoadAptCosts={props.onLoadAptCosts}
               onLoadRentPayments={props.onLoadRentPayments}
               onEditProperty={props.onEditProperty}
+              onAddNebenkostenSettlement={props.onAddNebenkostenSettlement}
+              onDeleteNebenkostenSettlement={props.onDeleteNebenkostenSettlement}
               navContext={navContext}
             />
           )}
@@ -604,6 +613,43 @@ export default function Dashboard(props) {
             />
           )}
           {activeTab === "tax" && props.taxView}
+          {activeTab === "finances" && (
+            <OtherFinancesView
+              properties={props.properties}
+              taxIncomes={props.taxIncomes}
+              taxExpenses={props.taxExpenses}
+              isReadOnly={props.isReadOnly}
+              isSaving={props.isSaving}
+              onAddTaxIncome={props.onAddTaxIncome}
+              onDeleteTaxIncome={props.onDeleteTaxIncome}
+              onAddTaxExpense={props.onAddTaxExpense}
+              onDeleteTaxExpense={props.onDeleteTaxExpense}
+            />
+          )}
+          {activeTab === "accounting" && (
+            <Accounting
+              properties={props.properties}
+              apartments={props.apartments}
+              garages={props.garages}
+              allCosts={props.allCosts}
+              allRentPayments={props.allRentPayments}
+              taxConfigs={props.taxConfigs}
+              taxLoans={props.taxLoans}
+              taxMaintenances={props.taxMaintenances}
+              nebenkostenSettlements={props.nebenkostenSettlements}
+              taxIncomes={props.taxIncomes}
+              taxExpenses={props.taxExpenses}
+              journalEntries={props.journalEntries}
+              accountingOnboarding={props.accountingOnboarding}
+              openingBalances={props.openingBalances}
+              accountingOnboardingLoaded={props.accountingOnboardingLoaded}
+              isReadOnly={props.isReadOnly}
+              isSaving={props.journalSaving}
+              onAddJournalEntry={props.onAddJournalEntry}
+              onStornoJournalEntry={props.onStornoJournalEntry}
+              onCompleteAccountingOnboarding={props.onCompleteAccountingOnboarding}
+            />
+          )}
           {activeTab === "team" && props.userRole === "admin" && props.teamView}
           {activeTab === "admin" && props.isSuperAdmin && props.adminPanel}
         </main>

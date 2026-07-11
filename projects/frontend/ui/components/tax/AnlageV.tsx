@@ -86,6 +86,24 @@ type Maintenance = {
   "spread-years"?: number | string;
 };
 
+type TaxIncome = {
+  id: string;
+  "property-id": string;
+  year: number;
+  description: string;
+  amount: number | string;
+  category?: string;
+};
+
+type TaxExpense = {
+  id: string;
+  "property-id": string;
+  year: number;
+  description: string;
+  amount: number | string;
+  category?: string;
+};
+
 type Props = {
   properties?: Property[];
   apartments?: Apartment[];
@@ -95,6 +113,8 @@ type Props = {
   taxConfigs?: TaxConfig[];
   loans?: Loan[];
   maintenances?: Maintenance[];
+  taxIncomes?: TaxIncome[];
+  taxExpenses?: TaxExpense[];
   expenseTypes?: any[];
   isReadOnly?: boolean;
   isLoading?: boolean;
@@ -134,6 +154,8 @@ export default function AnlageV({
   taxConfigs = [],
   loans = [],
   maintenances = [],
+  taxIncomes = [],
+  taxExpenses = [],
   isReadOnly = false,
   isLoading = false,
   isSaving = false,
@@ -213,7 +235,9 @@ export default function AnlageV({
     }
   }
   const garageIncome = propertyGarages.reduce((sum, g) => sum + parseNum(g["monthly-rent"]) * 12, 0);
-  const totalIncome = totalKaltmiete + totalNK + totalValueFallback + garageIncome;
+  const yearTaxIncomes = taxIncomes.filter(i => String(i["property-id"]) === selectedPropertyId && Number(i.year) === year);
+  const otherIncomeTotal = yearTaxIncomes.reduce((sum, i) => sum + parseNum(i.amount), 0);
+  const totalIncome = totalKaltmiete + totalNK + totalValueFallback + garageIncome + otherIncomeTotal;
 
   // ── Operating costs grouped onto Anlage V lines ─────────────────────────────
   const yearCosts = allCosts.filter(
@@ -267,8 +291,11 @@ export default function AnlageV({
     return sum;
   }, 0);
 
+  const yearTaxExpenses = taxExpenses.filter(e => String(e["property-id"]) === selectedPropertyId && Number(e.year) === year);
+  const otherExpensesTotal = yearTaxExpenses.reduce((sum, e) => sum + parseNum(e.amount), 0);
+
   const totalDeductionsRaw =
-    betriebskostenSum + verwaltungSum + sonstigeSum + afaAmount + totalInterest + erhaltungThisYear;
+    betriebskostenSum + verwaltungSum + sonstigeSum + afaAmount + totalInterest + erhaltungThisYear + otherExpensesTotal;
 
   // ── 66 % reduced-rent rule (§21 Abs. 2 EStG) ────────────────────────────────
   const marketAnnual = propertyApts.reduce((sum, a) => sum + parseNum(a["market-rent"]) * 12, 0);
@@ -317,6 +344,7 @@ export default function AnlageV({
   if (totalValueFallback > 0) incomeLines.push({ zeile: "9",  label: t("summary.income.rent"), amount: totalValueFallback });
   if (totalNK > 0)          incomeLines.push({ zeile: "13", label: t("summary.income.nebenkosten"), amount: totalNK });
   if (garageIncome > 0)     incomeLines.push({ zeile: "15", label: t("summary.income.garages", { defaultValue: "Garagen / Stellplätze" }), amount: garageIncome });
+  if (otherIncomeTotal > 0) incomeLines.push({ zeile: "21", label: t("summary.income.other", { defaultValue: "Sonstige Einnahmen" }), amount: otherIncomeTotal });
 
   const deductionLines: AnlageVLine[] = [];
   if (afaAmount > 0)        deductionLines.push({ zeile: "33", label: t("summary.deductions.afa"), amount: afaAmount, note: afaNote || `${afaRate}% × € ${fmt(buildingValue)}` });
@@ -325,6 +353,7 @@ export default function AnlageV({
   if (betriebskostenSum > 0) deductionLines.push({ zeile: "50", label: t("summary.deductions.betriebskosten", { defaultValue: "Laufende Betriebskosten" }), amount: betriebskostenSum });
   if (verwaltungSum > 0)   deductionLines.push({ zeile: "51", label: t("summary.deductions.verwaltung", { defaultValue: "Verwaltungskosten" }), amount: verwaltungSum });
   if (sonstigeSum > 0)     deductionLines.push({ zeile: "52", label: t("summary.deductions.sonstige", { defaultValue: "Sonstige Werbungskosten" }), amount: sonstigeSum });
+  if (otherExpensesTotal > 0) deductionLines.push({ zeile: "52", label: t("summary.deductions.sonstWerbung", { defaultValue: "Sonstige Werbungskosten (Einnahmen & Ausgaben)" }), amount: otherExpensesTotal });
 
   // ── Readiness checklist ─────────────────────────────────────────────────────
   const checks = [

@@ -25,3 +25,13 @@
  ::maintenances
  (fn [db _]
    (get-in db [:tax :maintenances] [])))
+
+(re-frame/reg-sub
+ ::tax-incomes
+ (fn [db _]
+   (get-in db [:tax :incomes] [])))
+
+(re-frame/reg-sub
+ ::tax-expenses
+ (fn [db _]
+   (get-in db [:tax :expenses] [])))

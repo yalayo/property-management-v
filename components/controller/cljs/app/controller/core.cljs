@@ -834,6 +834,261 @@
                               {:ok true})))))))
 
 ;; ---------------------------------------------------------------------------
+;; Journal-entry handlers (Doppelte Buchführung / FiBu)
+;;
+;; GoBD: gebuchte Belege sind unveränderlich — kein Update, kein Delete.
+;; Korrekturen erfolgen ausschließlich per Storno (Bruttostorno mit
+;; getauschten Soll-/Haben-Konten). Belegnummern werden serverseitig
+;; fortlaufend und lückenlos vergeben.
+;; ---------------------------------------------------------------------------
+
+(defn- next-journal-number [entries]
+  (inc (reduce (fn [m e] (max m (or (:journal-entry/number e) 0))) 0 entries)))
+
+(defn- fetch-accounting-onboarding
+  "Returns the org's accounting-onboarding entity or nil."
+  [storage org-id]
+  (js-await [eids ((:find-by-attr storage) :accounting-onboarding/organization-id org-id)]
+            (when-let [eid (first eids)]
+              ((:pull storage) eid '*))))
+
+(defn- handle-get-all-journal-entries! [storage user]
+  (with-org user
+    (fn [org-id]
+      (js-await [eids    ((:find-by-attr storage) :journal-entry/organization-id org-id)
+                 entries (pull-many+ storage eids '[*])]
+                {:journal-entries entries}))))
+
+(defn- handle-create-journal-entry! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [{:keys [date description debit-account credit-account amount property-id reference]} data]
+        (if (or (empty? date) (empty? debit-account) (empty? credit-account)
+                (nil? amount) (not (pos? amount)) (= debit-account credit-account))
+          {:error :invalid-entry}
+          (js-await [onboarding (fetch-accounting-onboarding storage org-id)]
+            (if (and onboarding (< date (:accounting-onboarding/date onboarding)))
+              ;; GoB: keine Buchungen vor dem Eröffnungsbilanzstichtag
+              {:error :before-opening-date}
+              (js-await [eids    ((:find-by-attr storage) :journal-entry/organization-id org-id)
+                         entries (pull-many+ storage eids '[:journal-entry/number])]
+                    (let [number (next-journal-number entries)]
+                      (js-await [{:keys [tx-id entity-ids]}
+                                 ((:transact! storage)
+                                  [(cond-> {:db/type                        "journal-entry"
+                                            :journal-entry/organization-id org-id
+                                            :journal-entry/number          number
+                                            :journal-entry/date            date
+                                            :journal-entry/year            (js/parseInt (subs date 0 4))
+                                            :journal-entry/description     (or description "")
+                                            :journal-entry/debit-account   debit-account
+                                            :journal-entry/credit-account  credit-account
+                                            :journal-entry/amount          amount
+                                            :journal-entry/created-at      (.now js/Date)}
+                                     (seq property-id) (assoc :journal-entry/property-id property-id)
+                                     (seq reference)   (assoc :journal-entry/reference reference))] nil)]
+                                {:tx-id tx-id :entry-id (first entity-ids) :number number}))))))))))
+
+(defn- handle-storno-journal-entry! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (cond
+                    (not= (:journal-entry/organization-id entity) org-id)
+                    {:error :not-found}
+
+                    (:journal-entry/stornoed entity)
+                    {:error :already-stornoed}
+
+                    (some? (:journal-entry/storno-of entity))
+                    {:error :is-storno}
+
+                    :else
+                    (js-await [eids    ((:find-by-attr storage) :journal-entry/organization-id org-id)
+                               entries (pull-many+ storage eids '[:journal-entry/number])]
+                              (let [number (next-journal-number entries)]
+                                (js-await [{:keys [tx-id entity-ids]}
+                                           ((:transact! storage)
+                                            [{:db/type                        "journal-entry"
+                                              :journal-entry/organization-id org-id
+                                              :journal-entry/number          number
+                                              :journal-entry/date            (:journal-entry/date entity)
+                                              :journal-entry/year            (:journal-entry/year entity)
+                                              :journal-entry/description     (str "Storno Beleg Nr. "
+                                                                                  (:journal-entry/number entity)
+                                                                                  ": " (:journal-entry/description entity))
+                                              :journal-entry/debit-account   (:journal-entry/credit-account entity)
+                                              :journal-entry/credit-account  (:journal-entry/debit-account entity)
+                                              :journal-entry/amount          (:journal-entry/amount entity)
+                                              :journal-entry/storno-of       eid
+                                              :journal-entry/created-at      (.now js/Date)}
+                                             {:db/id                   eid
+                                              :journal-entry/stornoed true}] nil)]
+                                          {:tx-id tx-id :storno-id (first entity-ids) :number number})))))))))
+
+;; ---------------------------------------------------------------------------
+;; Accounting-Onboarding (Eröffnungsbilanz / Saldenvortrag)
+;;
+;; Einmalige Aufnahme des Buchführungs-Anfangsbestands beim Start der Nutzung.
+;; Positionen werden gegen Konto 9000 (Saldenvorträge) eingebucht; die
+;; Eröffnungsbilanz muss ausgeglichen sein (Summe Soll = Summe Haben).
+;; ---------------------------------------------------------------------------
+
+(defn- handle-get-accounting-onboarding! [storage user]
+  (with-org user
+    (fn [org-id]
+      (js-await [onboarding (fetch-accounting-onboarding storage org-id)
+                 ob-eids    ((:find-by-attr storage) :opening-balance/organization-id org-id)
+                 balances   (pull-many+ storage ob-eids '[*])]
+                {:onboarding       onboarding
+                 :opening-balances balances}))))
+
+(defn- handle-complete-accounting-onboarding! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [{:keys [date positions]} data
+            positions (vec (filter #(and (seq (:account %))
+                                         (number? (:amount %))
+                                         (pos? (:amount %))) positions))
+            soll      (transduce (comp (filter #(= (:side %) "S")) (map :amount)) + 0 positions)
+            haben     (transduce (comp (filter #(= (:side %) "H")) (map :amount)) + 0 positions)]
+        (cond
+          (empty? date)
+          {:error :invalid-date}
+
+          (> (js/Math.abs (- soll haben)) 0.01)
+          {:error :not-balanced}
+
+          :else
+          (js-await [existing (fetch-accounting-onboarding storage org-id)]
+            (if existing
+              {:error :already-completed}
+              (js-await [{:keys [tx-id]}
+                         ((:transact! storage)
+                          (into [{:db/type                              "accounting-onboarding"
+                                  :accounting-onboarding/organization-id org-id
+                                  :accounting-onboarding/date            date
+                                  :accounting-onboarding/completed       true
+                                  :accounting-onboarding/created-at      (.now js/Date)}]
+                                (map (fn [{:keys [account side amount]}]
+                                       {:db/type                        "opening-balance"
+                                        :opening-balance/organization-id org-id
+                                        :opening-balance/account         account
+                                        :opening-balance/side            side
+                                        :opening-balance/amount          amount
+                                        :opening-balance/date            date})
+                                     positions)) nil)]
+                        {:tx-id tx-id :ok true}))))))))
+
+;; ---------------------------------------------------------------------------
+;; Nebenkosten-Settlement handlers
+;; ---------------------------------------------------------------------------
+
+(defn- handle-get-all-nebenkosten-settlements! [storage user]
+  (with-org user
+    (fn [org-id]
+      (js-await [eids       ((:find-by-attr storage) :nk-settlement/organization-id org-id)
+                 settlements (pull-many+ storage eids '[*])]
+                {:nebenkosten-settlements settlements}))))
+
+(defn- handle-create-nebenkosten-settlement! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [{:keys [apartment-id tenant-id year amount date notes]} data]
+        (js-await [{:keys [tx-id entity-ids]}
+                   ((:transact! storage)
+                    [(cond-> {:db/type                       "nk-settlement"
+                              :nk-settlement/organization-id org-id
+                              :nk-settlement/apartment-id    apartment-id
+                              :nk-settlement/tenant-id       tenant-id
+                              :nk-settlement/year            year
+                              :nk-settlement/amount          amount
+                              :nk-settlement/date            date}
+                       (seq notes) (assoc :nk-settlement/notes notes))] nil)]
+                  {:tx-id tx-id :settlement-id (first entity-ids)})))))
+
+(defn- handle-delete-nebenkosten-settlement! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:nk-settlement/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [_ ((:excise! storage) eid nil)]
+                              {:ok true})))))))
+
+;; ---------------------------------------------------------------------------
+;; Tax-income / tax-expense handlers (Anlage V supplemental)
+;; ---------------------------------------------------------------------------
+
+(defn- handle-get-all-tax-incomes! [storage user]
+  (with-org user
+    (fn [org-id]
+      (js-await [eids    ((:find-by-attr storage) :tax-income/organization-id org-id)
+                 incomes (pull-many+ storage eids '[*])]
+                {:tax-incomes incomes}))))
+
+(defn- handle-create-tax-income! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [{:keys [property-id year description amount category date]} data]
+        (js-await [{:keys [tx-id entity-ids]}
+                   ((:transact! storage)
+                    [(cond-> {:db/type                     "tax-income"
+                              :tax-income/organization-id org-id
+                              :tax-income/property-id     property-id
+                              :tax-income/year            year
+                              :tax-income/description     description
+                              :tax-income/amount          amount}
+                       (seq category) (assoc :tax-income/category category)
+                       (seq date)     (assoc :tax-income/date date))] nil)]
+                  {:tx-id tx-id :income-id (first entity-ids)})))))
+
+(defn- handle-delete-tax-income! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:tax-income/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [_ ((:excise! storage) eid nil)]
+                              {:ok true})))))))
+
+(defn- handle-get-all-tax-expenses! [storage user]
+  (with-org user
+    (fn [org-id]
+      (js-await [eids     ((:find-by-attr storage) :tax-expense/organization-id org-id)
+                 expenses (pull-many+ storage eids '[*])]
+                {:tax-expenses expenses}))))
+
+(defn- handle-create-tax-expense! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [{:keys [property-id year description amount category date]} data]
+        (js-await [{:keys [tx-id entity-ids]}
+                   ((:transact! storage)
+                    [(cond-> {:db/type                      "tax-expense"
+                              :tax-expense/organization-id org-id
+                              :tax-expense/property-id     property-id
+                              :tax-expense/year            year
+                              :tax-expense/description     description
+                              :tax-expense/amount          amount}
+                       (seq category) (assoc :tax-expense/category category)
+                       (seq date)     (assoc :tax-expense/date date))] nil)]
+                  {:tx-id tx-id :expense-id (first entity-ids)})))))
+
+(defn- handle-delete-tax-expense! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:tax-expense/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [_ ((:excise! storage) eid nil)]
+                              {:ok true})))))))
+
+;; ---------------------------------------------------------------------------
 ;; Tenant-Miete handlers
 ;; ---------------------------------------------------------------------------
 
@@ -1560,6 +1815,20 @@
     :get-all-residents-count-changes  (handle-get-all-residents-count-changes! storage user)
     :create-residents-count-change   (handle-create-residents-count-change! storage data user)
     :delete-residents-count-change   (handle-delete-residents-count-change! storage data user)
+    :get-all-nebenkosten-settlements (handle-get-all-nebenkosten-settlements! storage user)
+    :create-nebenkosten-settlement   (handle-create-nebenkosten-settlement! storage data user)
+    :delete-nebenkosten-settlement   (handle-delete-nebenkosten-settlement! storage data user)
+    :get-all-tax-incomes             (handle-get-all-tax-incomes! storage user)
+    :create-tax-income               (handle-create-tax-income! storage data user)
+    :delete-tax-income               (handle-delete-tax-income! storage data user)
+    :get-all-tax-expenses            (handle-get-all-tax-expenses! storage user)
+    :create-tax-expense              (handle-create-tax-expense! storage data user)
+    :delete-tax-expense              (handle-delete-tax-expense! storage data user)
+    :get-all-journal-entries         (handle-get-all-journal-entries! storage user)
+    :create-journal-entry            (handle-create-journal-entry! storage data user)
+    :storno-journal-entry            (handle-storno-journal-entry! storage data user)
+    :get-accounting-onboarding       (handle-get-accounting-onboarding! storage user)
+    :complete-accounting-onboarding  (handle-complete-accounting-onboarding! storage data user)
     :get-all-tenant-mieten           (handle-get-all-tenant-mieten! storage user)
     :upsert-tenant-miete             (handle-upsert-tenant-miete! storage data user)
     :delete-tenant-miete             (handle-delete-tenant-miete! storage data user)

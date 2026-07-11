@@ -143,3 +143,89 @@
                {:entity :property-maintenance}
                [::maintenances-loaded]
                [::tax-error]]}))
+
+;; ── Other income / expenses (Anlage V supplemental) ───────────────────────
+
+(re-frame/reg-event-fx
+ ::load-tax-incomes
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:tax :incomes-loading?] true)
+    :dispatch [:app.core-ui.events/query
+               {:entity :tax-income}
+               [::tax-incomes-loaded]
+               [::tax-error]]}))
+
+(re-frame/reg-event-db
+ ::tax-incomes-loaded
+ (fn [db [_ {:keys [tax-incomes]}]]
+   (-> db
+       (assoc-in [:tax :incomes] (or tax-incomes []))
+       (assoc-in [:tax :incomes-loading?] false))))
+
+(re-frame/reg-event-fx
+ ::create-tax-income
+ (fn [{:keys [db]} [_ data]]
+   {:db       (assoc-in db [:tax :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :create-tax-income
+               data
+               [::tax-income-mutated]
+               [::tax-save-error]]}))
+
+(re-frame/reg-event-fx
+ ::delete-tax-income
+ (fn [{:keys [db]} [_ id]]
+   {:db       (assoc-in db [:tax :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :delete-tax-income
+               {:id id}
+               [::tax-income-mutated]
+               [::tax-save-error]]}))
+
+(re-frame/reg-event-fx
+ ::tax-income-mutated
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:tax :saving?] false)
+    :dispatch [::load-tax-incomes]}))
+
+(re-frame/reg-event-fx
+ ::load-tax-expenses
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:tax :expenses-loading?] true)
+    :dispatch [:app.core-ui.events/query
+               {:entity :tax-expense}
+               [::tax-expenses-loaded]
+               [::tax-error]]}))
+
+(re-frame/reg-event-db
+ ::tax-expenses-loaded
+ (fn [db [_ {:keys [tax-expenses]}]]
+   (-> db
+       (assoc-in [:tax :expenses] (or tax-expenses []))
+       (assoc-in [:tax :expenses-loading?] false))))
+
+(re-frame/reg-event-fx
+ ::create-tax-expense
+ (fn [{:keys [db]} [_ data]]
+   {:db       (assoc-in db [:tax :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :create-tax-expense
+               data
+               [::tax-expense-mutated]
+               [::tax-save-error]]}))
+
+(re-frame/reg-event-fx
+ ::delete-tax-expense
+ (fn [{:keys [db]} [_ id]]
+   {:db       (assoc-in db [:tax :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :delete-tax-expense
+               {:id id}
+               [::tax-expense-mutated]
+               [::tax-save-error]]}))
+
+(re-frame/reg-event-fx
+ ::tax-expense-mutated
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:tax :saving?] false)
+    :dispatch [::load-tax-expenses]}))

@@ -26,6 +26,8 @@
             [app.tax-ui.views    :as tax-ui]
             [app.tax-ui.subs     :as tax-subs]
             [app.tax-ui.events   :as tax-events]
+            [app.accounting-ui.subs   :as accounting-subs]
+            [app.accounting-ui.events :as accounting-events]
             ;; React page imports (thin wrappers — no separate Polylith component needed)
             ["/pages/main$default"                :as main-js]
             ["/pages/home$default"                :as home-js]
@@ -117,7 +119,17 @@
         trial-info           @(re-frame/subscribe [::subs/trial-info])
         bank-accounts        @(re-frame/subscribe [::cost-subs/bank-accounts])
         bank-accounts-loading? @(re-frame/subscribe [::cost-subs/bank-accounts-loading?])
-        bank-accounts-saving?  @(re-frame/subscribe [::cost-subs/bank-accounts-saving?])]
+        bank-accounts-saving?  @(re-frame/subscribe [::cost-subs/bank-accounts-saving?])
+        nk-settlements       @(re-frame/subscribe [::cost-subs/nebenkosten-settlements])
+        nk-settlements-saving? @(re-frame/subscribe [::cost-subs/nk-settlements-saving?])
+        tax-incomes          @(re-frame/subscribe [::tax-subs/tax-incomes])
+        tax-expenses         @(re-frame/subscribe [::tax-subs/tax-expenses])
+        tax-maintenances     @(re-frame/subscribe [::tax-subs/maintenances])
+        journal-entries      @(re-frame/subscribe [::accounting-subs/journal-entries])
+        journal-saving?      @(re-frame/subscribe [::accounting-subs/saving?])
+        acc-onboarding       @(re-frame/subscribe [::accounting-subs/onboarding])
+        opening-balances     @(re-frame/subscribe [::accounting-subs/opening-balances])
+        acc-onboarding-loaded? @(re-frame/subscribe [::accounting-subs/onboarding-loaded?])]
     [:<>
      [main
       {:activeComponent
@@ -190,6 +202,11 @@
                                  (re-frame/dispatch [::tax-events/load-tax-data])
                                  (re-frame/dispatch [::cost-events/load-bank-accounts])
                                  (re-frame/dispatch [::tenant-events/load-residents-count-changes])
+                                 (re-frame/dispatch [::cost-events/load-nebenkosten-settlements])
+                                 (re-frame/dispatch [::tax-events/load-tax-incomes])
+                                 (re-frame/dispatch [::tax-events/load-tax-expenses])
+                                 (re-frame/dispatch [::accounting-events/load-journal-entries])
+                                 (re-frame/dispatch [::accounting-events/load-accounting-onboarding])
                                  (when-let [tier (js/localStorage.getItem "pm-pending-plan")]
                                    (js/localStorage.removeItem "pm-pending-plan")
                                    (re-frame/dispatch [::events/change-active-section "payment"])
@@ -703,6 +720,92 @@
                                      :onDeleteUser     (fn [account-id membership-id]
                                                          (re-frame/dispatch
                                                           [::events/delete-org-user account-id membership-id]))}]))
+           :nebenkostenSettlements nk-settlements
+           :nkSettlementsSaving    nk-settlements-saving?
+           :onAddNebenkostenSettlement
+             (when can-create?
+               (fn [data]
+                 (let [d (js->clj data :keywordize-keys true)]
+                   (re-frame/dispatch
+                    [::cost-events/create-nebenkosten-settlement
+                     {:apartment-id (:apartmentId d)
+                      :tenant-id    (:tenantId d)
+                      :year         (:year d)
+                      :amount       (:amount d)
+                      :date         (:date d)
+                      :notes        (:notes d)}]))))
+           :onDeleteNebenkostenSettlement
+             (when can-create?
+               (fn [id]
+                 (re-frame/dispatch [::cost-events/delete-nebenkosten-settlement id])))
+           :taxIncomes    (clj->js tax-incomes)
+           :taxExpenses   (clj->js tax-expenses)
+           :onAddTaxIncome
+             (when can-create?
+               (fn [data]
+                 (let [d (js->clj data :keywordize-keys true)]
+                   (re-frame/dispatch
+                    [::tax-events/create-tax-income
+                     {:property-id (:propertyId d)
+                      :year        (:year d)
+                      :description (:description d)
+                      :amount      (:amount d)
+                      :category    (:category d)
+                      :date        (:date d)}]))))
+           :onDeleteTaxIncome
+             (when can-create?
+               (fn [id]
+                 (re-frame/dispatch [::tax-events/delete-tax-income id])))
+           :onAddTaxExpense
+             (when can-create?
+               (fn [data]
+                 (let [d (js->clj data :keywordize-keys true)]
+                   (re-frame/dispatch
+                    [::tax-events/create-tax-expense
+                     {:property-id (:propertyId d)
+                      :year        (:year d)
+                      :description (:description d)
+                      :amount      (:amount d)
+                      :category    (:category d)
+                      :date        (:date d)}]))))
+           :onDeleteTaxExpense
+             (when can-create?
+               (fn [id]
+                 (re-frame/dispatch [::tax-events/delete-tax-expense id])))
+           :taxMaintenances (clj->js tax-maintenances)
+           :journalEntries  (clj->js journal-entries)
+           :journalSaving   journal-saving?
+           :onAddJournalEntry
+             (when can-create?
+               (fn [data]
+                 (let [d (js->clj data :keywordize-keys true)]
+                   (re-frame/dispatch
+                    [::accounting-events/create-journal-entry
+                     {:date           (:date d)
+                      :description    (:description d)
+                      :debit-account  (:debitAccount d)
+                      :credit-account (:creditAccount d)
+                      :amount         (:amount d)
+                      :property-id    (:propertyId d)
+                      :reference      (:reference d)}]))))
+           :onStornoJournalEntry
+             (when can-create?
+               (fn [id]
+                 (re-frame/dispatch [::accounting-events/storno-journal-entry id])))
+           :accountingOnboarding       (clj->js acc-onboarding)
+           :openingBalances            (clj->js opening-balances)
+           :accountingOnboardingLoaded acc-onboarding-loaded?
+           :onCompleteAccountingOnboarding
+             (when can-create?
+               (fn [data]
+                 (let [d (js->clj data :keywordize-keys true)]
+                   (re-frame/dispatch
+                    [::accounting-events/complete-accounting-onboarding
+                     {:date      (:date d)
+                      :positions (mapv (fn [p] {:account (:account p)
+                                                :side    (:side p)
+                                                :amount  (:amount p)})
+                                       (:positions d))}]))))
            :isSuperAdmin        is-super-admin?
            :isImpersonating     is-impersonating?
            :impersonatedEmail   impersonated-email

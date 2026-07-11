@@ -32,7 +32,12 @@
    :property-maintenance  :get-property-maintenances
    :tenant-miete          :get-all-tenant-mieten
    :garage                :get-all-garages
-   :bank-account          :get-bank-accounts})
+   :bank-account          :get-bank-accounts
+   :persons-change        :get-all-residents-count-changes
+   :nk-settlement         :get-all-nebenkosten-settlements
+   :tax-income            :get-all-tax-incomes
+   :tax-expense           :get-all-tax-expenses
+   :journal-entry         :get-all-journal-entries})
 
 (defn survey-questions
   "Public GET handler — returns all survey questions, no auth required."

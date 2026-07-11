@@ -14,6 +14,7 @@
         poly/cost-ui       {:local/root "../../components/cost-ui"}
         poly/rent-ui       {:local/root "../../components/rent-ui"}
         poly/tax-ui        {:local/root "../../components/tax-ui"}
+        poly/accounting-ui {:local/root "../../components/accounting-ui"}
         poly/letter        {:local/root "../../components/letter"}
 
         org.clojure/clojure {:mvn/version "1.12.2"}

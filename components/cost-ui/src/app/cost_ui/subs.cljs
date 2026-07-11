@@ -85,3 +85,13 @@
  ::bank-accounts-saving?
  (fn [db _]
    (get-in db [:bank-accounts :saving?] false)))
+
+(re-frame/reg-sub
+ ::nebenkosten-settlements
+ (fn [db _]
+   (get-in db [:nk-settlements :list] [])))
+
+(re-frame/reg-sub
+ ::nk-settlements-saving?
+ (fn [db _]
+   (get-in db [:nk-settlements :saving?] false)))

@@ -9,18 +9,24 @@
 
 (defn component [_]
   (re-frame/dispatch [::events/load-tax-data])
+  (re-frame/dispatch [::events/load-tax-incomes])
+  (re-frame/dispatch [::events/load-tax-expenses])
   (fn [{:keys [properties apartments garages all-rent-payments all-costs is-read-only?]}]
     (let [loading?     @(re-frame/subscribe [::subs/loading?])
           saving?      @(re-frame/subscribe [::subs/saving?])
           configs      @(re-frame/subscribe [::subs/tax-configs])
           loans        @(re-frame/subscribe [::subs/loans])
-          maintenances @(re-frame/subscribe [::subs/maintenances])]
+          maintenances @(re-frame/subscribe [::subs/maintenances])
+          tax-incomes  @(re-frame/subscribe [::subs/tax-incomes])
+          tax-expenses @(re-frame/subscribe [::subs/tax-expenses])]
       [anlage-v
        {:properties      (clj->js (or properties []))
         :apartments      (clj->js (or apartments []))
         :garages         (clj->js (or garages []))
         :allRentPayments (clj->js (or all-rent-payments []))
         :allCosts        (clj->js (or all-costs []))
+        :taxIncomes      (clj->js tax-incomes)
+        :taxExpenses     (clj->js tax-expenses)
         :taxConfigs      (clj->js configs)
         :loans           (clj->js loans)
         :maintenances    (clj->js maintenances)
