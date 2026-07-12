@@ -51,6 +51,22 @@
                         (contains? #{"section" "module"} (:category %)))
                   features/canonical-features)))))
 
+(deftest resolve-public-unseeded-keeps-defaults
+  (testing "empty catalog ⇒ every canonical feature counts as publicly on"
+    (let [ks (set (features/resolve-public []))]
+      (is (contains? ks "landing-page"))
+      (is (= (set (map :key features/canonical-features)) ks)))))
+
+(deftest resolve-public-respects-master-switch-and-default
+  (let [stored [{:feature/key "landing-page" :feature/enabled false :feature/default-on true}
+                {:feature/key "survey"       :feature/enabled true  :feature/default-on false}
+                {:feature/key "custom-mod"   :feature/enabled true  :feature/default-on true}]
+        ks     (set (features/resolve-public stored))]
+    (is (not (contains? ks "landing-page")) "master switch off ⇒ publicly off")
+    (is (not (contains? ks "survey"))       "default-on false ⇒ publicly off (no org overrides pre-auth)")
+    (is (contains? ks "custom-mod")         "stored + on ⇒ included")
+    (is (contains? ks "section-overview")   "canonical features missing from storage stay on")))
+
 ;; ─── Property tests ───────────────────────────────────────────────────────────
 
 (def gen-override (gen/one-of [(gen/return nil) gen/boolean]))

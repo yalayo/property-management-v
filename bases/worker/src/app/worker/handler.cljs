@@ -52,6 +52,16 @@
                 (cf/response-edn result {:status 400})
                 (cf/response-edn result {:status 200})))))
 
+(defn public-features
+  "Public GET handler — feature keys effective for unauthenticated visitors
+  (e.g. landing-page vs. login-first), no auth required."
+  [_core _storage controller]
+  (fn [{:keys [env]}]
+    (js-await [result (controller {:command :get-public-features :data {} :user nil :env env})]
+              (if (:error result)
+                (cf/response-edn result {:status 400})
+                (cf/response-edn result {:status 200})))))
+
 (defn survey-submit
   "Public POST handler — saves a visitor's survey response, no auth required."
   [_core _storage controller]

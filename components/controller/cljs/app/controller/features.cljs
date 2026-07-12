@@ -18,6 +18,7 @@
    {:key "section-tax"         :name "Steuer (Anlage V)"    :category "section" :description "Steuer / Anlage V"}
    {:key "section-finances"    :name "Einnahmen & Ausgaben" :category "section" :description "Sonstige Einnahmen & Ausgaben"}
    {:key "section-accounting"  :name "Buchhaltung"          :category "section" :description "Buchhaltung"}
+   {:key "landing-page"        :name "Landing-Page"         :category "module"  :description "Öffentliche Landing-Page. Deaktiviert: Besucher sehen zuerst den Login."}
    {:key "team-management"     :name "Teamverwaltung"       :category "module"  :description "Teammitglieder einladen und verwalten"}
    {:key "trial-system"        :name "Testphase"            :category "module"  :description "Kostenlose Testphase (Pausieren/Fortsetzen)"}
    {:key "survey"              :name "Umfrage"              :category "module"  :description "Landing-Page-Umfrage"}
@@ -120,6 +121,19 @@
    :delete-org-user                "team-management"
    :pause-trial                    "trial-system"
    :resume-trial                   "trial-system"})
+
+(defn resolve-public
+  "Effective feature keys for UNAUTHENTICATED visitors (no org → no overrides):
+  a stored feature is on iff master switch AND default-on. Canonical features
+  missing from storage count as ON, so an unseeded database keeps the default
+  behaviour (e.g. the landing page stays visible)."
+  [stored-features]
+  (let [stored-keys (set (map :feature/key stored-features))
+        from-db     (resolve-enabled stored-features [])
+        missing     (->> canonical-features
+                         (map :key)
+                         (remove stored-keys))]
+    (vec (concat from-db missing))))
 
 (defn feature-blocked?
   "Pure resolution used by the dispatch gate: true only when the feature entity

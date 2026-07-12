@@ -40,12 +40,14 @@
      :then
      (o/insert! ::nav ::current-section :dashboard)]
 
-    ;; Unauthenticated, not submitting, no special intent → show landing
+    ;; Unauthenticated, not submitting, no special intent, landing feature on
+    ;; → show landing
     ::set-section-landing
     [:what
-     [::session ::authenticated? ?auth]
-     [::nav     ::intent         ?intent]
-     [::nav     ::submitting?    false]
+     [::session ::authenticated?   ?auth]
+     [::ui      ::landing-enabled? true]
+     [::nav     ::intent           ?intent]
+     [::nav     ::submitting?      false]
      :when
      (and (not ?auth)
           (not= ?intent :auth)
@@ -53,6 +55,21 @@
           (not= ?intent :service-request))
      :then
      (o/insert! ::nav ::current-section :landing)]
+
+    ;; Landing feature disabled → unauthenticated visitors land on the login
+    ;; form first (register/service-request intents keep working)
+    ::set-section-login-first
+    [:what
+     [::session ::authenticated?   ?auth]
+     [::ui      ::landing-enabled? false]
+     [::nav     ::intent           ?intent]
+     [::nav     ::submitting?      false]
+     :when
+     (and (not ?auth)
+          (not= ?intent :register)
+          (not= ?intent :service-request))
+     :then
+     (o/insert! ::nav ::current-section :auth)]
 
     ;; Explicit register intent while unauthenticated and not submitting → show register
     ::set-section-register
@@ -106,11 +123,14 @@
 
 (defonce session
   (r/atom (-> (reduce o/add-rule (o/->session) rules)
-              (o/insert ::session ::authenticated? false)
-              (o/insert ::user    ::role           :guest)
-              (o/insert ::nav     ::intent         :none)
-              (o/insert ::nav     ::submitting?    false)
-              (o/insert ::ui      ::auth-mode      "login")
+              (o/insert ::session ::authenticated?   false)
+              (o/insert ::user    ::role             :guest)
+              (o/insert ::nav     ::intent           :none)
+              (o/insert ::nav     ::submitting?      false)
+              (o/insert ::ui      ::auth-mode        "login")
+              ;; feature-flag "landing-page" — optimistic default until the
+              ;; public feature list is fetched
+              (o/insert ::ui      ::landing-enabled? true)
               o/fire-rules)))
 
 ;; ── Public API ───────────────────────────────────────────────────────────────
@@ -142,6 +162,14 @@
 (defn set-auth-mode! [mode]
   (swap! session #(-> %
                       (o/insert ::ui ::auth-mode mode)
+                      o/fire-rules)))
+
+(defn set-landing-enabled!
+  "Driven by the public feature list (feature key \"landing-page\"). When false,
+  unauthenticated visitors see the login form instead of the landing page."
+  [enabled?]
+  (swap! session #(-> %
+                      (o/insert ::ui ::landing-enabled? (boolean enabled?))
                       o/fire-rules)))
 
 (defn insert-facts! [authenticated? role]
@@ -279,9 +307,10 @@
 (defmethod ig/halt-key! ::session [_ _]
   (remove-watch session ::track-page-view)
   (reset! session (-> (reduce o/add-rule (o/->session) rules)
-                      (o/insert ::session ::authenticated? false)
-                      (o/insert ::user    ::role           :guest)
-                      (o/insert ::nav     ::intent         :none)
-                      (o/insert ::nav     ::submitting?    false)
-                      (o/insert ::ui      ::auth-mode      "login")
+                      (o/insert ::session ::authenticated?   false)
+                      (o/insert ::user    ::role             :guest)
+                      (o/insert ::nav     ::intent           :none)
+                      (o/insert ::nav     ::submitting?      false)
+                      (o/insert ::ui      ::auth-mode        "login")
+                      (o/insert ::ui      ::landing-enabled? true)
                       o/fire-rules)))

@@ -198,6 +198,29 @@
       ;; five independent randomized scenarios per test run
       (loop! 5))))
 
+;; ─── Public features endpoint (pre-auth landing-page decision) ────────────────
+
+(deftest public-features-reflect-master-switch
+  (async done
+    (let [storage (ig/init-key ::storage-iface/memory {:tx-data seed-tx})]
+      (-> (dispatch! storage :get-public-features {} nil)
+          (.then (fn [{:keys [features]}]
+                   (is (some #(= "landing-page" %) features)
+                       "unseeded catalog ⇒ landing page publicly on")
+                   ;; seed the catalog, then flip the master switch off
+                   (dispatch! storage :admin-list-features {} super-admin)))
+          (.then (fn [_] (feature-id storage "landing-page")))
+          (.then (fn [id] (dispatch! storage :admin-update-feature
+                                     {:id id :enabled false} super-admin)))
+          (.then (fn [_] (dispatch! storage :get-public-features {} nil)))
+          (.then (fn [{:keys [features]}]
+                   (is (not (some #(= "landing-page" %) features))
+                       "master switch off ⇒ landing page publicly off (login-first)")
+                   (done)))
+          (.catch (fn [e]
+                    (is false (str "public features test threw: " e))
+                    (done)))))))
+
 ;; ─── Gate behaviour through the full dispatch stack ───────────────────────────
 
 (deftest command-gate-blocks-disabled-section

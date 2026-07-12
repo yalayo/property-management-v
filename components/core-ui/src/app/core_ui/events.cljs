@@ -49,6 +49,9 @@
 (re-frame/reg-fx :rules/set-submitting
   (fn [v] (rules/set-submitting! v)))
 
+(re-frame/reg-fx :rules/set-landing-enabled
+  (fn [v] (rules/set-landing-enabled! v)))
+
 (re-frame/reg-fx :rules/on-success
   (fn [{:keys [form-id response]}] (rules/on-success! form-id response)))
 
@@ -68,6 +71,29 @@
   (fn [{:keys [db]} [_ intent]]
     {:db             (assoc db :current-section intent)
      :rules/navigate intent}))
+
+;; ── Public feature flags (pre-auth) ──────────────────────────────────────────
+;; Decides e.g. whether unauthenticated visitors get the landing page or the
+;; login form first. On failure we keep the optimistic default (landing on).
+
+(re-frame/reg-event-fx ::load-public-features
+  (fn [_ _]
+    {:http-xhrio {:method          :get
+                  :uri             (str (api-url) "/api/public-features")
+                  :response-format (ajax-edn/edn-response-format)
+                  :timeout         8000
+                  :on-success      [::public-features-loaded]
+                  :on-failure      [::public-features-error]}}))
+
+(re-frame/reg-event-fx ::public-features-loaded
+  (fn [_ [_ response]]
+    {:rules/set-landing-enabled
+     (boolean (some #(= "landing-page" %) (:features response)))}))
+
+(re-frame/reg-event-fx ::public-features-error
+  (fn [_ [_ error]]
+    (js/console.warn "Loading public features failed:" (clj->js error))
+    {}))
 
 (re-frame/reg-event-fx ::restore-nav
   (fn [{:keys [db]} _]

@@ -33,6 +33,8 @@
 (defn init [children]
   (re-frame/dispatch-sync [::events/initialize-db])
   (re-frame/dispatch-sync [::events/restore-nav])
+  ;; async: decides landing page vs. login-first for unauthenticated visitors
+  (re-frame/dispatch [::events/load-public-features])
   (force auth-sync)
   (force auth-mode-sync)
   (main-component children))

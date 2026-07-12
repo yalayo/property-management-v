@@ -1854,6 +1854,14 @@
                  ovs (org-feature-overrides storage org-id)]
                 {:features (features/resolve-enabled fs ovs)}))))
 
+(defn- handle-get-public-features!
+  "Public, unauthenticated: features effective for visitors (used pre-login,
+  e.g. to decide landing page vs. login-first). Read-only — deliberately does
+  NOT seed, so the public endpoint never writes."
+  [storage]
+  (js-await [fs (all-features storage)]
+            {:features (features/resolve-public fs)}))
+
 (defn- handle-admin-impersonate! [storage data user env]
   (admin-guard user
     (fn []
@@ -2053,6 +2061,7 @@
     :admin-list-org-features         (handle-admin-list-org-features! storage data user)
     :admin-set-org-feature           (handle-admin-set-org-feature! storage data user)
     :get-org-features                (handle-get-org-features! storage user)
+    :get-public-features             (handle-get-public-features! storage)
     :admin-export                    (handle-admin-export! storage data user)
     :admin-import                    (handle-admin-import! storage data user)
     :pause-trial                     (handle-pause-trial! storage user)
