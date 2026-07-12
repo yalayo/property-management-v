@@ -272,6 +272,7 @@ const resources = {
       noMembers: "No team members yet.",
       you: "you",
       fullAccess: "Full Access",
+      trialPausedHint: "New members cannot be added while your trial is paused. Resume the trial to continue.",
       noSections: "No Access",
       save: "Save",
       cancel: "Cancel",
@@ -293,6 +294,7 @@ const resources = {
         nameRequired:     "Name is required.",
         passwordMin:      "Password must be at least 8 characters.",
         sectionsRequired: "Select at least one section.",
+        trialPaused:      "New members cannot be added while your trial is paused.",
       },
       sections: {
         overview:    "Overview",
@@ -1534,6 +1536,7 @@ const resources = {
       noMembers: "Noch keine Teammitglieder.",
       you: "Sie",
       fullAccess: "Vollzugriff",
+      trialPausedHint: "Während die Testphase pausiert ist, können keine neuen Mitglieder hinzugefügt werden. Setzen Sie die Testphase fort, um fortzufahren.",
       noSections: "Kein Zugriff",
       save: "Speichern",
       cancel: "Abbrechen",
@@ -1555,6 +1558,7 @@ const resources = {
         nameRequired:     "Name ist erforderlich.",
         passwordMin:      "Das Passwort muss mindestens 8 Zeichen lang sein.",
         sectionsRequired: "Wählen Sie mindestens einen Bereich aus.",
+        trialPaused:      "Während die Testphase pausiert ist, können keine neuen Mitglieder hinzugefügt werden.",
       },
       sections: {
         overview:    "Übersicht",

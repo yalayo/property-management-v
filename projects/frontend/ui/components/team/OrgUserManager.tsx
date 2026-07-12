@@ -19,6 +19,7 @@ import {
 const ALL_SECTIONS = [
   "overview", "properties", "apartments", "tenants",
   "bank", "abrechnung", "expenses", "documents", "analytics", "tax",
+  "finances", "accounting",
 ] as const;
 
 type Section = typeof ALL_SECTIONS[number];
@@ -36,6 +37,7 @@ type Props = {
   users?: OrgUser[];
   isLoading?: boolean;
   isSaving?: boolean;
+  trialPaused?: boolean;
   currentUserEmail?: string;
   onLoad?: () => void;
   onCreateUser?: (data: { email: string; name: string; password: string; sections: string[] }) => void;
@@ -79,6 +81,7 @@ export default function OrgUserManager({
   users = [],
   isLoading = false,
   isSaving = false,
+  trialPaused = false,
   currentUserEmail,
   onLoad,
   onCreateUser,
@@ -119,12 +122,14 @@ export default function OrgUserManager({
   }, [isSaving]);
 
   const handleOpenAdd = () => {
+    if (trialPaused) return;
     setAddEmail(""); setAddName(""); setAddPassword("");
     setAddSections(new Set(ALL_SECTIONS)); setAddError("");
     setAddOpen(true);
   };
 
   const handleCreate = () => {
+    if (trialPaused) { setAddError(t("validation.trialPaused")); return; }
     if (!addEmail.trim()) { setAddError(t("validation.emailRequired")); return; }
     if (!addName.trim())  { setAddError(t("validation.nameRequired")); return; }
     if (addPassword.length < 8) { setAddError(t("validation.passwordMin")); return; }
@@ -157,13 +162,16 @@ export default function OrgUserManager({
           <Users className="h-4 w-4 text-muted-foreground" />
           {t("title")}
         </CardTitle>
-        <Button size="sm" onClick={handleOpenAdd} disabled={isSaving}>
+        <Button size="sm" onClick={handleOpenAdd} disabled={isSaving || trialPaused} title={trialPaused ? t("trialPausedHint") : undefined}>
           <Plus className="h-4 w-4 mr-1" />
           {t("addMember")}
         </Button>
       </CardHeader>
 
       <CardContent className="pt-0">
+        {trialPaused && (
+          <p className="text-xs text-muted-foreground mb-3">{t("trialPausedHint")}</p>
+        )}
         {isLoading ? (
           <div className="space-y-2">
             {[1, 2, 3].map(i => <div key={i} className="h-14 bg-muted animate-pulse rounded-lg" />)}

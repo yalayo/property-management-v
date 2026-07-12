@@ -711,6 +711,7 @@
                                     {:users            (clj->js org-users)
                                      :isLoading        org-users-loading?
                                      :isSaving         org-users-saving?
+                                     :trialPaused      (= "paused" (:status trial-info))
                                      :currentUserEmail (:email current-user)
                                      :onLoad           #(re-frame/dispatch [::events/load-org-users])
                                      :onCreateUser     (fn [data]
