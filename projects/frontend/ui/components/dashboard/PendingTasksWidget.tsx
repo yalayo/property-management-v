@@ -54,6 +54,7 @@ type Props = {
   loans?: any[];
   year?: number;
   isLoading?: boolean;
+  trialPaused?: boolean;
   onNavigate?: (tab: string, context?: NavContext) => void;
   onEditProperty?: (id: string, data: Record<string, any>) => void;
   onUpdateApartment?: (aptId: string, data: Record<string, any>) => void;
@@ -80,6 +81,7 @@ const MODAL_TYPES = new Set([
   "missing-ownership-share",
   "missing-year-built",
   "missing-usage",
+  "missing-market-rent",
   "missing-tenant-startdate",
   "missing-tenant-miete",
   "missing-tenant-personenzahl",
@@ -172,6 +174,14 @@ function computeTasks(
       });
 
       if (!aptTenants.length) continue;
+
+      // Steuer: comparable (ortsübliche) rent for the §21(2) 66% check — only
+      // meaningful for rented units, which is why it sits after the tenant gate.
+      check(apt["market-rent"] != null && apt["market-rent"] !== "", {
+        id: `steuer-${aptId}-market-rent`, category: "steuer", type: "missing-market-rent",
+        propertyId: propId, propertyName: propName, aptCode, aptId, aptTab: "info",
+        navigateTo: "apartments", priority: 27,
+      });
 
       // Rent payments
       const activeMonths = new Set<number>();
@@ -756,6 +766,32 @@ function WohnflaecheModal({ task, onClose, onSave }: { task: Task; onClose: () =
   );
 }
 
+function MarketRentModal({ task, onClose, onSave }: { task: Task; onClose: () => void; onSave: (aptId: string, data: Record<string, any>) => void }) {
+  const [value, setValue] = useState("");
+  const num = parseFloat(value.replace(",", "."));
+  const valid = value.trim() !== "" && !isNaN(num) && num > 0;
+  return (
+    <DialogContent className="max-w-sm">
+      <DialogHeader>
+        <DialogTitle>Ortsübliche Miete eingeben</DialogTitle>
+        <p className="text-sm text-muted-foreground">{task.propertyName} · {task.aptCode}</p>
+      </DialogHeader>
+      <div className="py-2 space-y-1">
+        <Label className="text-xs">Ortsübliche Miete (Kaltmiete) *</Label>
+        <div className="flex items-center gap-2">
+          <Input type="number" min="1" step="0.01" value={value} onChange={e => setValue(e.target.value)} placeholder="z.B. 850,00" className="flex-1" />
+          <span className="text-sm text-muted-foreground shrink-0">€ / Mon.</span>
+        </div>
+        <p className="text-xs text-muted-foreground">Vergleichsmiete für die 66-%-Prüfung (Anlage V, §21 Abs. 2 EStG).</p>
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>Abbrechen</Button>
+        <Button disabled={!valid} onClick={() => { onSave(task.aptId!, { marketRent: num }); onClose(); }}>Speichern</Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
 function TenantModal({ task, onClose, onNavigate, onDeclareVacant }: {
   task: Task; onClose: () => void; onNavigate: () => void; onDeclareVacant: (aptId: string) => void;
 }) {
@@ -1014,6 +1050,7 @@ export default function PendingTasksWidget({
   loans = [],
   year,
   isLoading = false,
+  trialPaused = false,
   onNavigate,
   onEditProperty,
   onUpdateApartment,
@@ -1038,6 +1075,8 @@ export default function PendingTasksWidget({
   const progressPct  = totalChecks > 0 ? Math.round((passedChecks / totalChecks) * 100) : 100;
   const visibleTasks = showAll ? tasks : tasks.slice(0, VISIBLE_COUNT);
 
+  // While the trial is paused the account is frozen — don't prompt for data entry.
+  if (trialPaused) return null;
   if (tasks.length === 0) return null;
 
   const categoryColor: Record<TaskCategory, string> = {
@@ -1230,6 +1269,9 @@ export default function PendingTasksWidget({
         )}
         {activeTask?.type === "missing-wohnflaeche" && (
           <WohnflaecheModal task={activeTask} onClose={() => setActiveTask(null)} onSave={handleUpdateApartmentSave} />
+        )}
+        {activeTask?.type === "missing-market-rent" && (
+          <MarketRentModal task={activeTask} onClose={() => setActiveTask(null)} onSave={handleUpdateApartmentSave} />
         )}
         {activeTask?.type === "missing-tenant" && (
           <TenantModal

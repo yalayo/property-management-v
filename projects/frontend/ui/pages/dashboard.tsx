@@ -485,6 +485,7 @@ export default function Dashboard(props) {
                 taxConfigs={props.taxConfigs}
                 loans={props.taxLoans}
                 expenseTypes={props.expenseTypes}
+                trialPaused={props.trialInfo?.status === "paused"}
                 onNavigate={(tab, ctx) => handleSelect(tab, ctx)}
                 onEditProperty={props.onEditProperty}
                 onAddRentPayment={props.onAddRentPayment}
