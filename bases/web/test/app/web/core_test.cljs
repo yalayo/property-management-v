@@ -1,5 +1,5 @@
 (ns app.web.core-test
-  (:require [clojure.test :as test :refer :all]
+  (:require [clojure.test :refer [deftest is]]
             [app.web.core :as core]))
 
 (deftest dummy-test

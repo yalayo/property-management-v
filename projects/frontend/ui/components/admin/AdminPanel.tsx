@@ -517,6 +517,13 @@ export default function AdminPanel({
     (a, b) => (a["question/order"] ?? 0) - (b["question/order"] ?? 0)
   );
 
+  // Module gates driven by the global feature catalog's master switch.
+  // Unknown/not-yet-loaded features count as enabled.
+  const moduleEnabled = (key: string): boolean => {
+    const f = features.find((x) => x["feature/key"] === key);
+    return f ? f["feature/enabled"] !== false : true;
+  };
+
   const historyUser = users.find((u) => u.email === historyEmail);
 
   return (
@@ -701,15 +708,17 @@ export default function AdminPanel({
                       Features
                     </Button>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                      onClick={() => onImpersonate?.(u.email)}
-                    >
-                      <UserCheck className="h-3.5 w-3.5 mr-1" />
-                      View as
-                    </Button>
+                    {moduleEnabled("impersonation") && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                        onClick={() => onImpersonate?.(u.email)}
+                      >
+                        <UserCheck className="h-3.5 w-3.5 mr-1" />
+                        View as
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -719,6 +728,7 @@ export default function AdminPanel({
       </Card>
 
       {/* Survey questions section */}
+      {moduleEnabled("survey") && (
       <Card className="border-amber-200 bg-amber-50/40">
         <CardHeader className="flex flex-row items-center justify-between pb-3">
           <div className="flex items-center gap-2">
@@ -819,8 +829,10 @@ export default function AdminPanel({
           </div>
         </CardContent>
       </Card>
+      )}
 
       {/* Data Export / Import section */}
+      {moduleEnabled("data-export-import") && (
       <Card className="border-amber-200 bg-amber-50/40">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
@@ -894,6 +906,7 @@ export default function AdminPanel({
           </div>
         </CardContent>
       </Card>
+      )}
 
       {/* Feature flags section */}
       <FeatureManagementCard

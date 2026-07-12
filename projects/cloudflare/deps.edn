@@ -22,7 +22,10 @@
  :paths ["src" "resources"]
  :aliases {:dev {:extra-deps {thheller/shadow-cljs {:mvn/version "3.2.1"}
                               binaryage/devtools {:mvn/version "1.0.7"}}}
-           :test {:extra-deps {org.clojure/test.check {:mvn/version "1.1.1"}
+           :test {:extra-paths ["../../bases/worker/test"
+                                "../../components/letter/test"
+                                "../../components/controller/test"]
+                  :extra-deps {org.clojure/test.check {:mvn/version "1.1.1"}
                                polylith-kaocha/kaocha-wrapper
                                {:git/url "https://github.com/imrekoszo/polylith-kaocha"
                                 :git/tag "v0.8.2"

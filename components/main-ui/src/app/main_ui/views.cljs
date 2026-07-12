@@ -843,7 +843,12 @@
            :isImpersonating     is-impersonating?
            :impersonatedEmail   impersonated-email
            :onExitImpersonation #(re-frame/dispatch [::events/exit-impersonation])
-           :trialInfo           (when-not is-super-admin? (clj->js trial-info))
+           ;; trial banner is itself feature-gated (module "trial-system");
+           ;; nil org-features = not loaded yet → show as before.
+           :trialInfo           (when (and (not is-super-admin?)
+                                           (or (nil? org-features)
+                                               (some #(= "trial-system" %) org-features)))
+                                  (clj->js trial-info))
            :onPauseTrial        (when-not is-super-admin? #(re-frame/dispatch [::events/pause-trial]))
            :onResumeTrial       (when-not is-super-admin? #(re-frame/dispatch [::events/resume-trial]))
            :adminPanel          (when (and is-super-admin? (not is-impersonating?))

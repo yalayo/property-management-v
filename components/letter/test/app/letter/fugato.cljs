@@ -85,8 +85,11 @@
                (number? (:total-costs billing))
                (boolean? (:refund billing))
                ;; Business rule: total = total-costs - prepayment
+               ;; (prepayment lives on the billing map / tenant-info, not at the
+               ;;  top level of the system state — `(:prepayment final-state)` was
+               ;;  nil, which JS-coerces to 0 and made the rule vacuously wrong)
                (= (:total billing)
-                  (- (:total-costs billing) (:prepayment final-state)))))
+                  (- (:total-costs billing) (:prepayment billing)))))
         true))))   ; incomplete state, skip assertion
 
 ;; ─── REPL tools ───────────────────────────────────────────────────────────────

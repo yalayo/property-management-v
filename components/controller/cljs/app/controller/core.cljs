@@ -1,6 +1,7 @@
 (ns app.controller.core
   (:require ["jsonwebtoken" :as jwt]
             [app.worker.async :refer [js-await]]
+            [app.controller.features :as features]
             [clojure.string :as str]))
 
 ;; ---------------------------------------------------------------------------
@@ -1710,28 +1711,6 @@
 ;; Feature flags — global catalog + per-organization overrides
 ;; ---------------------------------------------------------------------------
 
-(def canonical-features
-  "The feature catalog extracted from the app's existing capabilities. Seeded into
-  the DB on first access; the super admin can add more later via the admin panel.
-  Section keys mirror the dashboard nav/permission section ids as `section-<id>`."
-  [{:key "section-overview"    :name "Übersicht"            :category "section" :description "Dashboard-Übersicht"}
-   {:key "section-properties"  :name "Immobilien"           :category "section" :description "Immobilienverwaltung"}
-   {:key "section-apartments"  :name "Wohnungen"            :category "section" :description "Wohnungsverwaltung"}
-   {:key "section-tenants"     :name "Mieter"               :category "section" :description "Mieterverwaltung"}
-   {:key "section-bank"        :name "Kontoauszug"          :category "section" :description "Bankkonten & Kontoauszüge"}
-   {:key "section-abrechnung"  :name "Abrechnung"           :category "section" :description "Nebenkostenabrechnung"}
-   {:key "section-expenses"    :name "Kostenarten"          :category "section" :description "Kostenarten"}
-   {:key "section-documents"   :name "Dokumente"            :category "section" :description "Dokumentenverwaltung"}
-   {:key "section-analytics"   :name "Analysen"             :category "section" :description "Auswertungen & Analysen"}
-   {:key "section-tax"         :name "Steuer (Anlage V)"    :category "section" :description "Steuer / Anlage V"}
-   {:key "section-finances"    :name "Einnahmen & Ausgaben" :category "section" :description "Sonstige Einnahmen & Ausgaben"}
-   {:key "section-accounting"  :name "Buchhaltung"          :category "section" :description "Buchhaltung"}
-   {:key "team-management"     :name "Teamverwaltung"       :category "module"  :description "Teammitglieder einladen und verwalten"}
-   {:key "trial-system"        :name "Testphase"            :category "module"  :description "Kostenlose Testphase (Pausieren/Fortsetzen)"}
-   {:key "survey"              :name "Umfrage"              :category "module"  :description "Landing-Page-Umfrage"}
-   {:key "data-export-import"  :name "Datenexport/-import"  :category "module"  :description "EDN-Export und -Import"}
-   {:key "impersonation"       :name "Nutzer-Ansicht"       :category "module"  :description "Als Nutzer anmelden (View as)"}])
-
 (defn- ensure-features-seeded!
   "Idempotently inserts any canonical features not yet present in the catalog.
   Writes only when something is missing (normally just the very first call)."
@@ -1739,7 +1718,7 @@
   (js-await [eids     ((:find-by-type storage) "feature")
              existing (pull-many+ storage eids '[:feature/key])]
             (let [have    (set (map :feature/key existing))
-                  missing (remove #(have (:key %)) canonical-features)
+                  missing (remove #(have (:key %)) features/canonical-features)
                   now     (.now js/Date)]
               (if (empty? missing)
                 (js/Promise.resolve nil)
@@ -1764,16 +1743,6 @@
   (js-await [eids ((:find-by-attr storage) :feature-override/organization-id org-id)
              ovs  (pull-many+ storage eids '[*])]
             (vec ovs)))
-
-(defn- feature-effective?
-  "A feature is on for an org iff the global master switch is on AND the per-org
-  override says on (or, absent an override, the feature's default)."
-  [feature override]
-  (boolean
-   (and (:feature/enabled feature)
-        (if override
-          (:feature-override/enabled override)
-          (:feature/default-on feature)))))
 
 (defn- handle-admin-list-features! [storage user]
   (admin-guard user
@@ -1847,7 +1816,7 @@
                                                                     :default-on  (:feature/default-on f)
                                                                     :enabled     (:feature/enabled f)
                                                                     :override    (when ov (:feature-override/enabled ov))
-                                                                    :effective   (feature-effective? f ov)}))
+                                                                    :effective   (features/feature-effective? f ov)}))
                                                                fs)})))))
                     {:error :not-found}))))))
 
@@ -1883,11 +1852,7 @@
       (js-await [_   (ensure-features-seeded! storage)
                  fs  (all-features storage)
                  ovs (org-feature-overrides storage org-id)]
-                (let [ov-by-key (into {} (map (fn [o] [(:feature-override/feature-key o) o]) ovs))
-                      enabled   (->> fs
-                                     (filter (fn [f] (feature-effective? f (get ov-by-key (:feature/key f)))))
-                                     (mapv :feature/key))]
-                  {:features enabled})))))
+                {:features (features/resolve-enabled fs ovs)}))))
 
 (defn- handle-admin-impersonate! [storage data user env]
   (admin-guard user
@@ -2122,11 +2087,44 @@
                       trial (when (nil? plan) (compute-trial org))]
                   (or (some? plan) (= "active" (:status trial))))))))
 
+(defn- org-feature-blocked?
+  "Promise<boolean> — true only when the feature entity exists and resolves to
+  off for this org (master switch off, or override/default off). Missing catalog
+  data ⇒ not blocked, so an unseeded DB can never lock users out."
+  [storage org-id feature-key]
+  (js-await [feature-eids ((:find-by-attr storage) :feature/key feature-key)]
+            (if-let [feid (first feature-eids)]
+              (js-await [feature ((:pull storage) feid '[*])
+                         ov-eids ((:q storage) {:where [['?e :feature-override/organization-id org-id]
+                                                        ['?e :feature-override/feature-key      feature-key]]})]
+                        (if-let [oeid (first ov-eids)]
+                          (js-await [override ((:pull storage) oeid '[*])]
+                                    (features/feature-blocked? feature override))
+                          (features/feature-blocked? feature nil)))
+              false)))
+
+(defn- feature-gate
+  "Runs f unless the command's mapped feature is disabled for the user's org.
+  Super admins and impersonation sessions bypass the gate."
+  [storage command user f]
+  (let [feature-key (features/command->feature command)]
+    (if (or (nil? feature-key)
+            (:superadmin user)
+            (:impersonated-by user)
+            (nil? (:org-id user)))
+      (f)
+      (js-await [blocked? (org-feature-blocked? storage (:org-id user) feature-key)]
+                (if blocked?
+                  {:error :feature-disabled :feature feature-key}
+                  (f))))))
+
 (defn dispatch [{:keys [core storage command data env user]}]
   (if (and (trial-gated-commands command) (not (trial-access? user)))
     ;; JWT says blocked — re-check DB to handle stale JWT (e.g. trial resumed after last login)
     (js-await [live? (trial-access-live? storage user)]
               (if live?
-                (run-command! core storage command data env user)
+                (feature-gate storage command user
+                              #(run-command! core storage command data env user))
                 {:error :trial-expired}))
-    (run-command! core storage command data env user)))
+    (feature-gate storage command user
+                  #(run-command! core storage command data env user))))

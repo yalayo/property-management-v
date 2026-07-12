@@ -1,5 +1,5 @@
 (ns app.worker.core-test
-  (:require [clojure.test :as test :refer :all]
+  (:require [clojure.test :refer [deftest is]]
             [app.worker.core :as core]))
 
 (deftest dummy-test

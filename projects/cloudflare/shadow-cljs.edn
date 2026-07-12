@@ -1,5 +1,9 @@
-{:deps true
- :builds {:server {:target :esm
+{:deps {:aliases [:dev :test]}
+ :builds {:test {:target    :node-test
+                 :output-to "out/test/node-tests.js"
+                 ;; picks up conventional *-test namespaces plus fugato model suites
+                 :ns-regexp "(-test|fugato)$"}
+          :server {:target :esm
                    :output-dir "out"
                    :modules {:main {:exports {default app.cloudflare.core/handler
                                               PresenceDurableObject app.worker.presence/PresenceDurableObject}}}
