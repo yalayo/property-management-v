@@ -31,6 +31,7 @@ function SidebarContent({
   isSuperAdmin = false,
   userRole = null,
   userSections = null,
+  orgFeatures = null,
   navMode = "list",
   onToggleNavMode,
   // tree mode data
@@ -54,6 +55,16 @@ function SidebarContent({
     ? new Set(userSections.split(",").map((s: string) => s.trim()).filter(Boolean))
     : null;
 
+  // Org-level feature flags (super admin controlled). Null until loaded — don't
+  // gate before then. Super admins always see everything.
+  const featureSet: Set<string> | null = Array.isArray(orgFeatures) ? new Set(orgFeatures) : null;
+  const featureEnabled = (navId: string): boolean => {
+    if (isSuperAdmin || !featureSet) return true;
+    if (navId === "admin") return true;
+    if (navId === "team") return featureSet.has("team-management");
+    return featureSet.has(`section-${navId}`);
+  };
+
   const ALL_NAV_ITEMS = [
     { id: "overview",    label: t("overview"),    icon: Home },
     { id: "properties",  label: t("properties"),  icon: Building },
@@ -71,9 +82,9 @@ function SidebarContent({
     ...(isSuperAdmin ? [{ id: "admin", label: "Admin", icon: Shield }] : []),
   ];
 
-  const NAV_ITEMS = allowedSections
-    ? ALL_NAV_ITEMS.filter(item => allowedSections.has(item.id) || item.id === "team" || item.id === "admin")
-    : ALL_NAV_ITEMS;
+  const NAV_ITEMS = ALL_NAV_ITEMS.filter(item =>
+    featureEnabled(item.id) &&
+    (!allowedSections || allowedSections.has(item.id) || item.id === "team" || item.id === "admin"));
 
   return (
     <div className="flex flex-col h-full bg-white">
@@ -369,6 +380,7 @@ export default function Dashboard(props) {
           isSuperAdmin={props.isSuperAdmin}
           userRole={props.userRole}
           userSections={props.userSections}
+          orgFeatures={props.orgFeatures}
           navMode={navMode}
           onToggleNavMode={handleToggleNavMode}
           properties={props.properties ?? []}
@@ -400,6 +412,7 @@ export default function Dashboard(props) {
             isSuperAdmin={props.isSuperAdmin}
             userRole={props.userRole}
             userSections={props.userSections}
+            orgFeatures={props.orgFeatures}
             navMode={navMode}
             onToggleNavMode={handleToggleNavMode}
             properties={props.properties ?? []}

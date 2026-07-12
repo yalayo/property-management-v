@@ -26,6 +26,9 @@
    :expense-type          :get-expense-types
    :org-users             :list-org-users
    :admin-users           :admin-list-users
+   :org-features          :get-org-features
+   :admin-features        :admin-list-features
+   :admin-org-features    :admin-list-org-features
    :survey-questions      :get-survey-questions
    :property-tax-config   :get-property-tax-configs
    :property-loan         :get-property-loans

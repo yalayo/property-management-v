@@ -108,6 +108,11 @@
         admin-importing?     @(re-frame/subscribe [::subs/admin-importing?])
         survey-questions     @(re-frame/subscribe [::subs/survey-questions])
         survey-q-loading?    @(re-frame/subscribe [::subs/survey-questions-loading?])
+        org-features         @(re-frame/subscribe [::subs/org-features])
+        admin-features       @(re-frame/subscribe [::subs/admin-features])
+        admin-features-loading? @(re-frame/subscribe [::subs/admin-features-loading?])
+        admin-org-features   @(re-frame/subscribe [::subs/admin-org-features])
+        admin-org-features-loading? @(re-frame/subscribe [::subs/admin-org-features-loading?])
         impersonated-email   @(re-frame/subscribe [::subs/impersonated-user-email])
         tax-configs          @(re-frame/subscribe [::tax-subs/tax-configs])
         tax-loans            @(re-frame/subscribe [::tax-subs/loans])
@@ -209,6 +214,7 @@
                                  (re-frame/dispatch [::tax-events/load-tax-expenses])
                                  (re-frame/dispatch [::accounting-events/load-journal-entries])
                                  (re-frame/dispatch [::accounting-events/load-accounting-onboarding])
+                                 (re-frame/dispatch [::events/load-org-features])
                                  (when-let [tier (js/localStorage.getItem "pm-pending-plan")]
                                    (js/localStorage.removeItem "pm-pending-plan")
                                    (re-frame/dispatch [::events/change-active-section "payment"])
@@ -705,6 +711,7 @@
            :taxLoans           (clj->js tax-loans)
            :userRole            user-role
            :userSections        user-sections
+           :orgFeatures         (clj->js org-features)
            :teamView            (when (= "admin" user-role)
                                   (r/as-element
                                    [org-user-manager
@@ -869,4 +876,19 @@
                                     :onResumeUserTrial (fn [email]
                                                          (re-frame/dispatch [::events/admin-resume-trial email]))
                                     :onExtendUserTrial (fn [email extra-days]
-                                                         (re-frame/dispatch [::events/admin-extend-trial email extra-days]))}]))}]))}]]))
+                                                         (re-frame/dispatch [::events/admin-extend-trial email extra-days]))
+                                    :features            (clj->js admin-features)
+                                    :featuresLoading     admin-features-loading?
+                                    :onLoadFeatures      #(re-frame/dispatch [::events/load-admin-features])
+                                    :onCreateFeature     (fn [data]
+                                                           (re-frame/dispatch [::events/admin-create-feature (js->clj data :keywordize-keys true)]))
+                                    :onUpdateFeature     (fn [id data]
+                                                           (re-frame/dispatch [::events/admin-update-feature id (js->clj data :keywordize-keys true)]))
+                                    :onDeleteFeature     (fn [id]
+                                                           (re-frame/dispatch [::events/admin-delete-feature id]))
+                                    :orgFeatures         (clj->js admin-org-features)
+                                    :orgFeaturesLoading  admin-org-features-loading?
+                                    :onLoadOrgFeatures   (fn [email]
+                                                           (re-frame/dispatch [::events/load-org-feature-overrides email]))
+                                    :onSetOrgFeature     (fn [email feature-key enabled]
+                                                           (re-frame/dispatch [::events/admin-set-org-feature email feature-key enabled]))}]))}]))}]]))

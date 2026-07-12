@@ -1706,6 +1706,189 @@
       (js-await [_ ((:transact! storage) [[:db/retractEntity (:id data)]] nil)]
                 {:ok true}))))
 
+;; ---------------------------------------------------------------------------
+;; Feature flags — global catalog + per-organization overrides
+;; ---------------------------------------------------------------------------
+
+(def canonical-features
+  "The feature catalog extracted from the app's existing capabilities. Seeded into
+  the DB on first access; the super admin can add more later via the admin panel.
+  Section keys mirror the dashboard nav/permission section ids as `section-<id>`."
+  [{:key "section-overview"    :name "Übersicht"            :category "section" :description "Dashboard-Übersicht"}
+   {:key "section-properties"  :name "Immobilien"           :category "section" :description "Immobilienverwaltung"}
+   {:key "section-apartments"  :name "Wohnungen"            :category "section" :description "Wohnungsverwaltung"}
+   {:key "section-tenants"     :name "Mieter"               :category "section" :description "Mieterverwaltung"}
+   {:key "section-bank"        :name "Kontoauszug"          :category "section" :description "Bankkonten & Kontoauszüge"}
+   {:key "section-abrechnung"  :name "Abrechnung"           :category "section" :description "Nebenkostenabrechnung"}
+   {:key "section-expenses"    :name "Kostenarten"          :category "section" :description "Kostenarten"}
+   {:key "section-documents"   :name "Dokumente"            :category "section" :description "Dokumentenverwaltung"}
+   {:key "section-analytics"   :name "Analysen"             :category "section" :description "Auswertungen & Analysen"}
+   {:key "section-tax"         :name "Steuer (Anlage V)"    :category "section" :description "Steuer / Anlage V"}
+   {:key "section-finances"    :name "Einnahmen & Ausgaben" :category "section" :description "Sonstige Einnahmen & Ausgaben"}
+   {:key "section-accounting"  :name "Buchhaltung"          :category "section" :description "Buchhaltung"}
+   {:key "team-management"     :name "Teamverwaltung"       :category "module"  :description "Teammitglieder einladen und verwalten"}
+   {:key "trial-system"        :name "Testphase"            :category "module"  :description "Kostenlose Testphase (Pausieren/Fortsetzen)"}
+   {:key "survey"              :name "Umfrage"              :category "module"  :description "Landing-Page-Umfrage"}
+   {:key "data-export-import"  :name "Datenexport/-import"  :category "module"  :description "EDN-Export und -Import"}
+   {:key "impersonation"       :name "Nutzer-Ansicht"       :category "module"  :description "Als Nutzer anmelden (View as)"}])
+
+(defn- ensure-features-seeded!
+  "Idempotently inserts any canonical features not yet present in the catalog.
+  Writes only when something is missing (normally just the very first call)."
+  [storage]
+  (js-await [eids     ((:find-by-type storage) "feature")
+             existing (pull-many+ storage eids '[:feature/key])]
+            (let [have    (set (map :feature/key existing))
+                  missing (remove #(have (:key %)) canonical-features)
+                  now     (.now js/Date)]
+              (if (empty? missing)
+                (js/Promise.resolve nil)
+                ((:transact! storage)
+                 (mapv (fn [f]
+                         {:db/type             "feature"
+                          :feature/key         (:key f)
+                          :feature/name        (:name f)
+                          :feature/description (:description f)
+                          :feature/category    (:category f)
+                          :feature/default-on  true
+                          :feature/enabled     true
+                          :feature/created-at  now})
+                       missing) nil)))))
+
+(defn- all-features [storage]
+  (js-await [eids ((:find-by-type storage) "feature")
+             fs   (pull-many+ storage eids '[*])]
+            (vec (sort-by (juxt :feature/category :feature/name) fs))))
+
+(defn- org-feature-overrides [storage org-id]
+  (js-await [eids ((:find-by-attr storage) :feature-override/organization-id org-id)
+             ovs  (pull-many+ storage eids '[*])]
+            (vec ovs)))
+
+(defn- feature-effective?
+  "A feature is on for an org iff the global master switch is on AND the per-org
+  override says on (or, absent an override, the feature's default)."
+  [feature override]
+  (boolean
+   (and (:feature/enabled feature)
+        (if override
+          (:feature-override/enabled override)
+          (:feature/default-on feature)))))
+
+(defn- handle-admin-list-features! [storage user]
+  (admin-guard user
+    (fn []
+      (js-await [_  (ensure-features-seeded! storage)
+                 fs (all-features storage)]
+                {:features fs}))))
+
+(defn- handle-admin-create-feature! [storage data user]
+  (admin-guard user
+    (fn []
+      (let [{:keys [key name description category default-on]} data
+            fkey (some-> key str str/trim)]
+        (if (str/blank? fkey)
+          {:error :invalid-key}
+          (js-await [existing ((:find-by-attr storage) :feature/key fkey)]
+                    (if (seq existing)
+                      {:error :duplicate-key}
+                      (js-await [{:keys [tx-id entity-ids]}
+                                 ((:transact! storage)
+                                  [{:db/type             "feature"
+                                    :feature/key         fkey
+                                    :feature/name        (or name fkey)
+                                    :feature/description (or description "")
+                                    :feature/category    (or category "module")
+                                    :feature/default-on  (if (some? default-on) (boolean default-on) true)
+                                    :feature/enabled     true
+                                    :feature/created-at  (.now js/Date)}] nil)]
+                                {:tx-id tx-id :feature-id (first entity-ids)}))))))))
+
+(defn- handle-admin-update-feature! [storage data user]
+  (admin-guard user
+    (fn []
+      (js-await [_ ((:transact! storage)
+                    [(cond-> {:db/id (:id data)}
+                       (some? (:name data))        (assoc :feature/name        (:name data))
+                       (some? (:description data)) (assoc :feature/description (:description data))
+                       (some? (:category data))    (assoc :feature/category    (:category data))
+                       (some? (:default-on data))  (assoc :feature/default-on  (boolean (:default-on data)))
+                       (some? (:enabled data))     (assoc :feature/enabled     (boolean (:enabled data))))] nil)]
+                {:ok true}))))
+
+(defn- handle-admin-delete-feature! [storage data user]
+  (admin-guard user
+    (fn []
+      (js-await [_ ((:transact! storage) [[:db/retractEntity (:id data)]] nil)]
+                {:ok true}))))
+
+(defn- handle-admin-list-org-features! [storage data user]
+  (admin-guard user
+    (fn []
+      (let [{:keys [email]} data]
+        (js-await [account-eids ((:find-by-attr storage) :account/email email)]
+                  (if-let [account-eid (first account-eids)]
+                    (js-await [membership (fetch-membership storage account-eid)]
+                              (if-not membership
+                                {:error :not-found}
+                                (let [org-id (:membership/organization-id membership)]
+                                  (js-await [_   (ensure-features-seeded! storage)
+                                             fs  (all-features storage)
+                                             ovs (org-feature-overrides storage org-id)]
+                                            (let [ov-by-key (into {} (map (fn [o] [(:feature-override/feature-key o) o]) ovs))]
+                                              {:email    email
+                                               :org-id   org-id
+                                               :features (mapv (fn [f]
+                                                                 (let [ov (get ov-by-key (:feature/key f))]
+                                                                   {:key         (:feature/key f)
+                                                                    :name        (:feature/name f)
+                                                                    :description (:feature/description f)
+                                                                    :category    (:feature/category f)
+                                                                    :default-on  (:feature/default-on f)
+                                                                    :enabled     (:feature/enabled f)
+                                                                    :override    (when ov (:feature-override/enabled ov))
+                                                                    :effective   (feature-effective? f ov)}))
+                                                               fs)})))))
+                    {:error :not-found}))))))
+
+(defn- handle-admin-set-org-feature! [storage data user]
+  (admin-guard user
+    (fn []
+      (let [{:keys [email feature-key enabled]} data]
+        (js-await [account-eids ((:find-by-attr storage) :account/email email)]
+                  (if-let [account-eid (first account-eids)]
+                    (js-await [membership (fetch-membership storage account-eid)]
+                              (if-not membership
+                                {:error :not-found}
+                                (let [org-id (:membership/organization-id membership)]
+                                  (js-await [eids ((:q storage) {:where [['?e :feature-override/organization-id org-id]
+                                                                         ['?e :feature-override/feature-key      feature-key]]})]
+                                            (let [existing-eid (first eids)]
+                                              (if (nil? enabled)
+                                                (if existing-eid
+                                                  (js-await [_ ((:excise! storage) existing-eid nil)] {:ok true})
+                                                  {:ok true})
+                                                (js-await [_ ((:transact! storage)
+                                                              [(cond-> {:db/type                          "feature-override"
+                                                                        :feature-override/organization-id org-id
+                                                                        :feature-override/feature-key     feature-key
+                                                                        :feature-override/enabled         (boolean enabled)}
+                                                                 existing-eid (assoc :db/id existing-eid))] nil)]
+                                                          {:ok true})))))))
+                    {:error :not-found}))))))
+
+(defn- handle-get-org-features! [storage user]
+  (with-org user
+    (fn [org-id]
+      (js-await [_   (ensure-features-seeded! storage)
+                 fs  (all-features storage)
+                 ovs (org-feature-overrides storage org-id)]
+                (let [ov-by-key (into {} (map (fn [o] [(:feature-override/feature-key o) o]) ovs))
+                      enabled   (->> fs
+                                     (filter (fn [f] (feature-effective? f (get ov-by-key (:feature/key f)))))
+                                     (mapv :feature/key))]
+                  {:features enabled})))))
+
 (defn- handle-admin-impersonate! [storage data user env]
   (admin-guard user
     (fn []
@@ -1898,6 +2081,13 @@
     :admin-update-question           (handle-admin-update-question! storage data user)
     :admin-delete-question           (handle-admin-delete-question! storage data user)
     :admin-impersonate               (handle-admin-impersonate! storage data user env)
+    :admin-list-features             (handle-admin-list-features! storage user)
+    :admin-create-feature            (handle-admin-create-feature! storage data user)
+    :admin-update-feature            (handle-admin-update-feature! storage data user)
+    :admin-delete-feature            (handle-admin-delete-feature! storage data user)
+    :admin-list-org-features         (handle-admin-list-org-features! storage data user)
+    :admin-set-org-feature           (handle-admin-set-org-feature! storage data user)
+    :get-org-features                (handle-get-org-features! storage user)
     :admin-export                    (handle-admin-export! storage data user)
     :admin-import                    (handle-admin-import! storage data user)
     :pause-trial                     (handle-pause-trial! storage user)

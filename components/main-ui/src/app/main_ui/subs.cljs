@@ -95,6 +95,36 @@
    (get-in db [:user :info :sections])))
 
 (re-frame/reg-sub
+ ::org-features
+ (fn [db _]
+   (get-in db [:features :enabled])))
+
+(re-frame/reg-sub
+ ::admin-features
+ (fn [db _]
+   (get-in db [:admin :features] [])))
+
+(re-frame/reg-sub
+ ::admin-features-loading?
+ (fn [db _]
+   (get-in db [:admin :features-loading?] false)))
+
+(re-frame/reg-sub
+ ::admin-org-features
+ (fn [db _]
+   (get-in db [:admin :org-features] [])))
+
+(re-frame/reg-sub
+ ::admin-org-features-loading?
+ (fn [db _]
+   (get-in db [:admin :org-features-loading?] false)))
+
+(re-frame/reg-sub
+ ::admin-org-features-email
+ (fn [db _]
+   (get-in db [:admin :org-features-email])))
+
+(re-frame/reg-sub
  ::org-users
  (fn [db _]
    (get-in db [:team :users] [])))

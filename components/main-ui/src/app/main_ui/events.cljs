@@ -205,6 +205,117 @@
    {:dispatch [::load-survey-questions]}))
 
 ;; ---------------------------------------------------------------------------
+;; Feature flags
+;; ---------------------------------------------------------------------------
+
+;; Current org's effective-enabled feature keys — used to gate the app.
+(re-frame/reg-event-fx
+ ::load-org-features
+ (fn [{:keys [_db]} _]
+   {:dispatch [::core-events/query
+               {:entity :org-features}
+               [::org-features-loaded]
+               [::org-features-error]]}))
+
+(re-frame/reg-event-db
+ ::org-features-loaded
+ [local-storage-interceptor]
+ (fn [db [_ response]]
+   (assoc-in db [:features :enabled] (:features response))))
+
+(re-frame/reg-event-db
+ ::org-features-error
+ (fn [db [_ _error]]
+   db))
+
+;; Super-admin: global feature catalog
+(re-frame/reg-event-fx
+ ::load-admin-features
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:admin :features-loading?] true)
+    :dispatch [::core-events/query
+               {:entity :admin-features}
+               [::admin-features-loaded]
+               [::admin-features-error]]}))
+
+(re-frame/reg-event-db
+ ::admin-features-loaded
+ (fn [db [_ response]]
+   (-> db
+       (assoc-in [:admin :features] (:features response))
+       (assoc-in [:admin :features-loading?] false))))
+
+(re-frame/reg-event-db
+ ::admin-features-error
+ (fn [db [_ _error]]
+   (assoc-in db [:admin :features-loading?] false)))
+
+(re-frame/reg-event-fx
+ ::admin-features-mutated
+ (fn [{:keys [_db]} _]
+   {:dispatch [::load-admin-features]}))
+
+(re-frame/reg-event-fx
+ ::admin-create-feature
+ (fn [{:keys [_db]} [_ data]]
+   {:dispatch [::core-events/command
+               :admin-create-feature
+               data
+               [::admin-features-mutated]
+               [::admin-features-error]]}))
+
+(re-frame/reg-event-fx
+ ::admin-update-feature
+ (fn [{:keys [_db]} [_ id data]]
+   {:dispatch [::core-events/command
+               :admin-update-feature
+               (assoc data :id id)
+               [::admin-features-mutated]
+               [::admin-features-error]]}))
+
+(re-frame/reg-event-fx
+ ::admin-delete-feature
+ (fn [{:keys [_db]} [_ id]]
+   {:dispatch [::core-events/command
+               :admin-delete-feature
+               {:id id}
+               [::admin-features-mutated]
+               [::admin-features-error]]}))
+
+;; Super-admin: per-organization overrides for one user's org
+(re-frame/reg-event-fx
+ ::load-org-feature-overrides
+ (fn [{:keys [db]} [_ email]]
+   {:db       (-> db
+                  (assoc-in [:admin :org-features-loading?] true)
+                  (assoc-in [:admin :org-features-email] email))
+    :dispatch [::core-events/query
+               {:entity :admin-org-features :email email}
+               [::org-feature-overrides-loaded]
+               [::org-feature-overrides-error]]}))
+
+(re-frame/reg-event-db
+ ::org-feature-overrides-loaded
+ (fn [db [_ response]]
+   (-> db
+       (assoc-in [:admin :org-features] (:features response))
+       (assoc-in [:admin :org-features-loading?] false))))
+
+(re-frame/reg-event-db
+ ::org-feature-overrides-error
+ (fn [db [_ _error]]
+   (assoc-in db [:admin :org-features-loading?] false)))
+
+(re-frame/reg-event-fx
+ ::admin-set-org-feature
+ (fn [{:keys [_db]} [_ email feature-key enabled]]
+   {:dispatch [::core-events/command
+               :admin-set-org-feature
+               {:email email :feature-key feature-key :enabled enabled}
+               [::load-org-feature-overrides email]
+               [::org-feature-overrides-error]]}))
+
+;; ---------------------------------------------------------------------------
 ;; Impersonation
 ;; ---------------------------------------------------------------------------
 
