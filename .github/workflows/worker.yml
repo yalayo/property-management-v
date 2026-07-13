@@ -37,9 +37,17 @@ jobs:
       - name: Install dependencies
         run: cd projects/cloudflare && npm ci
 
+      # Unit, integration and system (fugato) tests — see TESTING.md.
+      # Compiles the :test build and runs it on Node; exits non-zero on any
+      # failure, so a red suite blocks the build and deploy below.
+      - name: Run tests (unit, integration, system)
+        run: |
+          cd projects/cloudflare
+          npm test
+
       - name: Build application
         run: |
-          cd projects/cloudflare 
+          cd projects/cloudflare
           npm run release
 
       - name: Inject DATABASE_ID into wrangler.toml
