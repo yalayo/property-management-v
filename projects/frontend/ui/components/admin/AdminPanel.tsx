@@ -40,20 +40,24 @@ type AdminUser = {
   trial?: TrialInfo;
 };
 
+// Flat shape (clj->js drops keyword namespaces — see Feature above).
 type SurveyQuestion = {
-  "db/id": string | number;
-  "question/text": string;
-  "question/order": number;
+  id: string | number;
+  text: string;
+  order: number;
 };
 
+// Flat shape supplied by views.cljs (clj->js drops keyword namespaces, so the
+// backend's namespaced entity keys are projected to plain keys before crossing
+// the boundary).
 type Feature = {
-  "db/id": string | number;
-  "feature/key": string;
-  "feature/name": string;
-  "feature/description"?: string;
-  "feature/category"?: string;
-  "feature/default-on"?: boolean;
-  "feature/enabled"?: boolean;
+  id: string | number;
+  key: string;
+  name: string;
+  description?: string;
+  category?: string;
+  "default-on"?: boolean;
+  enabled?: boolean;
 };
 
 // Per-organization resolution of a feature (returned for the overrides dialog).
@@ -193,12 +197,12 @@ function FeatureManagementCard({
   };
 
   const startEdit = (f: Feature) => {
-    setEditingId(f["db/id"]);
+    setEditingId(f.id);
     setEditForm({
-      name: f["feature/name"] ?? "",
-      description: f["feature/description"] ?? "",
-      category: f["feature/category"] ?? "module",
-      defaultOn: f["feature/default-on"] !== false,
+      name: f.name ?? "",
+      description: f.description ?? "",
+      category: f.category ?? "module",
+      defaultOn: f["default-on"] !== false,
     });
   };
   const saveEdit = () => {
@@ -208,8 +212,8 @@ function FeatureManagementCard({
   };
 
   const sorted = [...features].sort((a, b) =>
-    (a["feature/category"] ?? "").localeCompare(b["feature/category"] ?? "") ||
-    (a["feature/name"] ?? "").localeCompare(b["feature/name"] ?? "")
+    (a.category ?? "").localeCompare(b.category ?? "") ||
+    (a.name ?? "").localeCompare(b.name ?? "")
   );
 
   return (
@@ -244,11 +248,11 @@ function FeatureManagementCard({
         ) : (
           <div className="space-y-2">
             {sorted.map((f) => {
-              const enabled = f["feature/enabled"] !== false;
-              const defaultOn = f["feature/default-on"] !== false;
-              const isEditing = editingId === f["db/id"];
+              const enabled = f.enabled !== false;
+              const defaultOn = f["default-on"] !== false;
+              const isEditing = editingId === f.id;
               return (
-                <div key={f["db/id"]} className="rounded-lg border border-amber-100 bg-white px-3 py-2">
+                <div key={f.id} className="rounded-lg border border-amber-100 bg-white px-3 py-2">
                   {isEditing ? (
                     <div className="space-y-2">
                       <div className="grid grid-cols-2 gap-2">
@@ -274,26 +278,26 @@ function FeatureManagementCard({
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-medium truncate">{f["feature/name"]}</p>
-                          <code className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{f["feature/key"]}</code>
-                          <Badge variant="secondary" className="text-[10px]">{f["feature/category"] ?? "module"}</Badge>
+                          <p className="text-sm font-medium truncate">{f.name || f.key}</p>
+                          <code className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{f.key}</code>
+                          <Badge variant="secondary" className="text-[10px]">{f.category ?? "module"}</Badge>
                           <Badge variant="outline" className={`text-[10px] ${defaultOn ? "text-green-700 border-green-300" : "text-slate-500"}`}>
                             default {defaultOn ? "on" : "off"}
                           </Badge>
                         </div>
-                        {f["feature/description"] && <p className="text-xs text-muted-foreground truncate mt-0.5">{f["feature/description"]}</p>}
+                        {f.description && <p className="text-xs text-muted-foreground truncate mt-0.5">{f.description}</p>}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <Button
                           variant="outline"
                           size="sm"
                           className={`h-7 text-xs ${enabled ? "border-green-300 text-green-700 hover:bg-green-50" : "border-slate-300 text-slate-500 hover:bg-slate-50"}`}
-                          onClick={() => onUpdate?.(f["db/id"], { enabled: !enabled })}
+                          onClick={() => onUpdate?.(f.id, { enabled: !enabled })}
                         >
                           {enabled ? "Enabled" : "Disabled"}
                         </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEdit(f)}><Pencil className="h-3.5 w-3.5 text-amber-600" /></Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDelete?.(f["db/id"])}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDelete?.(f.id)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                       </div>
                     </div>
                   )}
@@ -479,8 +483,8 @@ export default function AdminPanel({
   };
 
   const handleStartEdit = (q: SurveyQuestion) => {
-    setEditingId(q["db/id"]);
-    setEditingText(q["question/text"]);
+    setEditingId(q.id);
+    setEditingText(q.text);
   };
 
   const handleSaveEdit = () => {
@@ -514,14 +518,14 @@ export default function AdminPanel({
   };
 
   const sortedQuestions = [...questions].sort(
-    (a, b) => (a["question/order"] ?? 0) - (b["question/order"] ?? 0)
+    (a, b) => (a.order ?? 0) - (b.order ?? 0)
   );
 
   // Module gates driven by the global feature catalog's master switch.
   // Unknown/not-yet-loaded features count as enabled.
   const moduleEnabled = (key: string): boolean => {
-    const f = features.find((x) => x["feature/key"] === key);
-    return f ? f["feature/enabled"] !== false : true;
+    const f = features.find((x) => x.key === key);
+    return f ? f.enabled !== false : true;
   };
 
   const historyUser = users.find((u) => u.email === historyEmail);
@@ -567,25 +571,29 @@ export default function AdminPanel({
               {users.map((u) => (
                 <div
                   key={u.id}
-                  className="flex items-center justify-between rounded-lg border border-amber-100 bg-white px-3 py-2"
+                  className="rounded-lg border border-amber-100 bg-white px-3 py-2.5"
                 >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">{u.email}</p>
-                    {u.name && (
-                      <p className="text-xs text-muted-foreground truncate">{u.name}</p>
-                    )}
+                  {/* Identity + status */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{u.email}</p>
+                      {u.name && (
+                        <p className="text-xs text-muted-foreground truncate">{u.name}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge
+                        variant={u.plan ? "default" : "secondary"}
+                        className="text-xs font-mono"
+                      >
+                        {u.plan ? planLabel(u.plan) : "no plan"}
+                      </Badge>
+                      {!u.plan && <TrialStatusBadge trial={u.trial} />}
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0 ml-3 flex-wrap justify-end">
-                    <Badge
-                      variant={u.plan ? "default" : "secondary"}
-                      className="text-xs font-mono"
-                    >
-                      {u.plan ? planLabel(u.plan) : "no plan"}
-                    </Badge>
-
-                    {!u.plan && <TrialStatusBadge trial={u.trial} />}
-
+                  {/* Actions */}
+                  <div className="flex items-center gap-1.5 flex-wrap mt-2">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -758,12 +766,12 @@ export default function AdminPanel({
             <div className="space-y-2">
               {sortedQuestions.map((q, idx) => (
                 <div
-                  key={q["db/id"]}
+                  key={q.id}
                   className="flex items-center gap-2 rounded-lg border border-amber-100 bg-white px-3 py-2"
                 >
                   <span className="text-xs text-muted-foreground w-5 shrink-0">{idx + 1}.</span>
 
-                  {editingId === q["db/id"] ? (
+                  {editingId === q.id ? (
                     <>
                       <Input
                         className="h-7 text-sm flex-1"
@@ -784,7 +792,7 @@ export default function AdminPanel({
                     </>
                   ) : (
                     <>
-                      <p className="text-sm flex-1 min-w-0 truncate">{q["question/text"]}</p>
+                      <p className="text-sm flex-1 min-w-0 truncate">{q.text}</p>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -797,7 +805,7 @@ export default function AdminPanel({
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 shrink-0"
-                        onClick={() => onDeleteQuestion?.(q["db/id"])}
+                        onClick={() => onDeleteQuestion?.(q.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5 text-destructive" />
                       </Button>

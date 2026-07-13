@@ -882,7 +882,18 @@
                                                          (re-frame/dispatch [::events/admin-resume-trial email]))
                                     :onExtendUserTrial (fn [email extra-days]
                                                          (re-frame/dispatch [::events/admin-extend-trial email extra-days]))
-                                    :features            (clj->js admin-features)
+                                    ;; flatten namespaced entity keys — clj->js drops
+                                    ;; keyword namespaces, so pass explicit flat maps
+                                    :features            (clj->js
+                                                          (mapv (fn [f]
+                                                                  {:id          (:db/id f)
+                                                                   :key         (:feature/key f)
+                                                                   :name        (:feature/name f)
+                                                                   :description (:feature/description f)
+                                                                   :category    (:feature/category f)
+                                                                   :default-on  (:feature/default-on f)
+                                                                   :enabled     (:feature/enabled f)})
+                                                                admin-features))
                                     :featuresLoading     admin-features-loading?
                                     :onLoadFeatures      #(re-frame/dispatch [::events/load-admin-features])
                                     :onCreateFeature     (fn [data]
