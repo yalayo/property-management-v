@@ -95,6 +95,11 @@
    (get-in db [:user :info :sections])))
 
 (re-frame/reg-sub
+ ::admin-password-status
+ (fn [db _]
+   (get-in db [:admin :password-status])))
+
+(re-frame/reg-sub
  ::org-features
  (fn [db _]
    (get-in db [:features :enabled])))

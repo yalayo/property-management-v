@@ -81,6 +81,12 @@ backend and resolves everything with `js/Promise`:
   suite for the minimal shape).
 - Everything is async: wrap assertions in cljs.test's `(async done …)` and
   chain with `.then` / `.catch`; **always call `done` exactly once**.
+- `dispatch` does **not** always return a promise — synchronous validation
+  errors and guard rejections (e.g. `{:error :password-too-short}`,
+  `{:error :forbidden}`) come back as plain maps. Wrap the call in
+  `(js/Promise.resolve (controller/dispatch …))` before `.then`. (And don't pass
+  a bare keyword as a `.then` callback — JS ignores non-function `onFulfilled`
+  and silently passes the value through; use `(fn [x] (:k x))`.)
 - `dispatch` goes through the real trial gate and feature gate — ideal for
   testing authorization behaviour (e.g. `{:error :feature-disabled}`).
 - Handlers that need the o'doyle rules engine (`core` argument — most

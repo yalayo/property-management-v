@@ -151,6 +151,36 @@
                [::admin-set-plan-ok email tier]
                [::admin-set-plan-error]]}))
 
+;; ── Super-admin: reset a user's password ─────────────────────────────────────
+
+(re-frame/reg-event-fx
+ ::admin-set-password
+ (fn [{:keys [db]} [_ email password]]
+   {:db       (assoc-in db [:admin :password-status] {:email email :state :saving})
+    :dispatch [::core-events/command
+               :admin-set-password
+               {:email email :password password}
+               [::admin-set-password-ok email]
+               [::admin-set-password-error email]]}))
+
+(re-frame/reg-event-db
+ ::admin-set-password-ok
+ (fn [db [_ email _response]]
+   (assoc-in db [:admin :password-status] {:email email :state :success})))
+
+(re-frame/reg-event-db
+ ::admin-set-password-error
+ (fn [db [_ email error]]
+   (assoc-in db [:admin :password-status]
+             {:email email
+              :state :error
+              :error (or (get-in error [:response :error]) :unknown)})))
+
+(re-frame/reg-event-db
+ ::admin-clear-password-status
+ (fn [db _]
+   (update db :admin dissoc :password-status)))
+
 (re-frame/reg-event-fx
  ::load-survey-questions
  (fn [{:keys [db]} _]

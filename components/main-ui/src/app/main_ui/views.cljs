@@ -113,6 +113,7 @@
         admin-features-loading? @(re-frame/subscribe [::subs/admin-features-loading?])
         admin-org-features   @(re-frame/subscribe [::subs/admin-org-features])
         admin-org-features-loading? @(re-frame/subscribe [::subs/admin-org-features-loading?])
+        admin-password-status @(re-frame/subscribe [::subs/admin-password-status])
         impersonated-email   @(re-frame/subscribe [::subs/impersonated-user-email])
         tax-configs          @(re-frame/subscribe [::tax-subs/tax-configs])
         tax-loans            @(re-frame/subscribe [::tax-subs/loans])
@@ -859,6 +860,10 @@
                                     :onLoad           #(re-frame/dispatch [::events/load-admin-users])
                                     :onSetPlan        (fn [email tier]
                                                         (re-frame/dispatch [::events/admin-set-plan email tier]))
+                                    :passwordStatus   (clj->js admin-password-status)
+                                    :onSetPassword    (fn [email password]
+                                                        (re-frame/dispatch [::events/admin-set-password email password]))
+                                    :onClearPasswordStatus #(re-frame/dispatch [::events/admin-clear-password-status])
                                     :onImpersonate    (fn [email]
                                                         (re-frame/dispatch [::events/admin-impersonate-user email]))
                                     :questions        (clj->js survey-questions)

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Shield, RefreshCw, ChevronDown, Plus, Pencil, Trash2, Check, X, UserCheck, Download, Upload, Loader2, Pause, Play, History, Clock, AlertTriangle, Flag, Settings2, Save } from "lucide-react";
+import { Shield, RefreshCw, ChevronDown, Plus, Pencil, Trash2, Check, X, UserCheck, Download, Upload, Loader2, Pause, Play, History, Clock, AlertTriangle, Flag, Settings2, Save, KeyRound } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
@@ -77,6 +77,9 @@ type Props = {
   isLoading?: boolean;
   onLoad?: () => void;
   onSetPlan?: (email: string, tier: string) => void;
+  onSetPassword?: (email: string, password: string) => void;
+  passwordStatus?: { email?: string; state?: "saving" | "success" | "error"; error?: string } | null;
+  onClearPasswordStatus?: () => void;
   onImpersonate?: (email: string) => void;
   questions?: SurveyQuestion[];
   questionsLoading?: boolean;
@@ -422,11 +425,102 @@ function FeatureOverridesDialog({
   );
 }
 
+function PasswordDialog({
+  email,
+  status,
+  open,
+  onClose,
+  onSave,
+}: {
+  email: string;
+  status?: { email?: string; state?: "saving" | "success" | "error"; error?: string } | null;
+  open: boolean;
+  onClose: () => void;
+  onSave: (email: string, password: string) => void;
+}) {
+  const [pw, setPw] = useState("");
+  const [confirm, setConfirm] = useState("");
+  useEffect(() => { if (open) { setPw(""); setConfirm(""); } }, [open]);
+
+  const active = status && status.email === email ? status : undefined;
+  const saving = active?.state === "saving";
+  const success = active?.state === "success";
+  const serverError = active?.state === "error" ? active.error : undefined;
+
+  const tooShort = pw.length > 0 && pw.length < 8;
+  const mismatch = confirm.length > 0 && pw !== confirm;
+  const valid = pw.length >= 8 && pw === confirm;
+
+  const serverErrorText =
+    serverError === "password-too-short" ? "Minimum 8 characters."
+    : serverError === "not-found" ? "User not found."
+    : serverError ? "Could not update password." : null;
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-sm font-semibold flex items-center gap-2">
+            <KeyRound className="h-4 w-4 text-amber-600" />
+            Reset password
+          </DialogTitle>
+          <DialogDescription className="text-xs">{email}</DialogDescription>
+        </DialogHeader>
+
+        {success ? (
+          <div className="py-4 text-sm text-green-700 flex items-center gap-2">
+            <Check className="h-4 w-4" />
+            Password updated. Share it with the user over a secure channel.
+          </div>
+        ) : (
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">New password</label>
+              <Input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="••••••••" autoFocus />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Confirm password</label>
+              <Input
+                type="password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                placeholder="••••••••"
+                onKeyDown={(e) => { if (e.key === "Enter" && valid && !saving) onSave(email, pw); }}
+              />
+            </div>
+            {tooShort && <p className="text-xs text-destructive">Minimum 8 characters.</p>}
+            {mismatch && <p className="text-xs text-destructive">Passwords do not match.</p>}
+            {serverErrorText && <p className="text-xs text-destructive">{serverErrorText}</p>}
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={onClose}>{success ? "Close" : "Cancel"}</Button>
+          {!success && (
+            <Button
+              size="sm"
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              disabled={!valid || saving}
+              onClick={() => onSave(email, pw)}
+            >
+              {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : null}
+              Set password
+            </Button>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function AdminPanel({
   users = [],
   isLoading = false,
   onLoad,
   onSetPlan,
+  onSetPassword,
+  passwordStatus,
+  onClearPasswordStatus,
   onImpersonate,
   questions = [],
   questionsLoading = false,
@@ -454,6 +548,7 @@ export default function AdminPanel({
 }: Props) {
   const [setting, setSetting] = useState<string | null>(null);
   const [featuresEmail, setFeaturesEmail] = useState<string | null>(null);
+  const [passwordEmail, setPasswordEmail] = useState<string | null>(null);
   const [extendEmail, setExtendEmail] = useState<string | null>(null);
   const [extendDays, setExtendDays] = useState("7");
   const [newQuestionText, setNewQuestionText] = useState("");
@@ -716,6 +811,16 @@ export default function AdminPanel({
                       Features
                     </Button>
 
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs border-slate-300 text-slate-600 hover:bg-slate-100"
+                      onClick={() => { onClearPasswordStatus?.(); setPasswordEmail(u.email); }}
+                    >
+                      <KeyRound className="h-3.5 w-3.5 mr-1" />
+                      Password
+                    </Button>
+
                     {moduleEnabled("impersonation") && (
                       <Button
                         variant="outline"
@@ -935,6 +1040,16 @@ export default function AdminPanel({
           onClose={() => setFeaturesEmail(null)}
           onLoad={onLoadOrgFeatures}
           onSet={onSetOrgFeature}
+        />
+      )}
+
+      {passwordEmail && (
+        <PasswordDialog
+          email={passwordEmail}
+          status={passwordStatus}
+          open={!!passwordEmail}
+          onClose={() => { setPasswordEmail(null); onClearPasswordStatus?.(); }}
+          onSave={(email, pw) => onSetPassword?.(email, pw)}
         />
       )}
     </div>

@@ -1680,6 +1680,24 @@
                                 {:error :not-found}))
                     {:error :not-found}))))))
 
+(defn- handle-admin-set-password! [storage data user env]
+  (admin-guard user
+    (fn []
+      (let [{:keys [email password]} data]
+        (cond
+          (or (nil? password) (< (count password) 8))
+          {:error :password-too-short}
+
+          :else
+          (js-await [eids ((:find-by-attr storage) :account/email email)]
+                    (if-let [account-eid (first eids)]
+                      (js-await [hashed (hash-password password (aget env "JWT_SECRET"))
+                                 _      ((:transact! storage)
+                                         [{:db/id            account-eid
+                                           :account/password hashed}] nil)]
+                                {:ok true :email email})
+                      {:error :not-found})))))))
+
 (defn- handle-admin-create-question! [storage data user]
   (admin-guard user
     (fn []
@@ -2050,6 +2068,7 @@
     :delete-org-user                 (handle-delete-org-user! storage data user)
     :admin-list-users                (handle-admin-list-users! storage user)
     :admin-set-plan                  (handle-admin-set-plan! storage data user)
+    :admin-set-password              (handle-admin-set-password! storage data user env)
     :admin-create-question           (handle-admin-create-question! storage data user)
     :admin-update-question           (handle-admin-update-question! storage data user)
     :admin-delete-question           (handle-admin-delete-question! storage data user)
