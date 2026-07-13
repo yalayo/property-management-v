@@ -488,13 +488,18 @@ export default function Dashboard(props) {
           )}
           {activeTab === "overview" && (
             <div className="space-y-6">
+              {/* Current year — keep this year's data (esp. rent + garage
+                  payments for elapsed months) up to date. */}
               <PendingTasksWidget
+                year={new Date().getFullYear()}
                 properties={props.properties}
                 apartments={props.apartments}
                 tenants={props.tenants}
                 allCosts={props.allCosts}
                 allAptCosts={props.allAptCosts}
                 allRentPayments={props.allRentPayments}
+                garages={props.garages}
+                garagePayments={props.garagePayments}
                 taxConfigs={props.taxConfigs}
                 loans={props.taxLoans}
                 expenseTypes={props.expenseTypes}
@@ -503,6 +508,32 @@ export default function Dashboard(props) {
                 onEditProperty={props.onEditProperty}
                 onAddRentPayment={props.onAddRentPayment}
                 onAddRentPayments={props.onAddRentPayments}
+                onAddGaragePayments={props.onAddGaragePayments}
+                onUpdateApartment={props.onUpdateApartment}
+                onAddCost={props.onAddCost}
+                onAddAptCost={props.onAddAptCost}
+                onUpdateAptCost={props.onUpdateAptCost}
+                onUpdateTenant={props.onUpdateTenant}
+              />
+              {/* Previous year — Anlage V / Nebenkosten preparation. */}
+              <PendingTasksWidget
+                properties={props.properties}
+                apartments={props.apartments}
+                tenants={props.tenants}
+                allCosts={props.allCosts}
+                allAptCosts={props.allAptCosts}
+                allRentPayments={props.allRentPayments}
+                garages={props.garages}
+                garagePayments={props.garagePayments}
+                taxConfigs={props.taxConfigs}
+                loans={props.taxLoans}
+                expenseTypes={props.expenseTypes}
+                trialPaused={props.trialInfo?.status === "paused"}
+                onNavigate={(tab, ctx) => handleSelect(tab, ctx)}
+                onEditProperty={props.onEditProperty}
+                onAddRentPayment={props.onAddRentPayment}
+                onAddRentPayments={props.onAddRentPayments}
+                onAddGaragePayments={props.onAddGaragePayments}
                 onUpdateApartment={props.onUpdateApartment}
                 onAddCost={props.onAddCost}
                 onAddAptCost={props.onAddAptCost}

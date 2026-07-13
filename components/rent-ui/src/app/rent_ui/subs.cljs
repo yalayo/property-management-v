@@ -17,6 +17,16 @@
    (get-in db [:rent-payments :saving?] false)))
 
 (re-frame/reg-sub
+ ::garage-payments
+ (fn [db _]
+   (get-in db [:garage-payments :list] [])))
+
+(re-frame/reg-sub
+ ::garage-payments-saving?
+ (fn [db _]
+   (get-in db [:garage-payments :saving?] false)))
+
+(re-frame/reg-sub
  ::tenant-mieten
  (fn [db _]
    (get-in db [:tenant-mieten :list] [])))

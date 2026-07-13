@@ -69,6 +69,8 @@
    :delete-garage                  "section-apartments"
    :assign-tenant-to-garage        "section-apartments"
    :unassign-tenant-from-garage    "section-apartments"
+   :create-garage-payment          "section-apartments"
+   :delete-garage-payment          "section-apartments"
    :create-rent-payment            "section-apartments"
    :update-rent-payment            "section-apartments"
    :delete-rent-payment            "section-apartments"

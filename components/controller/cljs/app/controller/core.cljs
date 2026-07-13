@@ -55,7 +55,7 @@
     :create-tenant        :assign-tenant-to-apartment
     :create-rent-payment  :create-apartment-cost    :create-cost
     :create-expense-type  :upsert-tenant-miete
-    :create-garage        :assign-tenant-to-garage
+    :create-garage        :assign-tenant-to-garage  :create-garage-payment
     :upsert-property-tax-config
     :create-property-loan :create-property-maintenance
     :create-bank-account})
@@ -1263,6 +1263,47 @@
                     (js-await [_ ((:excise! storage) eid nil)]
                               {:ok true})))))))
 
+;; ---------------------------------------------------------------------------
+;; Garage payment handlers — monthly rent actually received for a garage,
+;; mirrors rent-payment but keyed by garage-id.
+;; ---------------------------------------------------------------------------
+
+(defn- handle-get-all-garage-payments! [storage user]
+  (with-org user
+    (fn [org-id]
+      (js-await [eids     ((:find-by-attr storage) :garage-payment/organization-id org-id)
+                 payments (pull-many+ storage eids '[*])]
+                {:garage-payments payments}))))
+
+(defn- handle-create-garage-payment! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [{:keys [garage-id year month value date description]} data]
+        (js-await [garage ((:pull storage) garage-id '*)]
+                  (if (not= (:garage/organization-id garage) org-id)
+                    {:error :not-found}
+                    (js-await [{:keys [tx-id entity-ids]}
+                               ((:transact! storage)
+                                [(cond-> {:db/type                        "garage-payment"
+                                          :garage-payment/organization-id org-id
+                                          :garage-payment/garage-id       garage-id
+                                          :garage-payment/year            year
+                                          :garage-payment/month           month
+                                          :garage-payment/value           value}
+                                   (some? date)        (assoc :garage-payment/date date)
+                                   (some? description) (assoc :garage-payment/description description))] nil)]
+                              {:tx-id tx-id :garage-payment-id (first entity-ids)})))))))
+
+(defn- handle-delete-garage-payment! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [eid (:id data)]
+        (js-await [entity ((:pull storage) eid '*)]
+                  (if (not= (:garage-payment/organization-id entity) org-id)
+                    {:error :not-found}
+                    (js-await [_ ((:excise! storage) eid nil)]
+                              {:ok true})))))))
+
 (defn- handle-assign-tenant-to-apartment! [storage data user]
   (with-org user
     (fn [org-id]
@@ -2061,6 +2102,9 @@
     :delete-garage                   (handle-delete-garage! storage data user)
     :assign-tenant-to-garage         (handle-assign-tenant-to-garage! storage data user)
     :unassign-tenant-from-garage     (handle-unassign-tenant-from-garage! storage data user)
+    :get-all-garage-payments         (handle-get-all-garage-payments! storage user)
+    :create-garage-payment           (handle-create-garage-payment! storage data user)
+    :delete-garage-payment           (handle-delete-garage-payment! storage data user)
     :activate-plan                   (handle-activate-plan! storage data user)
     :list-org-users                  (handle-list-org-users! storage user)
     :create-org-user                 (handle-create-org-user! storage data user env)

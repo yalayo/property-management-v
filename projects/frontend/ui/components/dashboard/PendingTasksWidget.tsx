@@ -25,6 +25,12 @@ type Task = {
   aptTab?: string;
   tenantId?: string;
   tenantName?: string;
+  garageId?: string;
+  garageCode?: string;
+  garageRent?: number;
+  /** Tenant's actual Kaltmiete — shown as a *contrast* reference in the market-rent
+   *  modal. Deliberately NOT used as the value: the §21(2) test compares the two. */
+  actualKaltmiete?: number;
   navigateTo: "properties" | "abrechnung" | "apartments" | "tax";
   priority: number;
   missingMonths?: number[];
@@ -49,6 +55,8 @@ type Props = {
   allCosts?: any[];
   allAptCosts?: any[];
   allRentPayments?: any[];
+  garages?: any[];
+  garagePayments?: any[];
   taxConfigs?: any[];
   expenseTypes?: any[];
   loans?: any[];
@@ -56,6 +64,7 @@ type Props = {
   isLoading?: boolean;
   trialPaused?: boolean;
   onNavigate?: (tab: string, context?: NavContext) => void;
+  onAddGaragePayments?: (data: { garageId: string; year: number; payments: { month: number; value: number }[] }) => void;
   onEditProperty?: (id: string, data: Record<string, any>) => void;
   onUpdateApartment?: (aptId: string, data: Record<string, any>) => void;
   onAddRentPayment?: (data: { apartmentId: string; year: number; month: number; kaltmiete: number; nebenkostenWarm: number }) => void;
@@ -82,6 +91,7 @@ const MODAL_TYPES = new Set([
   "missing-year-built",
   "missing-usage",
   "missing-market-rent",
+  "missing-garage-payments",
   "missing-tenant-startdate",
   "missing-tenant-miete",
   "missing-tenant-personenzahl",
@@ -110,13 +120,19 @@ function etName(et: any, lang = "de"): string {
 // ── Task computation ──────────────────────────────────────────────────────────
 
 function computeTasks(
-  { properties, apartments, tenants, allCosts, allAptCosts, allRentPayments, taxConfigs }: Required<
-    Pick<Props, "properties" | "apartments" | "tenants" | "allCosts" | "allAptCosts" | "allRentPayments" | "taxConfigs">
+  { properties, apartments, tenants, allCosts, allAptCosts, allRentPayments, garages, garagePayments, taxConfigs }: Required<
+    Pick<Props, "properties" | "apartments" | "tenants" | "allCosts" | "allAptCosts" | "allRentPayments" | "garages" | "garagePayments" | "taxConfigs">
   >,
   year: number
 ): TasksResult {
   const tasks: Task[] = [];
   let totalChecks = 0, passedChecks = 0;
+
+  // Payments can only be expected for months that have already fully elapsed.
+  // For the current year that means Jan..(current month - 1); for past years the
+  // whole year. In January of the current year nothing is due yet (maxMonth 0).
+  const now = new Date();
+  const maxPaidMonth = year === now.getFullYear() ? now.getMonth() : 12;
 
   function check(passing: boolean, task: Task) {
     totalChecks++;
@@ -177,24 +193,36 @@ function computeTasks(
 
       // Steuer: comparable (ortsübliche) rent for the §21(2) 66% check — only
       // meaningful for rented units, which is why it sits after the tenant gate.
+      // This is the LOCAL COMPARABLE rent (Mietspiegel), NOT the tenant's rent:
+      // §21(2) compares the tenant's actual Kaltmiete *against* it, so deriving
+      // one from the other would pin the ratio at 100% and disable the check.
+      const aptActualKalt = aptTenants.reduce(
+        (s, t) => s + (t.kaltmiete != null ? parseFloat(String(t.kaltmiete)) || 0 : 0), 0);
       check(apt["market-rent"] != null && apt["market-rent"] !== "", {
         id: `steuer-${aptId}-market-rent`, category: "steuer", type: "missing-market-rent",
         propertyId: propId, propertyName: propName, aptCode, aptId, aptTab: "info",
+        actualKaltmiete: aptActualKalt > 0 ? aptActualKalt : undefined,
         navigateTo: "apartments", priority: 27,
       });
 
-      // Rent payments
+      // Rent payments — only for months that have already elapsed
       const activeMonths = new Set<number>();
-      for (const t of aptTenants) for (const m of tenantActiveMonths(t, year)) activeMonths.add(m);
+      for (const t of aptTenants) {
+        for (const m of tenantActiveMonths(t, year)) {
+          if (m <= maxPaidMonth) activeMonths.add(m);
+        }
+      }
       const paidMonths = new Set<number>(
         allRentPayments.filter(p => String(p["apartment-id"]) === aptId && Number(p.year) === year).map(p => Number(p.month))
       );
       const missingMonths = [...activeMonths].filter(m => !paidMonths.has(m)).sort((a, b) => a - b);
-      check(missingMonths.length === 0, {
-        id: `nk-${aptId}-rent-${year}`, category: "nebenkosten", type: "missing-rent-payments",
-        propertyId: propId, propertyName: propName, aptCode, aptId, aptTab: "rent",
-        navigateTo: "apartments", priority: 11, missingMonths,
-      });
+      if (activeMonths.size > 0) {
+        check(missingMonths.length === 0, {
+          id: `nk-${aptId}-rent-${year}`, category: "nebenkosten", type: "missing-rent-payments",
+          propertyId: propId, propertyName: propName, aptCode, aptId, aptTab: "rent",
+          navigateTo: "apartments", priority: 11, missingMonths,
+        });
+      }
 
       // Cost allocation — modal when property costs exist, navigate otherwise
       const aptCostType = hasPropertyCosts ? "missing-apt-allocation" : "missing-apt-costs";
@@ -215,6 +243,31 @@ function computeTasks(
         id: `nk-${aptId}-aptcosts-${year}`, category: "nebenkosten", type: aptCostType,
         propertyId: propId, propertyName: propName, aptCode, aptId, aptTab: "costs",
         navigateTo: "apartments", priority: 12,
+      });
+    }
+
+    // Garage rent payments — for rented garages with a monthly rent, every
+    // elapsed month of the year needs a recorded payment.
+    for (const garage of garages.filter(g => String(g["property-id"]) === propId)) {
+      const garageId   = String(garage.id);
+      const garageCode = garage.code || garageId;
+      const rent       = garage["monthly-rent"] != null ? parseFloat(String(garage["monthly-rent"])) : 0;
+      const rented     = !!garage["tenant-id"] || !!garage.occupied;
+      if (!rented || !(rent > 0) || maxPaidMonth < 1) continue;
+
+      const paid = new Set<number>(
+        garagePayments
+          .filter(p => String(p["garage-id"]) === garageId && Number(p.year) === year)
+          .map(p => Number(p.month))
+      );
+      const missing: number[] = [];
+      for (let m = 1; m <= maxPaidMonth; m++) if (!paid.has(m)) missing.push(m);
+
+      check(missing.length === 0, {
+        id: `nk-${garageId}-garage-rent-${year}`, category: "nebenkosten", type: "missing-garage-payments",
+        propertyId: propId, propertyName: propName,
+        garageId, garageCode, garageRent: rent,
+        navigateTo: "apartments", priority: 11, missingMonths: missing,
       });
     }
   }
@@ -770,20 +823,59 @@ function MarketRentModal({ task, onClose, onSave }: { task: Task; onClose: () =>
   const [value, setValue] = useState("");
   const num = parseFloat(value.replace(",", "."));
   const valid = value.trim() !== "" && !isNaN(num) && num > 0;
+
+  const actual = task.actualKaltmiete;
+  const fmtEur = (v: number) => "€ " + v.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // Live §21(2) preview: actual rent as a share of the comparable rent.
+  const ratio = valid && actual != null && actual > 0 ? actual / num : null;
+  const pct = ratio != null ? Math.round(ratio * 1000) / 10 : null;
+
   return (
     <DialogContent className="max-w-sm">
       <DialogHeader>
-        <DialogTitle>Ortsübliche Miete eingeben</DialogTitle>
+        <DialogTitle>Ortsübliche Vergleichsmiete eingeben</DialogTitle>
         <p className="text-sm text-muted-foreground">{task.propertyName} · {task.aptCode}</p>
       </DialogHeader>
-      <div className="py-2 space-y-1">
-        <Label className="text-xs">Ortsübliche Miete (Kaltmiete) *</Label>
-        <div className="flex items-center gap-2">
-          <Input type="number" min="1" step="0.01" value={value} onChange={e => setValue(e.target.value)} placeholder="z.B. 850,00" className="flex-1" />
-          <span className="text-sm text-muted-foreground shrink-0">€ / Mon.</span>
+
+      <div className="py-2 space-y-3">
+        {actual != null && (
+          <div className="rounded-md border bg-muted/50 px-3 py-2 text-xs">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Kaltmiete Ihres Mieters</span>
+              <span className="font-medium tabular-nums">{fmtEur(actual)} / Mon.</span>
+            </div>
+            <p className="text-muted-foreground mt-1">Nur zum Vergleich — nicht hier eintragen.</p>
+          </div>
+        )}
+
+        <div className="space-y-1">
+          <Label className="text-xs">Ortsübliche Vergleichsmiete (kalt) *</Label>
+          <div className="flex items-center gap-2">
+            <Input type="number" min="1" step="0.01" value={value} onChange={e => setValue(e.target.value)} placeholder="z.B. 850,00" className="flex-1" autoFocus />
+            <span className="text-sm text-muted-foreground shrink-0">€ / Mon.</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Die <span className="font-medium">ortsübliche</span> Kaltmiete für eine vergleichbare Wohnung
+            (z. B. laut Mietspiegel) — <span className="font-medium">nicht</span> die Miete Ihres Mieters.
+            Grundlage der 66-%-Prüfung nach §21 Abs. 2 EStG.
+          </p>
         </div>
-        <p className="text-xs text-muted-foreground">Vergleichsmiete für die 66-%-Prüfung (Anlage V, §21 Abs. 2 EStG).</p>
+
+        {pct != null && (
+          <div className={`rounded-md border px-3 py-2 text-xs ${
+            pct < 50 ? "border-red-200 bg-red-50 text-red-700"
+            : pct < 66 ? "border-amber-200 bg-amber-50 text-amber-700"
+            : "border-green-200 bg-green-50 text-green-700"
+          }`}>
+            Ihre Miete beträgt <span className="font-semibold">{pct} %</span> der ortsüblichen Miete.
+            {pct < 50 && " Unter 50 %: Werbungskosten nur anteilig abziehbar."}
+            {pct >= 50 && pct < 66 && " 50–66 %: voller Abzug nur bei positiver Totalüberschussprognose."}
+            {pct >= 66 && " Ab 66 %: Werbungskosten voll abziehbar."}
+          </div>
+        )}
       </div>
+
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>Abbrechen</Button>
         <Button disabled={!valid} onClick={() => { onSave(task.aptId!, { marketRent: num }); onClose(); }}>Speichern</Button>
@@ -972,6 +1064,100 @@ function RentPaymentsModal({ task, year, tenants, allRentPayments, onClose, onSa
   );
 }
 
+function GaragePaymentsModal({ task, year, garagePayments, onClose, onSaveAll }: {
+  task: Task;
+  year: number;
+  garagePayments: any[];
+  onClose: () => void;
+  onSaveAll: (payments: { month: number; value: number }[]) => void;
+}) {
+  const paidMonths = useMemo(() => new Set(
+    garagePayments
+      .filter(p => String(p["garage-id"]) === task.garageId && Number(p.year) === year)
+      .map(p => Number(p.month))
+  ), [garagePayments, task.garageId, year]);
+
+  const months = (task.missingMonths ?? []).filter(m => !paidMonths.has(m));
+  const rent = task.garageRent ?? 0;
+
+  const [inputs, setInputs] = useState<Record<number, string>>(() =>
+    Object.fromEntries(months.map(m => [m, rent > 0 ? rent.toFixed(2) : ""]))
+  );
+
+  const getVal = (m: number) => { const v = parseFloat(inputs[m] ?? ""); return isNaN(v) ? 0 : v; };
+  const filled = months.filter(m => getVal(m) > 0);
+  const total  = filled.reduce((s, m) => s + getVal(m), 0);
+
+  const fmtEur = (v: number) => "€ " + v.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const fillAll = () =>
+    setInputs(Object.fromEntries(months.map(m => [m, rent > 0 ? rent.toFixed(2) : ""])));
+
+  return (
+    <DialogContent className="max-w-md flex flex-col max-h-[85vh]">
+      <DialogHeader className="shrink-0">
+        <DialogTitle>Garagenmiete eingeben</DialogTitle>
+        <p className="text-sm text-muted-foreground">{task.propertyName} · {task.garageCode} · {year}</p>
+      </DialogHeader>
+
+      {rent > 0 && (
+        <div className="shrink-0 flex items-center justify-between rounded-md border bg-muted/50 px-3 py-2">
+          <span className="text-xs text-muted-foreground">Monatsmiete: {fmtEur(rent)}</span>
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={fillAll}>
+            Alle Monate übernehmen
+          </Button>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto min-h-0 py-1">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="border-b">
+              <th className="text-left text-xs font-medium text-muted-foreground pb-2 pr-3">Monat</th>
+              <th className="text-right text-xs font-medium text-muted-foreground pb-2 px-2">Betrag</th>
+              <th className="w-4 pb-2" />
+            </tr>
+          </thead>
+          <tbody>
+            {months.map(m => (
+              <tr key={m} className="border-b last:border-b-0">
+                <td className="py-2.5 pr-3 font-medium">{MONTH_FULL[m - 1]}</td>
+                <td className="py-2.5 px-2">
+                  <Input
+                    type="number" min="0" step="0.01"
+                    className="h-7 w-28 text-right text-sm ml-auto block"
+                    placeholder="0,00"
+                    value={inputs[m] ?? ""}
+                    onChange={e => setInputs(prev => ({ ...prev, [m]: e.target.value }))}
+                  />
+                </td>
+                <td className="py-2.5 pl-1 text-xs text-muted-foreground/40">{getVal(m) > 0 ? "✓" : ""}</td>
+              </tr>
+            ))}
+            {filled.length > 0 && (
+              <tr>
+                <td className="pt-3 text-sm font-medium text-muted-foreground">Gesamt</td>
+                <td className="pt-3 px-2 text-right font-semibold tabular-nums">{fmtEur(total)}</td>
+                <td />
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <DialogFooter className="shrink-0 pt-2 border-t">
+        <Button variant="outline" onClick={onClose}>Abbrechen</Button>
+        <Button disabled={filled.length === 0} onClick={() => {
+          onSaveAll(filled.map(m => ({ month: m, value: getVal(m) })));
+          onClose();
+        }}>
+          Speichern ({filled.length} {filled.length === 1 ? "Monat" : "Monate"})
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
 const PROPERTY_FIELD_CONFIG: Record<string, { label: string; fieldKey: string; inputType: "date" | "number" | "select"; unit?: string; options?: { value: string; label: string }[] }> = {
   "missing-acquisition-date": { label: "Anschaffungsdatum", fieldKey: "acquisitionDate", inputType: "date" },
   "missing-land-value":       { label: "Bodenwert (€)",     fieldKey: "landValue",        inputType: "number", unit: "€" },
@@ -1045,6 +1231,8 @@ export default function PendingTasksWidget({
   allCosts = [],
   allAptCosts = [],
   allRentPayments = [],
+  garages = [],
+  garagePayments = [],
   taxConfigs = [],
   expenseTypes = [],
   loans = [],
@@ -1052,6 +1240,7 @@ export default function PendingTasksWidget({
   isLoading = false,
   trialPaused = false,
   onNavigate,
+  onAddGaragePayments,
   onEditProperty,
   onUpdateApartment,
   onAddRentPayment,
@@ -1068,8 +1257,8 @@ export default function PendingTasksWidget({
   const targetYear = year ?? new Date().getFullYear() - 1;
 
   const { tasks, totalChecks, passedChecks } = useMemo(
-    () => computeTasks({ properties, apartments, tenants, allCosts, allAptCosts, allRentPayments, taxConfigs }, targetYear),
-    [properties, apartments, tenants, allCosts, allAptCosts, allRentPayments, taxConfigs, targetYear]
+    () => computeTasks({ properties, apartments, tenants, allCosts, allAptCosts, allRentPayments, garages, garagePayments, taxConfigs }, targetYear),
+    [properties, apartments, tenants, allCosts, allAptCosts, allRentPayments, garages, garagePayments, taxConfigs, targetYear]
   );
 
   const progressPct  = totalChecks > 0 ? Math.round((passedChecks / totalChecks) * 100) : 100;
@@ -1159,6 +1348,11 @@ export default function PendingTasksWidget({
     onUpdateTenant?.(tenantId, data);
   };
 
+  const handleGaragePaymentsSave = (payments: { month: number; value: number }[]) => {
+    if (!activeTask?.garageId) return;
+    onAddGaragePayments?.({ garageId: activeTask.garageId, year: targetYear, payments });
+  };
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -1207,10 +1401,10 @@ export default function PendingTasksWidget({
                     </span>
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate leading-tight">
-                        {t(`types.${task.type}`, { property: task.propertyName, apt: task.aptCode ?? "", tenant: task.tenantName ?? "", year: targetYear })}
+                        {t(`types.${task.type}`, { property: task.propertyName, apt: task.aptCode ?? "", tenant: task.tenantName ?? "", garage: task.garageCode ?? "", year: targetYear })}
                       </p>
-                      {task.aptCode && (
-                        <p className="text-xs text-muted-foreground truncate">{task.propertyName} · {task.aptCode}</p>
+                      {(task.aptCode || task.garageCode) && (
+                        <p className="text-xs text-muted-foreground truncate">{task.propertyName} · {task.aptCode ?? task.garageCode}</p>
                       )}
                     </div>
                   </div>
@@ -1283,6 +1477,9 @@ export default function PendingTasksWidget({
         )}
         {activeTask?.type === "missing-rent-payments" && (
           <RentPaymentsModal task={activeTask} year={targetYear} tenants={tenants} allRentPayments={allRentPayments} onClose={() => setActiveTask(null)} onSave={handleAddRentPaymentSave} onSaveAll={handleAddAllRentPaymentsSave} />
+        )}
+        {activeTask?.type === "missing-garage-payments" && (
+          <GaragePaymentsModal task={activeTask} year={targetYear} garagePayments={garagePayments} onClose={() => setActiveTask(null)} onSaveAll={handleGaragePaymentsSave} />
         )}
         {activeTask && PROPERTY_FIELD_CONFIG[activeTask.type] && (
           <PropertyFieldModal task={activeTask} onClose={() => setActiveTask(null)} onSave={handleEditPropertySave} />

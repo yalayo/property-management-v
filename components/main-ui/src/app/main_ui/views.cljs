@@ -98,6 +98,7 @@
         all-costs            @(re-frame/subscribe [::cost-subs/all-costs])
         all-apt-costs        @(re-frame/subscribe [::cost-subs/all-apt-costs])
         all-rent-payments    @(re-frame/subscribe [::cost-subs/all-rent-payments])
+        garage-payments      @(re-frame/subscribe [::rent-subs/garage-payments])
         has-active-plan?     @(re-frame/subscribe [::subs/has-active-plan?])
         is-super-admin?      @(re-frame/subscribe [::subs/is-super-admin?])
         is-impersonating?    @(re-frame/subscribe [::subs/is-impersonating?])
@@ -204,6 +205,7 @@
                                  (re-frame/dispatch [::cost-events/load-all-costs])
                                  (re-frame/dispatch [::cost-events/load-all-apt-costs])
                                  (re-frame/dispatch [::cost-events/load-all-rent-payments])
+                                 (re-frame/dispatch [::rent-events/load-all-garage-payments])
                                  (re-frame/dispatch [::rent-events/load-all-tenant-mieten])
                                  (re-frame/dispatch [::apartment-events/load-garages])
                                  (re-frame/dispatch [::tax-events/load-tax-data])
@@ -551,6 +553,19 @@
                                                       (:payments d))]
                                      (re-frame/dispatch
                                       [::rent-events/create-rent-payments-batch batch apt-id]))))
+           :onAddGaragePayments (when can-create?
+                                  (fn [data]
+                                    (let [d     (js->clj data :keywordize-keys true)
+                                          gid   (str (:garageId d))
+                                          year  (:year d)
+                                          batch (mapv (fn [p]
+                                                        {:garage-id gid
+                                                         :year      year
+                                                         :month     (:month p)
+                                                         :value     (or (:value p) 0)})
+                                                      (:payments d))]
+                                      (re-frame/dispatch
+                                       [::rent-events/create-garage-payments-batch batch]))))
            :onUpdateApartment  (when can-create?
                                  (fn [apt-id data]
                                    (let [d (js->clj data :keywordize-keys true)]
@@ -708,6 +723,7 @@
            :allCosts           (clj->js all-costs)
            :allAptCosts        (clj->js all-apt-costs)
            :allRentPayments    (clj->js all-rent-payments)
+           :garagePayments     (clj->js garage-payments)
            :taxConfigs         (clj->js tax-configs)
            :taxLoans           (clj->js tax-loans)
            :userRole            user-role

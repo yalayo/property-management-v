@@ -35,6 +35,7 @@
    :property-maintenance  :get-property-maintenances
    :tenant-miete          :get-all-tenant-mieten
    :garage                :get-all-garages
+   :garage-payment        :get-all-garage-payments
    :bank-account          :get-bank-accounts
    :persons-change        :get-all-residents-count-changes
    :nk-settlement         :get-all-nebenkosten-settlements

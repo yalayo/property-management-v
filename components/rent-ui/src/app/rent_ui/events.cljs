@@ -84,6 +84,79 @@
  (fn [_ [_ remaining apartment-id _response]]
    {:dispatch [::create-rent-payments-batch remaining apartment-id]}))
 
+;; ── Garage payments ───────────────────────────────────────────────────────────
+
+(re-frame/reg-event-fx
+ ::load-all-garage-payments
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:garage-payments :loading?] true)
+    :dispatch [:app.core-ui.events/query
+               {:entity :garage-payment}
+               [::garage-payments-loaded]
+               [::garage-payments-error]]}))
+
+(re-frame/reg-event-db
+ ::garage-payments-loaded
+ (fn [db [_ {:keys [garage-payments]}]]
+   (-> db
+       (assoc-in [:garage-payments :list] garage-payments)
+       (assoc-in [:garage-payments :loading?] false))))
+
+(re-frame/reg-event-db
+ ::garage-payments-error
+ (fn [db _]
+   (assoc-in db [:garage-payments :loading?] false)))
+
+(re-frame/reg-event-fx
+ ::create-garage-payment
+ (fn [{:keys [db]} [_ data]]
+   {:db       (assoc-in db [:garage-payments :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :create-garage-payment
+               data
+               [::garage-payment-mutated]
+               [::garage-payment-save-error]]}))
+
+(re-frame/reg-event-fx
+ ::delete-garage-payment
+ (fn [{:keys [db]} [_ id]]
+   {:db       (assoc-in db [:garage-payments :saving?] true)
+    :dispatch [:app.core-ui.events/command
+               :delete-garage-payment
+               {:id id}
+               [::garage-payment-mutated]
+               [::garage-payment-save-error]]}))
+
+;; Sequential batch — the API takes one payment at a time.
+(re-frame/reg-event-fx
+ ::create-garage-payments-batch
+ (fn [{:keys [db]} [_ payments]]
+   (if (empty? payments)
+     {:db       (assoc-in db [:garage-payments :saving?] false)
+      :dispatch [::load-all-garage-payments]}
+     {:db       (assoc-in db [:garage-payments :saving?] true)
+      :dispatch [:app.core-ui.events/command
+                 :create-garage-payment
+                 (first payments)
+                 [::garage-payments-batch-continue (vec (rest payments))]
+                 [::garage-payment-save-error]]})))
+
+(re-frame/reg-event-fx
+ ::garage-payments-batch-continue
+ (fn [_ [_ remaining _response]]
+   {:dispatch [::create-garage-payments-batch remaining]}))
+
+(re-frame/reg-event-fx
+ ::garage-payment-mutated
+ (fn [{:keys [db]} _]
+   {:db       (assoc-in db [:garage-payments :saving?] false)
+    :dispatch [::load-all-garage-payments]}))
+
+(re-frame/reg-event-db
+ ::garage-payment-save-error
+ (fn [db _]
+   (assoc-in db [:garage-payments :saving?] false)))
+
 ;; ── Tenant Mieten ─────────────────────────────────────────────────────────────
 
 (re-frame/reg-event-fx
