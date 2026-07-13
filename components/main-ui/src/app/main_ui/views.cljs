@@ -566,13 +566,18 @@
                                                       (:payments d))]
                                       (re-frame/dispatch
                                        [::rent-events/create-garage-payments-batch batch]))))
+           ;; Backs the PendingTasksWidget apartment modals (Wohnfläche,
+           ;; ortsübliche Vergleichsmiete, Leerstand bestätigen). Every key a
+           ;; modal can send must be forwarded here — anything missing is
+           ;; silently dropped and the task never clears.
            :onUpdateApartment  (when can-create?
                                  (fn [apt-id data]
                                    (let [d (js->clj data :keywordize-keys true)]
                                      (re-frame/dispatch
                                       [::apartment-events/update-apartment apt-id
                                        (cond-> {}
-                                         (:wohnflaeche d)          (assoc :wohnflaeche (:wohnflaeche d))
+                                         (some? (:wohnflaeche d))  (assoc :wohnflaeche (:wohnflaeche d))
+                                         (some? (:marketRent d))   (assoc :market-rent (:marketRent d))
                                          (some? (:leerstand d))    (assoc :leerstand (:leerstand d)))]))))
            :onUpdateTenant    (when can-create?
                                 (fn [id data]
