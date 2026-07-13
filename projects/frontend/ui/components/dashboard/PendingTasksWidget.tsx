@@ -143,9 +143,25 @@ function computeTasks(
   const yearStart = new Date(year, 0, 1);
   const yearEnd   = new Date(year, 11, 31);
 
+  // An apartment counts as rented for the year when at least one tenancy
+  // overlaps it.
+  const activeTenantsFor = (aptId: string) => tenants.filter(t => {
+    if (String(t["apartment-id"]) !== aptId) return false;
+    const s = t["start-date"] ? new Date(t["start-date"] + "T00:00:00") : null;
+    const e = t["end-date"]   ? new Date(t["end-date"]   + "T00:00:00") : null;
+    return (!s || s <= yearEnd) && (!e || e >= yearStart);
+  });
+
   for (const property of properties) {
     const propId   = String(property.id);
     const propName = property.name || propId;
+
+    const propertyApts = apartments.filter(a => String(a["property-id"]) === propId);
+    // A Nebenkostenabrechnung only exists where something is actually let. If
+    // every unit is vacant for this year there is nothing to bill, so the
+    // property-level billing checks are suppressed — they reappear as soon as a
+    // unit is occupied again.
+    const propertyRented = propertyApts.some(a => activeTenantsFor(String(a.id)).length > 0);
 
     // Steuer checks
     check(!!property["acquisition-date"],      { id: `steuer-${propId}-acquisition-date`, category: "steuer", type: "missing-acquisition-date", propertyId: propId, propertyName: propName, navigateTo: "properties", priority: 20 });
@@ -158,14 +174,18 @@ function computeTasks(
     const taxConfig = taxConfigs.find(c => String(c["property-id"]) === propId);
     check(!!(taxConfig && taxConfig["building-value"] != null), { id: `steuer-${propId}-afa-config`, category: "steuer", type: "missing-afa-config", propertyId: propId, propertyName: propName, navigateTo: "tax", priority: 26 });
 
-    // Property-level billing checks
-    check(!!property.iban, { id: `nk-${propId}-iban`, category: "nebenkosten", type: "missing-iban", propertyId: propId, propertyName: propName, navigateTo: "properties", priority: 10 });
-
+    // Still needed below to pick the apartment cost-allocation task type, even
+    // when the billing checks themselves are suppressed.
     const hasPropertyCosts = allCosts.some(c => String(c["property-id"]) === propId && Number(c.year) === year);
-    check(hasPropertyCosts, { id: `nk-${propId}-costs-${year}`, category: "nebenkosten", type: "missing-property-costs", propertyId: propId, propertyName: propName, navigateTo: "properties", priority: 13 });
+
+    // Property-level billing checks — only meaningful with at least one let unit
+    if (propertyRented) {
+      check(!!property.iban, { id: `nk-${propId}-iban`, category: "nebenkosten", type: "missing-iban", propertyId: propId, propertyName: propName, navigateTo: "properties", priority: 10 });
+      check(hasPropertyCosts, { id: `nk-${propId}-costs-${year}`, category: "nebenkosten", type: "missing-property-costs", propertyId: propId, propertyName: propName, navigateTo: "properties", priority: 13 });
+    }
 
     // Per-apartment checks
-    for (const apt of apartments.filter(a => String(a["property-id"]) === propId)) {
+    for (const apt of propertyApts) {
       const aptId   = String(apt.id);
       const aptCode = apt.code || aptId;
 
@@ -176,12 +196,7 @@ function computeTasks(
         navigateTo: "apartments", priority: 7,
       });
 
-      const aptTenants = tenants.filter(t => {
-        if (String(t["apartment-id"]) !== aptId) return false;
-        const s = t["start-date"] ? new Date(t["start-date"] + "T00:00:00") : null;
-        const e = t["end-date"]   ? new Date(t["end-date"]   + "T00:00:00") : null;
-        return (!s || s <= yearEnd) && (!e || e >= yearStart);
-      });
+      const aptTenants = activeTenantsFor(aptId);
 
       check(aptTenants.length > 0 || !!apt.leerstand, {
         id: `nk-${aptId}-tenant-${year}`, category: "nebenkosten", type: "missing-tenant",
