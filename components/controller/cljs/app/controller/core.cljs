@@ -58,7 +58,7 @@
     :create-garage        :assign-tenant-to-garage  :create-garage-payment
     :upsert-property-tax-config
     :create-property-loan :create-property-maintenance
-    :create-bank-account})
+    :create-bank-account  :sync-push})
 
 (defn- fetch-account [storage email]
   (js-await [eids ((:find-by-attr storage) :account/email email)]
@@ -298,6 +298,43 @@
                     {:error :not-found}
                     (js-await [_ ((:excise! storage) eid nil)]
                               {:ok true})))))))
+
+;; ---------------------------------------------------------------------------
+;; Desktop sync handlers (Property only — MVP vertical slice)
+;;
+;; Protocol: the desktop client pushes full current snapshots (not raw
+;; assert/retract deltas) of every property it touched since its last
+;; successful push, and pulls full current snapshots of every property
+;; touched (by any client) since its last successful pull. Conflict policy is
+;; last-write-wins per attribute by server tx order — the same semantics
+;; `current_facts` already gives every other client. org-id is always taken
+;; from the authenticated `user`, never trusted from the request body.
+;; ---------------------------------------------------------------------------
+
+(defn- handle-sync-push! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [properties (->> (:entities data)
+                            (filter #(= "property" (:db/type %)))
+                            (mapv #(assoc % :property/organization-id org-id)))]
+        (if (empty? properties)
+          {:ok true :count 0}
+          (js-await [{:keys [tx-id]} ((:transact! storage) properties "{\"source\":\"desktop-sync\"}")]
+                    {:ok true :count (count properties) :tx-id tx-id}))))))
+
+(defn- handle-sync-pull! [storage data user]
+  (with-org user
+    (fn [org-id]
+      (let [since (or (:since-tx-id data) 0)]
+        (js-await [eids      ((:find-by-attr storage) :property/organization-id org-id)
+                   histories (js/Promise.all (into-array (map (:history storage) eids)))]
+                  (let [histories (array-seq histories)
+                        touched   (->> (map vector eids histories)
+                                      (filter (fn [[_ h]] (some #(> (:tx-id %) since) h)))
+                                      (map first))
+                        max-tx-id (reduce max since (mapcat #(map :tx-id %) histories))]
+                    (js-await [properties (pull-many+ storage touched '[*])]
+                              {:properties properties :max-tx-id max-tx-id})))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Apartment handlers
@@ -2040,6 +2077,8 @@
     :create-property                 (handle-create-property! core storage data user)
     :update-property                 (handle-update-property! core storage data user)
     :delete-property                 (handle-delete-property! storage data user)
+    :sync-push                       (handle-sync-push! storage data user)
+    :sync-pull                       (handle-sync-pull! storage data user)
     :get-apartments                  (handle-get-apartments! storage user)
     :get-apartments-by-property      (handle-get-apartments-by-property! storage data user)
     :create-apartment                (handle-create-apartment! core storage data user)
