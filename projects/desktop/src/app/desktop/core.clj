@@ -28,4 +28,12 @@
   (let [conn (storage/open! (db-path))]
     (desktop-ui/init! conn)
     (ui/start-app!
-     (ui/window {:title "Property Management — Desktop"} #'desktop-ui/root))))
+     (ui/window {:title  "Property Management — Desktop"
+                 ;; ui/window defaults to 800x600 (io.github.humbleui.ui/window's
+                 ;; :or), too cramped once the sidebar (200px) plus multi-column
+                 ;; forms/stat-tiles are in play — most content areas scroll
+                 ;; (ui/vscroll) so nothing was literally unreachable at 800x600,
+                 ;; just uncomfortably tight.
+                 :width  1360
+                 :height 860}
+                #'desktop-ui/root))))

@@ -1,27 +1,30 @@
 (ns app.desktop.sync
-  "On-demand two-way sync, Property only (MVP vertical slice — see the plan's
-  Phase 4). Protocol: push/pull full current *snapshots* of touched entities
-  (not raw assert/retract deltas) — simpler than deltas, and consistent with
-  the documented conflict policy (last-write-wins per attribute by server tx
-  order, same as `current_facts` already gives every other client). Entity
-  IDs never collide across client/server since both sides generate random
-  UUIDs, so no ID-remapping is needed either direction."
+  "On-demand two-way sync for the locally-writable entities (Property,
+  Apartment, Tenant — see the plan's Phase N3/N4). Protocol: push/pull full
+  current *snapshots* of touched entities (not raw assert/retract deltas) —
+  simpler than deltas, and consistent with the documented conflict policy
+  (last-write-wins per attribute by server tx order, same as `current_facts`
+  already gives every other client). Entity IDs never collide across
+  client/server since both sides generate random UUIDs, so no ID-remapping is
+  needed either direction."
   (:require [app.storage.sqlite :as storage]
             [app.desktop.api :as api]))
+
+(def ^:private pushable-types #{"property" "apartment" "tenant"})
 
 (defn- entity->snapshot [conn eid]
   (when-let [etype (storage/entity-type conn eid)]
     (assoc (storage/pull conn eid '*) :db/type etype)))
 
 (defn push!
-  "Sends every locally-touched property since the last successful push.
-  Returns {:pushed n} or {:error ...}."
+  "Sends every locally-touched Property/Apartment/Tenant since the last
+  successful push. Returns {:pushed n} or {:error ...}."
   [conn jwt]
   (let [{:keys [last_pushed_tx_id]} (storage/sync-state conn)
         eids     (storage/entities-touched-since conn last_pushed_tx_id)
         entities (->> eids
                       (keep #(entity->snapshot conn %))
-                      (filter #(= "property" (:db/type %)))
+                      (filter #(pushable-types (:db/type %)))
                       vec)]
     (if (empty? entities)
       {:pushed 0}

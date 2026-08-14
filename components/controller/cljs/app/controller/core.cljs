@@ -300,10 +300,11 @@
                               {:ok true})))))))
 
 ;; ---------------------------------------------------------------------------
-;; Desktop sync handlers (Property only — MVP vertical slice)
+;; Desktop sync handlers (Property/Apartment/Tenant — see the desktop plan's
+;; Phase N3/N4 for the client side)
 ;;
 ;; Protocol: the desktop client pushes full current snapshots (not raw
-;; assert/retract deltas) of every property it touched since its last
+;; assert/retract deltas) of every entity it touched since its last
 ;; successful push, and pulls full current snapshots of every property
 ;; touched (by any client) since its last successful pull. Conflict policy is
 ;; last-write-wins per attribute by server tx order — the same semantics
@@ -311,16 +312,25 @@
 ;; from the authenticated `user`, never trusted from the request body.
 ;; ---------------------------------------------------------------------------
 
+(def ^:private syncable-org-attr
+  "db/type -> the organization-id attribute to force-inject on push, so a
+  pushed entity is always scoped to the authenticated user's org regardless of
+  what (if anything) the client sent for that attribute."
+  {"property"  :property/organization-id
+   "apartment" :apartment/organization-id
+   "tenant"    :tenant/organization-id})
+
 (defn- handle-sync-push! [storage data user]
   (with-org user
     (fn [org-id]
-      (let [properties (->> (:entities data)
-                            (filter #(= "property" (:db/type %)))
-                            (mapv #(assoc % :property/organization-id org-id)))]
-        (if (empty? properties)
+      (let [entities (->> (:entities data)
+                          (keep (fn [e]
+                                  (when-let [attr (syncable-org-attr (:db/type e))]
+                                    (assoc e attr org-id)))))]
+        (if (empty? entities)
           {:ok true :count 0}
-          (js-await [{:keys [tx-id]} ((:transact! storage) properties "{\"source\":\"desktop-sync\"}")]
-                    {:ok true :count (count properties) :tx-id tx-id}))))))
+          (js-await [{:keys [tx-id]} ((:transact! storage) entities "{\"source\":\"desktop-sync\"}")]
+                    {:ok true :count (count entities) :tx-id tx-id}))))))
 
 (defn- handle-sync-pull! [storage data user]
   (with-org user
