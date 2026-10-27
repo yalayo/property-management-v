@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
+import { Checkbox } from "../ui/checkbox";
 import { cn } from "../../lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -1273,6 +1275,8 @@ export default function PendingTasksWidget({
   const { t } = useTranslation("tasks");
   const [showAll, setShowAll]       = useState(false);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>("all");
+  const [showSteuer, setShowSteuer] = useState(false);
 
   const targetYear = year ?? new Date().getFullYear() - 1;
 
@@ -1281,8 +1285,40 @@ export default function PendingTasksWidget({
     [properties, apartments, tenants, allCosts, allAptCosts, allRentPayments, garages, garagePayments, taxConfigs, targetYear]
   );
 
+  // Steuer tasks (Anlage V prep) are noisier and less urgent than Abrechnung
+  // ones, so they stay hidden until the user opts in via the checkbox.
+  const steuerCount = useMemo(() => tasks.filter(t => t.category === "steuer").length, [tasks]);
+  const displayTasks = useMemo(
+    () => showSteuer ? tasks : tasks.filter(t => t.category !== "steuer"),
+    [tasks, showSteuer]
+  );
+
+  // Group tasks by property so the user can work through one property's
+  // Aufgaben at a time instead of one long mixed list.
+  const propertiesWithTasks = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const task of displayTasks) counts.set(task.propertyId, (counts.get(task.propertyId) ?? 0) + 1);
+    return properties
+      .filter(p => counts.has(String(p.id)))
+      .map(p => ({ id: String(p.id), name: p.name || String(p.id), count: counts.get(String(p.id))! }));
+  }, [displayTasks, properties]);
+
+  // Fall back to "all" once the selected property's tasks are all resolved
+  // (or it's no longer in the list for any other reason).
+  useEffect(() => {
+    if (selectedPropertyId !== "all" && !propertiesWithTasks.some(p => p.id === selectedPropertyId)) {
+      setSelectedPropertyId("all");
+    }
+  }, [propertiesWithTasks, selectedPropertyId]);
+
+  const handleSelectProperty = (id: string) => {
+    setSelectedPropertyId(id);
+    setShowAll(false);
+  };
+
+  const scopedTasks  = selectedPropertyId === "all" ? displayTasks : displayTasks.filter(t => t.propertyId === selectedPropertyId);
   const progressPct  = totalChecks > 0 ? Math.round((passedChecks / totalChecks) * 100) : 100;
-  const visibleTasks = showAll ? tasks : tasks.slice(0, VISIBLE_COUNT);
+  const visibleTasks = showAll ? scopedTasks : scopedTasks.slice(0, VISIBLE_COUNT);
 
   const hasTasks = !trialPaused && tasks.length > 0;
   useEffect(() => {
@@ -1394,6 +1430,18 @@ export default function PendingTasksWidget({
             {tasks.length === 0 ? t("allDone") : t("progress", { done: passedChecks, total: totalChecks })}
           </p>
         </div>
+        {steuerCount > 0 && (
+          <div className="mt-2 flex items-center gap-2">
+            <Checkbox
+              id={`show-steuer-${targetYear}`}
+              checked={showSteuer}
+              onCheckedChange={v => setShowSteuer(v === true)}
+            />
+            <Label htmlFor={`show-steuer-${targetYear}`} className="text-xs font-normal text-muted-foreground cursor-pointer">
+              {t("showSteuerTasks", { count: steuerCount })}
+            </Label>
+          </div>
+        )}
       </CardHeader>
 
       <CardContent className="pt-0">
@@ -1408,51 +1456,72 @@ export default function PendingTasksWidget({
             <p className="text-xs text-muted-foreground">{t("allDoneDesc", { year: targetYear })}</p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {visibleTasks.map(task => {
-              const hasModal = MODAL_TYPES.has(task.type);
-              return (
-                <div
-                  key={task.id}
-                  className={cn(
-                    "flex items-center justify-between gap-3 rounded-lg border bg-card px-3 py-2.5 transition-colors",
-                    hasModal ? "cursor-pointer hover:bg-primary/5 hover:border-primary/30" : "hover:bg-muted/50"
-                  )}
-                  onClick={() => handleTaskClick(task)}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide", categoryColor[task.category])}>
-                      {t(`categories.${task.category}`)}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate leading-tight">
-                        {t(`types.${task.type}`, { property: task.propertyName, apt: task.aptCode ?? "", tenant: task.tenantName ?? "", garage: task.garageCode ?? "", year: targetYear })}
-                      </p>
-                      {(task.aptCode || task.garageCode) && (
-                        <p className="text-xs text-muted-foreground truncate">{task.propertyName} · {task.aptCode ?? task.garageCode}</p>
-                      )}
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={cn("shrink-0 h-7 px-2 gap-1 text-xs", hasModal && "text-primary")}
-                    onClick={e => { e.stopPropagation(); handleTaskClick(task); }}
-                  >
-                    {hasModal ? (
-                      <><Pencil className="h-3 w-3" />{t("enter", { defaultValue: "Eingeben" })}</>
-                    ) : (
-                      <>{t("go")}<ChevronRight className="h-3.5 w-3.5" /></>
-                    )}
-                  </Button>
+          <div className="space-y-3">
+            {propertiesWithTasks.length > 1 && (
+              <Tabs value={selectedPropertyId} onValueChange={handleSelectProperty}>
+                <div className="-mx-1 overflow-x-auto pb-1">
+                  <TabsList className="w-max">
+                    <TabsTrigger value="all">{t("allProperties")} ({displayTasks.length})</TabsTrigger>
+                    {propertiesWithTasks.map(p => (
+                      <TabsTrigger key={p.id} value={p.id}>{p.name} ({p.count})</TabsTrigger>
+                    ))}
+                  </TabsList>
                 </div>
-              );
-            })}
+              </Tabs>
+            )}
+            {scopedTasks.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-6 text-center">
+                <CheckCircle2 className="h-8 w-8 text-green-500" />
+                <p className="text-sm font-medium text-green-700">{t("allDone")}</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {visibleTasks.map(task => {
+                  const hasModal = MODAL_TYPES.has(task.type);
+                  return (
+                    <div
+                      key={task.id}
+                      className={cn(
+                        "flex items-center justify-between gap-3 rounded-lg border bg-card px-3 py-2.5 transition-colors",
+                        hasModal ? "cursor-pointer hover:bg-primary/5 hover:border-primary/30" : "hover:bg-muted/50"
+                      )}
+                      onClick={() => handleTaskClick(task)}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide", categoryColor[task.category])}>
+                          {t(`categories.${task.category}`)}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate leading-tight">
+                            {t(`types.${task.type}`, { property: task.propertyName, apt: task.aptCode ?? "", tenant: task.tenantName ?? "", garage: task.garageCode ?? "", year: targetYear })}
+                          </p>
+                          {(task.aptCode || task.garageCode) && (
+                            <p className="text-xs text-muted-foreground truncate">{task.propertyName} · {task.aptCode ?? task.garageCode}</p>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn("shrink-0 h-7 px-2 gap-1 text-xs", hasModal && "text-primary")}
+                        onClick={e => { e.stopPropagation(); handleTaskClick(task); }}
+                      >
+                        {hasModal ? (
+                          <><Pencil className="h-3 w-3" />{t("enter", { defaultValue: "Eingeben" })}</>
+                        ) : (
+                          <>{t("go")}<ChevronRight className="h-3.5 w-3.5" /></>
+                        )}
+                      </Button>
+                    </div>
+                  );
+                })}
 
-            {tasks.length > VISIBLE_COUNT && (
-              <Button variant="ghost" size="sm" className="w-full mt-1 text-xs text-muted-foreground" onClick={() => setShowAll(v => !v)}>
-                {showAll ? t("showLess") : <><ChevronDown className="h-3.5 w-3.5 mr-1" />{t("showAll", { count: tasks.length - VISIBLE_COUNT })}</>}
-              </Button>
+                {scopedTasks.length > VISIBLE_COUNT && (
+                  <Button variant="ghost" size="sm" className="w-full mt-1 text-xs text-muted-foreground" onClick={() => setShowAll(v => !v)}>
+                    {showAll ? t("showLess") : <><ChevronDown className="h-3.5 w-3.5 mr-1" />{t("showAll", { count: scopedTasks.length - VISIBLE_COUNT })}</>}
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         )}
