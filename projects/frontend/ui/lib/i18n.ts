@@ -329,8 +329,10 @@ const resources = {
       },
       propertyOccupancy: "Property Occupancy",
       noApartmentsRecorded: "No apartments recorded",
-      showCurrentYearTasks: "Show {{year}} tasks too",
-      hideCurrentYearTasks: "Hide {{year}} tasks",
+      tasksYear: {
+        previous: "Previous year",
+        next: "Next year",
+      },
       summary: {
         properties: "Properties",
         propertiesDesc: "Total managed properties",
@@ -1599,8 +1601,10 @@ const resources = {
       },
       propertyOccupancy: "Belegung nach Immobilien",
       noApartmentsRecorded: "Keine Wohnungen erfasst",
-      showCurrentYearTasks: "Auch Aufgaben für {{year}} anzeigen",
-      hideCurrentYearTasks: "Aufgaben für {{year}} ausblenden",
+      tasksYear: {
+        previous: "Vorheriges Jahr",
+        next: "Nächstes Jahr",
+      },
       summary: {
         properties: "Immobilien",
         propertiesDesc: "Verwaltete Immobilien gesamt",

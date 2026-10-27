@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect } from "react";
-import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2, Landmark, Receipt, Tags, Download, Lock, ArrowUpRight, Shield, Calculator, UserCog, List, Network, Wallet, BookOpen, ChevronDown, ChevronUp } from "lucide-react";
+import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2, Landmark, Receipt, Tags, Download, Lock, ArrowUpRight, Shield, Calculator, UserCog, List, Network, Wallet, BookOpen, ChevronLeft, ChevronRight } from "lucide-react";
 import OtherFinancesView from "../components/finances/OtherFinancesView";
 import Accounting from "../components/accounting/Accounting";
 import { computeAptCostSyncUpdates } from "../lib/aptCostSync";
@@ -23,6 +23,7 @@ import TreeNav from "../components/nav/TreeNav";
 import PropertyNebenkostenPanel from "../components/billing/PropertyNebenkostenPanel";
 
 const PENDING_MIGRATION_KEY = "pm-pending-migration";
+const MIN_TASKS_YEAR = new Date().getFullYear() - 20;
 
 function SidebarContent({
   activeTab,
@@ -165,8 +166,7 @@ export default function Dashboard(props) {
     (localStorage.getItem("pm-nav-mode") as "list" | "tree") ?? "list"
   );
   const [propertyNebenkostenView, setPropertyNebenkostenView] = useState<{ property: any; year: number } | null>(null);
-  const [showCurrentYearTasks, setShowCurrentYearTasks] = useState(false);
-  const [hasCurrentYearTasks, setHasCurrentYearTasks] = useState(false);
+  const [tasksYear, setTasksYear] = useState(() => new Date().getFullYear() - 1);
 
   const handleToggleNavMode = () => {
     const next = navMode === "list" ? "tree" : "list";
@@ -491,55 +491,32 @@ export default function Dashboard(props) {
           )}
           {activeTab === "overview" && (
             <div className="space-y-6">
-              {/* Current year tasks are opt-in and only surfaced when there's
-                  actually something pending — by default the dashboard only
-                  shows what's needed to close out and bill the past year.
-                  The widget stays mounted (visually hidden) so it can report
-                  whether it has anything to show, even while collapsed. */}
-              {hasCurrentYearTasks && (
+              {/* Year navigator for Aufgaben — defaults to the previous year
+                  (what's needed to generate letters), but any year can be
+                  browsed independently. */}
+              <div className="mx-auto flex w-fit items-center gap-6 rounded-full bg-muted px-4 py-1.5">
                 <button
                   type="button"
-                  className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => setShowCurrentYearTasks(v => !v)}
+                  className="text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:hover:text-muted-foreground transition-colors"
+                  onClick={() => setTasksYear(y => y - 1)}
+                  disabled={tasksYear <= MIN_TASKS_YEAR}
+                  aria-label={td("tasksYear.previous")}
                 >
-                  {showCurrentYearTasks
-                    ? <ChevronUp className="h-4 w-4" />
-                    : <ChevronDown className="h-4 w-4" />}
-                  {td(showCurrentYearTasks ? "hideCurrentYearTasks" : "showCurrentYearTasks", { year: new Date().getFullYear() })}
+                  <ChevronLeft className="h-4 w-4" />
                 </button>
-              )}
-              <div className={showCurrentYearTasks ? undefined : "hidden"}>
-                <PendingTasksWidget
-                  year={new Date().getFullYear()}
-                  properties={props.properties}
-                  apartments={props.apartments}
-                  tenants={props.tenants}
-                  allCosts={props.allCosts}
-                  allAptCosts={props.allAptCosts}
-                  allRentPayments={props.allRentPayments}
-                  garages={props.garages}
-                  garagePayments={props.garagePayments}
-                  taxConfigs={props.taxConfigs}
-                  loans={props.taxLoans}
-                  expenseTypes={props.expenseTypes}
-                  trialPaused={props.trialInfo?.status === "paused"}
-                  onNavigate={(tab, ctx) => handleSelect(tab, ctx)}
-                  onEditProperty={props.onEditProperty}
-                  onAddRentPayment={props.onAddRentPayment}
-                  onAddRentPayments={props.onAddRentPayments}
-                  onAddGaragePayments={props.onAddGaragePayments}
-                  onUpdateApartment={props.onUpdateApartment}
-                  onAddCost={props.onAddCost}
-                  onAddAptCost={props.onAddAptCost}
-                  onUpdateAptCost={props.onUpdateAptCost}
-                  onUpdateTenant={props.onUpdateTenant}
-                  onTasksChange={setHasCurrentYearTasks}
-                />
+                <span className="w-12 text-center text-sm font-semibold tabular-nums">{tasksYear}</span>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:hover:text-muted-foreground transition-colors"
+                  onClick={() => setTasksYear(y => y + 1)}
+                  disabled={tasksYear >= new Date().getFullYear()}
+                  aria-label={td("tasksYear.next")}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
               </div>
-              {/* Previous year — Anlage V / Nebenkosten preparation. Shown by
-                  default since this is what's needed to generate letters for
-                  the past year. */}
               <PendingTasksWidget
+                year={tasksYear}
                 properties={props.properties}
                 apartments={props.apartments}
                 tenants={props.tenants}
