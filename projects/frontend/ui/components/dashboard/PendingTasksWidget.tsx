@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { CheckCircle2, ChevronRight, ChevronDown, ClipboardList, Pencil } from "lucide-react";
 import { Button } from "../ui/button";
@@ -63,6 +63,10 @@ type Props = {
   year?: number;
   isLoading?: boolean;
   trialPaused?: boolean;
+  /** Fires whenever the computed task list's emptiness changes, so a parent
+   *  can decide whether to offer this widget at all (e.g. hide a toggle when
+   *  there's nothing pending), independent of the widget's own visibility. */
+  onTasksChange?: (hasTasks: boolean) => void;
   onNavigate?: (tab: string, context?: NavContext) => void;
   onAddGaragePayments?: (data: { garageId: string; year: number; payments: { month: number; value: number }[] }) => void;
   onEditProperty?: (id: string, data: Record<string, any>) => void;
@@ -1254,6 +1258,7 @@ export default function PendingTasksWidget({
   year,
   isLoading = false,
   trialPaused = false,
+  onTasksChange,
   onNavigate,
   onAddGaragePayments,
   onEditProperty,
@@ -1278,6 +1283,11 @@ export default function PendingTasksWidget({
 
   const progressPct  = totalChecks > 0 ? Math.round((passedChecks / totalChecks) * 100) : 100;
   const visibleTasks = showAll ? tasks : tasks.slice(0, VISIBLE_COUNT);
+
+  const hasTasks = !trialPaused && tasks.length > 0;
+  useEffect(() => {
+    onTasksChange?.(hasTasks);
+  }, [hasTasks, onTasksChange]);
 
   // While the trial is paused the account is frozen — don't prompt for data entry.
   if (trialPaused) return null;
