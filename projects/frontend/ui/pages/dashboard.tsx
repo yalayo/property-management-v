@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect } from "react";
-import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2, Landmark, Receipt, Tags, Download, Lock, ArrowUpRight, Shield, Calculator, UserCog, List, Network, Wallet, BookOpen } from "lucide-react";
+import { Home, Users, FileText, BarChart2, LogOut, Menu, Building, Building2, Landmark, Receipt, Tags, Download, Lock, ArrowUpRight, Shield, Calculator, UserCog, List, Network, Wallet, BookOpen, ChevronDown, ChevronUp } from "lucide-react";
 import OtherFinancesView from "../components/finances/OtherFinancesView";
 import Accounting from "../components/accounting/Accounting";
 import { computeAptCostSyncUpdates } from "../lib/aptCostSync";
@@ -154,7 +154,7 @@ function SidebarContent({
 
 export default function Dashboard(props) {
   const { t } = useTranslation("nav");
-  const { t: td } = useTranslation("home");
+  const { t: td } = useTranslation("dashboard");
   const [activeTab, setActiveTab] = useState<string>(() => props.activeTab || "overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<any | null>(null);
@@ -165,6 +165,8 @@ export default function Dashboard(props) {
     (localStorage.getItem("pm-nav-mode") as "list" | "tree") ?? "list"
   );
   const [propertyNebenkostenView, setPropertyNebenkostenView] = useState<{ property: any; year: number } | null>(null);
+  const [showCurrentYearTasks, setShowCurrentYearTasks] = useState(false);
+  const [hasCurrentYearTasks, setHasCurrentYearTasks] = useState(false);
 
   const handleToggleNavMode = () => {
     const next = navMode === "list" ? "tree" : "list";
@@ -352,10 +354,10 @@ export default function Dashboard(props) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Download className="h-5 w-5 text-primary" />
-              {td("dashboard.migrate.bannerTitle")}
+              {td("migrate.bannerTitle")}
             </DialogTitle>
             <DialogDescription>
-              {td("dashboard.migrate.bannerDesc", {
+              {td("migrate.bannerDesc", {
                 count: migrationCount,
                 plural: migrationPlural,
               })}
@@ -363,16 +365,17 @@ export default function Dashboard(props) {
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={handleMigrationSkip}>
-              {td("dashboard.migrate.skip")}
+              {td("migrate.skip")}
             </Button>
             <Button onClick={handleMigrationConfirm}>
-              {td("dashboard.migrate.confirm")}
+              {td("migrate.confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* Desktop sidebar — fixed, full height */}
-      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 border-r border-gray-200">
+      {/* Desktop sidebar — fixed, full height. Collapses to the slide-in Sheet
+          below lg so narrower windows get more room for content. */}
+      <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 border-r border-gray-200">
         <SidebarContent
           activeTab={activeTab}
           onSelect={handleSelect}
@@ -433,7 +436,7 @@ export default function Dashboard(props) {
       </Sheet>
 
       {/* Main column */}
-      <div className="md:pl-64 flex flex-col flex-1 min-w-0">
+      <div className="lg:pl-64 flex flex-col flex-1 min-w-0">
         {props.isImpersonating && (
           <div className="flex items-center justify-between bg-amber-950 px-4 py-2 text-sm font-semibold text-amber-100 shrink-0">
             <div className="flex items-center gap-2">
@@ -453,7 +456,7 @@ export default function Dashboard(props) {
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden shrink-0"
+            className="lg:hidden shrink-0"
             onClick={() => setSidebarOpen(true)}
           >
             <Menu className="h-5 w-5" />
@@ -488,34 +491,54 @@ export default function Dashboard(props) {
           )}
           {activeTab === "overview" && (
             <div className="space-y-6">
-              {/* Current year — keep this year's data (esp. rent + garage
-                  payments for elapsed months) up to date. */}
-              <PendingTasksWidget
-                year={new Date().getFullYear()}
-                properties={props.properties}
-                apartments={props.apartments}
-                tenants={props.tenants}
-                allCosts={props.allCosts}
-                allAptCosts={props.allAptCosts}
-                allRentPayments={props.allRentPayments}
-                garages={props.garages}
-                garagePayments={props.garagePayments}
-                taxConfigs={props.taxConfigs}
-                loans={props.taxLoans}
-                expenseTypes={props.expenseTypes}
-                trialPaused={props.trialInfo?.status === "paused"}
-                onNavigate={(tab, ctx) => handleSelect(tab, ctx)}
-                onEditProperty={props.onEditProperty}
-                onAddRentPayment={props.onAddRentPayment}
-                onAddRentPayments={props.onAddRentPayments}
-                onAddGaragePayments={props.onAddGaragePayments}
-                onUpdateApartment={props.onUpdateApartment}
-                onAddCost={props.onAddCost}
-                onAddAptCost={props.onAddAptCost}
-                onUpdateAptCost={props.onUpdateAptCost}
-                onUpdateTenant={props.onUpdateTenant}
-              />
-              {/* Previous year — Anlage V / Nebenkosten preparation. */}
+              {/* Current year tasks are opt-in and only surfaced when there's
+                  actually something pending — by default the dashboard only
+                  shows what's needed to close out and bill the past year.
+                  The widget stays mounted (visually hidden) so it can report
+                  whether it has anything to show, even while collapsed. */}
+              {hasCurrentYearTasks && (
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setShowCurrentYearTasks(v => !v)}
+                >
+                  {showCurrentYearTasks
+                    ? <ChevronUp className="h-4 w-4" />
+                    : <ChevronDown className="h-4 w-4" />}
+                  {td(showCurrentYearTasks ? "hideCurrentYearTasks" : "showCurrentYearTasks", { year: new Date().getFullYear() })}
+                </button>
+              )}
+              <div className={showCurrentYearTasks ? undefined : "hidden"}>
+                <PendingTasksWidget
+                  year={new Date().getFullYear()}
+                  properties={props.properties}
+                  apartments={props.apartments}
+                  tenants={props.tenants}
+                  allCosts={props.allCosts}
+                  allAptCosts={props.allAptCosts}
+                  allRentPayments={props.allRentPayments}
+                  garages={props.garages}
+                  garagePayments={props.garagePayments}
+                  taxConfigs={props.taxConfigs}
+                  loans={props.taxLoans}
+                  expenseTypes={props.expenseTypes}
+                  trialPaused={props.trialInfo?.status === "paused"}
+                  onNavigate={(tab, ctx) => handleSelect(tab, ctx)}
+                  onEditProperty={props.onEditProperty}
+                  onAddRentPayment={props.onAddRentPayment}
+                  onAddRentPayments={props.onAddRentPayments}
+                  onAddGaragePayments={props.onAddGaragePayments}
+                  onUpdateApartment={props.onUpdateApartment}
+                  onAddCost={props.onAddCost}
+                  onAddAptCost={props.onAddAptCost}
+                  onUpdateAptCost={props.onUpdateAptCost}
+                  onUpdateTenant={props.onUpdateTenant}
+                  onTasksChange={setHasCurrentYearTasks}
+                />
+              </div>
+              {/* Previous year — Anlage V / Nebenkosten preparation. Shown by
+                  default since this is what's needed to generate letters for
+                  the past year. */}
               <PendingTasksWidget
                 properties={props.properties}
                 apartments={props.apartments}
